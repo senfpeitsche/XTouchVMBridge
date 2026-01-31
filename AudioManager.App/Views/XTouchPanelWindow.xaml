@@ -264,9 +264,11 @@
 
         <!-- Toolbar -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
-            <Button Content="&#x2699; Channel Views" Style="{StaticResource MasterButton}"
+            <Button x:Name="ViewSwitchButton" Content="⚙ Home" Style="{StaticResource MasterButton}"
                     Padding="10,4" Click="OnOpenChannelViewEditor"
-                    ToolTip="Kanal-Zuordnung der Views bearbeiten"/>
+                    ToolTip="Klick: Channel Views bearbeiten&#x0a;Wechsel über Fader Bank ◄ ►"
+                    FontFamily="Consolas" FontSize="12" MinWidth="120"
+                    Foreground="Black" Background="#888"/>
         </StackPanel>
 
         <!-- Hauptbereich: 8 Kanäle + Master Section -->

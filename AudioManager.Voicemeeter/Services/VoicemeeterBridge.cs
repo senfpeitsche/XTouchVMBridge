@@ -39,6 +39,27 @@ public class VoicemeeterBridge : BackgroundService
     private int _currentViewIndex;
     private int[] CurrentChannelMapping => ChannelViews[_currentViewIndex].Channels;
 
+    /// <summary>Index der aktuell aktiven Channel View.</summary>
+    public int CurrentViewIndex => _currentViewIndex;
+
+    /// <summary>Name der aktuell aktiven Channel View.</summary>
+    public string CurrentViewName => ChannelViews.Count > 0 ? ChannelViews[_currentViewIndex].Name : "";
+
+    /// <summary>Anzahl der verfügbaren Channel Views.</summary>
+    public int ViewCount => ChannelViews.Count;
+
+    /// <summary>
+    /// Wechselt zur nächsten/vorherigen Channel View.
+    /// </summary>
+    /// <param name="direction">+1 = nächste, -1 = vorherige</param>
+    public void SwitchView(int direction)
+    {
+        if (ChannelViews.Count == 0) return;
+        _currentViewIndex = (_currentViewIndex + direction + ChannelViews.Count) % ChannelViews.Count;
+        _needsFullRefresh = true;
+        _logger.LogInformation("Ansicht gewechselt zu: {View}", ChannelViews[_currentViewIndex].Name);
+    }
+
     // ─── State ──────────────────────────────────────────────────────
 
     private VoicemeeterState _vmState = new();

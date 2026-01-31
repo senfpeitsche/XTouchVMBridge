@@ -500,17 +500,21 @@ public partial class XTouchPanelWindow : Window
     // ── Fader Bank / Channel Navigation
     private void BuildFaderBankChannelButtons()
     {
-        // Fader Bank: ◄ ►
+        // Fader Bank: ◄ ► → Channel View wechseln
         var fbLeft = CreateMasterButton("◄", "FaderBank_Left", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         fbLeft.FontSize = 14; fbLeft.Width = 36;
-        fbLeft.Click += (_, _) => ShowMasterButtonDetail("Fader Bank", "Bank Left", 46,
-            "Verschiebt die 8 Kanalstreifen um 8 Kanäle nach links.");
+        fbLeft.Click += (_, _) =>
+        {
+            _bridge?.SwitchView(-1);
+        };
         FaderBankPanel.Children.Add(fbLeft);
 
         var fbRight = CreateMasterButton("►", "FaderBank_Right", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         fbRight.FontSize = 14; fbRight.Width = 36;
-        fbRight.Click += (_, _) => ShowMasterButtonDetail("Fader Bank", "Bank Right", 47,
-            "Verschiebt die 8 Kanalstreifen um 8 Kanäle nach rechts.");
+        fbRight.Click += (_, _) =>
+        {
+            _bridge?.SwitchView(+1);
+        };
         FaderBankPanel.Children.Add(fbRight);
 
         // Channel: ◄ ►
@@ -704,6 +708,12 @@ public partial class XTouchPanelWindow : Window
             UpdateButtonVisual(_soloButtons[ch], xtCh.GetButton(XTouchButtonType.Solo).LedState);
             UpdateButtonVisual(_muteButtons[ch], xtCh.GetButton(XTouchButtonType.Mute).LedState);
             UpdateButtonVisual(_selectButtons[ch], xtCh.GetButton(XTouchButtonType.Select).LedState);
+        }
+
+        // View-Button Text synchronisieren
+        if (_bridge != null)
+        {
+            ViewSwitchButton.Content = $"⚙ {_bridge.CurrentViewName}";
         }
     }
 
