@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="AudioManager.App/AudioManager.App.csproj" />
+  <Project Path="AudioManager.Core/AudioManager.Core.csproj" />
+  <Project Path="AudioManager.Midi/AudioManager.Midi.csproj" />
+  <Project Path="AudioManager.Tests/AudioManager.Tests.csproj" />
+  <Project Path="AudioManager.Voicemeeter/AudioManager.Voicemeeter.csproj" />
+</Solution>
