@@ -144,7 +144,7 @@ public class TrayIconService : IDisposable
             return;
         }
 
-        _xtouchPanelWindow = new XTouchPanelWindow(_midiDevice, _config, _configService, _bridge);
+        _xtouchPanelWindow = new XTouchPanelWindow(_midiDevice, _config, _configService, _bridge, _vm);
         _xtouchPanelWindow.Closed += (_, _) => _xtouchPanelWindow = null;
         _xtouchPanelWindow.Show();
 

@@ -105,7 +105,8 @@ public class ConfigurationService : IConfigurationService
                 [14] = new() { Name = "Discrd",  Type = "Virtual Bus B3",  Color = XTouchColor.Magenta },
                 [15] = new() { Name = "Record",  Type = "Virtual Bus B4",  Color = XTouchColor.White }
             },
-            Mappings = CreateDefaultMappings()
+            Mappings = CreateDefaultMappings(),
+            ChannelViews = CreateDefaultChannelViews()
         };
 
         return config;
@@ -171,6 +172,19 @@ public class ConfigurationService : IConfigurationService
         return mappings;
     }
 
+    /// <summary>
+    /// Erzeugt Standard-Channel-Views (reproduziert bisheriges hardcoded Verhalten).
+    /// </summary>
+    public static List<ChannelViewConfig> CreateDefaultChannelViews()
+    {
+        return new List<ChannelViewConfig>
+        {
+            new() { Name = "Home",    Channels = new[] { 3, 4, 5, 6, 7, 9, 10, 12 }, MainFaderChannel = 12 },
+            new() { Name = "Outputs", Channels = new[] { 8, 9, 10, 11, 12, 13, 14, 15 }, MainFaderChannel = null },
+            new() { Name = "Inputs",  Channels = new[] { 0, 1, 2, 3, 4, 5, 6, 7 }, MainFaderChannel = null }
+        };
+    }
+
     private void ValidateConfig(AudioManagerConfig config)
     {
         foreach (var (key, channel) in config.Channels)
@@ -227,6 +241,43 @@ public class ConfigurationService : IConfigurationService
                     if (fn.Label.Length > 7)
                         fn.Label = fn.Label[..7];
                 }
+            }
+        }
+
+        // Channel Views validieren
+        if (config.ChannelViews.Count == 0)
+        {
+            _logger.LogInformation("Keine ChannelViews in config.json — verwende Standard-Views.");
+            config.ChannelViews = CreateDefaultChannelViews();
+        }
+        else
+        {
+            foreach (var view in config.ChannelViews)
+            {
+                // Name auf 7 Zeichen begrenzen
+                if (view.Name.Length > 7)
+                {
+                    _logger.LogWarning("View-Name '{Name}' zu lang (max 7). Wird gekürzt.", view.Name);
+                    view.Name = view.Name[..7];
+                }
+
+                // Channel-Array muss genau 8 Einträge haben
+                if (view.Channels.Length != 8)
+                {
+                    _logger.LogWarning("View '{Name}' hat {Count} Kanäle statt 8. Wird auf 8 angepasst.",
+                        view.Name, view.Channels.Length);
+                    var fixed8 = new int[8];
+                    for (int i = 0; i < 8; i++)
+                        fixed8[i] = i < view.Channels.Length ? view.Channels[i] : i;
+                    view.Channels = fixed8;
+                }
+
+                // Kanal-Indizes auf 0–15 begrenzen
+                for (int i = 0; i < view.Channels.Length; i++)
+                    view.Channels[i] = Math.Clamp(view.Channels[i], 0, 15);
+
+                if (view.MainFaderChannel.HasValue)
+                    view.MainFaderChannel = Math.Clamp(view.MainFaderChannel.Value, 0, 15);
             }
         }
     }

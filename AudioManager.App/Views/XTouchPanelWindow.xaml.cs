@@ -31,6 +31,7 @@ public partial class XTouchPanelWindow : Window
     private readonly AudioManagerConfig? _config;
     private readonly IConfigurationService? _configService;
     private readonly VoicemeeterBridge? _bridge;
+    private readonly IVoicemeeterService? _vm;
     private readonly DispatcherTimer _refreshTimer;
 
     // ─── UI-Referenzen: 8 Kanalstreifen ──────────────────────────────
@@ -61,16 +62,18 @@ public partial class XTouchPanelWindow : Window
     private XTouchButtonType _selectedButtonType;
     private bool _suppressMappingEvents;
 
-    public XTouchPanelWindow() : this(null, null, null, null) { }
+    public XTouchPanelWindow() : this(null, null, null, null, null) { }
 
     public XTouchPanelWindow(IMidiDevice? device, AudioManagerConfig? config,
-        IConfigurationService? configService = null, VoicemeeterBridge? bridge = null)
+        IConfigurationService? configService = null, VoicemeeterBridge? bridge = null,
+        IVoicemeeterService? vm = null)
     {
         InitializeComponent();
         _device = device;
         _config = config;
         _configService = configService;
         _bridge = bridge;
+        _vm = vm;
 
         BuildChannelStrips();
         BuildMainFader();
@@ -1349,6 +1352,19 @@ public partial class XTouchPanelWindow : Window
             XTouchColor.White => Color.FromRgb((byte)(factor * 0.8), (byte)(factor * 0.8), (byte)(factor * 0.8)),
             _ => Color.FromRgb(20, 20, 20)
         };
+    }
+
+    // ─── Channel View Editor ────────────────────────────────────────
+
+    private void OnOpenChannelViewEditor(object sender, RoutedEventArgs e)
+    {
+        if (_config == null || _configService == null) return;
+
+        var dialog = new ChannelViewEditorDialog(_config, _configService, _bridge, _vm)
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
     }
 
     // ─── Cleanup ─────────────────────────────────────────────────────

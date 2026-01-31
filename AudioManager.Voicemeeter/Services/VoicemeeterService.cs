@@ -152,6 +152,18 @@ public class VoicemeeterService : IVoicemeeterService
         VoicemeeterRemote.SetParameterFloat(paramName, value);
     }
 
+    public string GetParameterString(string paramName)
+    {
+        var buffer = new byte[512];
+        int result = VoicemeeterRemote.GetParameterStringA(paramName, buffer);
+        if (result != 0) return "";
+
+        // Null-terminated ANSI-String aus dem Buffer lesen
+        int length = Array.IndexOf(buffer, (byte)0);
+        if (length < 0) length = buffer.Length;
+        return System.Text.Encoding.ASCII.GetString(buffer, 0, length);
+    }
+
     // ─── State Snapshot ─────────────────────────────────────────────
 
     public VoicemeeterState GetCurrentState()

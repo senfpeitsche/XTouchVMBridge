@@ -130,7 +130,29 @@
         <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#2A2A2A"/>
         <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#DDD"/>
 
-        <!-- Dark ComboBox -->
+        <!-- Dark ComboBox mit vollständigem Template für sichtbaren Text im geschlossenen Zustand -->
+        <ControlTemplate x:Key="DarkComboBoxToggleButton" TargetType="ToggleButton">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="20"/>
+                </Grid.ColumnDefinitions>
+                <Border x:Name="Border" Grid.ColumnSpan="2" Background="#2A2A2A"
+                        BorderBrush="#555" BorderThickness="1" CornerRadius="2"/>
+                <Border Grid.Column="0" Background="Transparent" Margin="1"/>
+                <Path Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Data="M 0 0 L 4 4 L 8 0 Z" Fill="#AAA"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Border" Property="BorderBrush" Value="#888"/>
+                </Trigger>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter TargetName="Border" Property="BorderBrush" Value="#0AF"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
         <Style TargetType="ComboBox">
             <Setter Property="Background" Value="#2A2A2A"/>
             <Setter Property="Foreground" Value="#DDD"/>
@@ -138,6 +160,56 @@
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="BorderBrush" Value="#555"/>
             <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Template="{StaticResource DarkComboBoxToggleButton}"
+                                          IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False" ClickMode="Press"/>
+                            <ContentPresenter x:Name="ContentSite"
+                                              IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                              Margin="6,2,24,2"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left">
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#DDD"/>
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                            <TextBox x:Name="PART_EditableTextBox"
+                                     Visibility="Hidden" IsReadOnly="{TemplateBinding IsReadOnly}"
+                                     Background="Transparent" Foreground="#DDD"
+                                     FontFamily="{TemplateBinding FontFamily}"
+                                     FontSize="{TemplateBinding FontSize}"
+                                     HorizontalAlignment="Left" VerticalAlignment="Center"
+                                     Margin="6,2,24,2" Focusable="True"/>
+                            <Popup x:Name="Popup" Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True" Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Grid x:Name="DropDown"
+                                      SnapsToDevicePixels="True"
+                                      MinWidth="{TemplateBinding ActualWidth}"
+                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border x:Name="DropDownBorder"
+                                            Background="#2A2A2A" BorderBrush="#555"
+                                            BorderThickness="1" CornerRadius="2"/>
+                                    <ScrollViewer Margin="2" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True"
+                                                    KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style TargetType="ComboBoxItem">
             <Setter Property="Background" Value="#2A2A2A"/>
@@ -185,12 +257,20 @@
 
     <Grid Margin="8">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- Toolbar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+            <Button Content="&#x2699; Channel Views" Style="{StaticResource MasterButton}"
+                    Padding="10,4" Click="OnOpenChannelViewEditor"
+                    ToolTip="Kanal-Zuordnung der Views bearbeiten"/>
+        </StackPanel>
+
         <!-- Hauptbereich: 8 Kanäle + Master Section -->
-        <Grid Grid.Row="0">
+        <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -358,7 +438,7 @@
         </Grid>
 
         <!-- Detail-Panel unten -->
-        <Border Grid.Row="1" Background="#1A1A1A" BorderBrush="#333" BorderThickness="0,1,0,0"
+        <Border Grid.Row="2" Background="#1A1A1A" BorderBrush="#333" BorderThickness="0,1,0,0"
                 Margin="0,6,0,0" Padding="12,8" MinHeight="120">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -399,7 +479,6 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <ComboBox x:Name="ButtonParamCombo" Grid.Column="0"
-                                          Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="11"
                                           SelectionChanged="OnButtonParamChanged"/>
                                 <Button Grid.Column="1" Content="✕" Width="24" Height="24" Margin="4,0,0,0"
                                         Background="#3C0F0F" Foreground="#FF6666" FontWeight="Bold"
@@ -412,7 +491,6 @@
                         <StackPanel x:Name="FaderMappingPanel" Visibility="Collapsed">
                             <TextBlock Text="Parameter:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
                             <ComboBox x:Name="FaderParamCombo"
-                                      Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="11"
                                       SelectionChanged="OnFaderParamChanged"/>
                             <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                 <TextBlock Text="Min:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center" Margin="0,0,4,0"/>
@@ -431,12 +509,9 @@
                         <StackPanel x:Name="EncoderMappingPanel" Visibility="Collapsed">
                             <TextBlock Text="Funktionen (Drücken = nächste):" Foreground="#AAA"
                                        FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
-                            <ListBox x:Name="EncoderFunctionList" MaxHeight="80"
-                                     Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"
-                                     BorderBrush="#444"/>
+                            <ListBox x:Name="EncoderFunctionList" MaxHeight="80"/>
                             <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                <ComboBox x:Name="EncoderAddParamCombo" Width="160"
-                                          Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"/>
+                                <ComboBox x:Name="EncoderAddParamCombo" Width="160"/>
                                 <TextBox x:Name="EncoderAddLabelBox" Width="60" Margin="4,0,0,0"
                                          Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"
                                          BorderBrush="#444" MaxLength="7" ToolTip="Label (max 7 Zeichen)"/>

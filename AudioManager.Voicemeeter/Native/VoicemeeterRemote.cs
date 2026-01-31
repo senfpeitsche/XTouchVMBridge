@@ -75,7 +75,9 @@ internal static class VoicemeeterRemote
     internal static extern int GetParameterFloat(string paramName, out float value);
 
     [DllImport(DllName, EntryPoint = "VBVMR_GetParameterStringA", CharSet = CharSet.Ansi)]
-    internal static extern int GetParameterStringA(string paramName, [MarshalAs(UnmanagedType.LPStr)] out string value);
+    internal static extern int GetParameterStringA(
+        string paramName,
+        [MarshalAs(UnmanagedType.LPArray, SizeConst = 512)] byte[] value);
 
     // ─── Parameter Setters ──────────────────────────────────────────
 

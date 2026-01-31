@@ -31,18 +31,13 @@ public class VoicemeeterBridge : BackgroundService
     // ─── Channel Mounting System ────────────────────────────────────
 
     /// <summary>
-    /// Vordefinierte Kanal-Ansichten.
+    /// Kanal-Ansichten aus der Konfiguration.
     /// Jede Ansicht mappt 8 physische X-Touch-Kanäle auf logische VM-Kanäle.
     /// </summary>
-    private readonly List<ChannelView> _channelViews = new()
-    {
-        new("Home",    new[] { 3, 4, 5, 6, 7, 9, 10, 12 }),
-        new("Outputs", new[] { 8, 9, 10, 11, 12, 13, 14, 15 }),
-        new("Inputs",  new[] { 0, 1, 2, 3, 4, 5, 6, 7 })
-    };
+    private List<ChannelViewConfig> ChannelViews => _config.ChannelViews;
 
     private int _currentViewIndex;
-    private int[] CurrentChannelMapping => _channelViews[_currentViewIndex].Channels;
+    private int[] CurrentChannelMapping => ChannelViews[_currentViewIndex].Channels;
 
     // ─── State ──────────────────────────────────────────────────────
 
@@ -93,7 +88,7 @@ public class VoicemeeterBridge : BackgroundService
             // Kanäle 0 und 2 bleiben für Navigation/Shortcuts
             if (xtCh == 0 || xtCh == 2) continue;
 
-            int vmCh = _channelViews[0].Channels[xtCh]; // Home-View Kanal
+            int vmCh = ChannelViews[0].Channels[xtCh]; // Home-View Kanal
 
             if (!_config.Mappings.TryGetValue(vmCh, out var mapping))
                 continue;
@@ -266,22 +261,51 @@ public class VoicemeeterBridge : BackgroundService
         {
             int vmCh = CurrentChannelMapping[xtCh];
 
+            // Name aus Voicemeeter-Label lesen
+            string vmLabel = GetVmLabel(vmCh);
+            _xtouch.SetDisplayText(xtCh, 0, vmLabel);
+
+            // Farbe aus Config (VM hat keine Farbinfo)
             if (_config.Channels.TryGetValue(vmCh, out var chConfig))
-            {
-                _xtouch.SetDisplayText(xtCh, 0, chConfig.Name);
                 colors[xtCh] = chConfig.Color;
-            }
             else
-            {
-                _xtouch.SetDisplayText(xtCh, 0, $"Ch {vmCh + 1}");
                 colors[xtCh] = XTouchColor.White;
-            }
 
             // Untere Zeile: Ansichtsname oder dB-Wert
-            _xtouch.SetDisplayText(xtCh, 1, _channelViews[_currentViewIndex].Name);
+            _xtouch.SetDisplayText(xtCh, 1, ChannelViews[_currentViewIndex].Name);
         }
 
         _xtouch.SetAllDisplayColors(colors);
+    }
+
+    /// <summary>
+    /// Liest den Label eines VM-Kanals direkt aus Voicemeeter.
+    /// Strip[0..7].Label für Inputs, Bus[0..7].Label für Outputs.
+    /// Fallback auf Config-Name oder "Ch N".
+    /// </summary>
+    private string GetVmLabel(int vmChannel)
+    {
+        try
+        {
+            string paramName = vmChannel < 8
+                ? $"Strip[{vmChannel}].Label"
+                : $"Bus[{vmChannel - 8}].Label";
+
+            string label = _vm.GetParameterString(paramName);
+
+            if (!string.IsNullOrWhiteSpace(label))
+                return label.Length > 7 ? label[..7] : label;
+        }
+        catch
+        {
+            // Fehler beim Lesen → Fallback
+        }
+
+        // Fallback: Config-Name oder generischer Name
+        if (_config.Channels.TryGetValue(vmChannel, out var chConfig))
+            return chConfig.Name;
+
+        return $"Ch {vmChannel + 1}";
     }
 
     // ─── Callbacks (X-Touch → Voicemeeter) ──────────────────────────
@@ -308,7 +332,7 @@ public class VoicemeeterBridge : BackgroundService
         _xtouch.SetDisplayText(e.Channel, 1, dbText);
 
         _scheduler.AddTask(
-            () => _xtouch.SetDisplayText(e.Channel, 1, _channelViews[_currentViewIndex].Name),
+            () => _xtouch.SetDisplayText(e.Channel, 1, ChannelViews[_currentViewIndex].Name),
             TimeSpan.FromSeconds(2),
             $"fader_display_{e.Channel}");
     }
@@ -364,9 +388,9 @@ public class VoicemeeterBridge : BackgroundService
         {
             case 0:
                 // Kanal 0 Encoder: Ansicht wechseln
-                _currentViewIndex = (_currentViewIndex + e.Ticks + _channelViews.Count) % _channelViews.Count;
+                _currentViewIndex = (_currentViewIndex + e.Ticks + ChannelViews.Count) % ChannelViews.Count;
                 _needsFullRefresh = true;
-                _logger.LogDebug("Ansicht gewechselt zu: {View}", _channelViews[_currentViewIndex].Name);
+                _logger.LogDebug("Ansicht gewechselt zu: {View}", ChannelViews[_currentViewIndex].Name);
                 break;
         }
     }
@@ -461,7 +485,7 @@ public class VoicemeeterBridge : BackgroundService
         else
         {
             // Bei Release: Ansichtsname wiederherstellen
-            _xtouch.SetDisplayText(e.Channel, 1, _channelViews[_currentViewIndex].Name);
+            _xtouch.SetDisplayText(e.Channel, 1, ChannelViews[_currentViewIndex].Name);
         }
     }
 
@@ -470,9 +494,6 @@ public class VoicemeeterBridge : BackgroundService
     private int MidiDevice_ChannelCount() => Math.Min(_xtouch.ChannelCount, CurrentChannelMapping.Length);
 
     // ─── Inner Types ────────────────────────────────────────────────
-
-    /// <summary>Definiert eine Kanal-Ansicht (Name + Mapping auf VM-Kanäle).</summary>
-    private record ChannelView(string Name, int[] Channels);
 
     /// <summary>Definiert einen Shortcut-Modus.</summary>
     private record ShortcutMode(string Name, string Description);

@@ -28,4 +28,11 @@ public class AudioManagerConfig
     /// Definiert welcher Voicemeeter-Parameter auf welches X-Touch-Control gemappt ist.
     /// </summary>
     public Dictionary<int, ControlMappingConfig> Mappings { get; set; } = new();
+
+    /// <summary>
+    /// Kanal-Ansichten (Channel Views).
+    /// Jede View mappt 8 X-Touch-Strips auf VM-Kanäle + optional Main Fader.
+    /// Zwischen Views wird mit Encoder 0 gewechselt.
+    /// </summary>
+    public List<ChannelViewConfig> ChannelViews { get; set; } = new();
 }

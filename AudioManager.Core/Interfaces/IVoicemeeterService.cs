@@ -49,4 +49,7 @@ public interface IVoicemeeterService : IDisposable
 
     /// <summary>Generischer Float-Parameter setzen (z.B. "Strip[0].Gain", -6.0f).</summary>
     void SetParameter(string paramName, float value);
+
+    /// <summary>Generischen String-Parameter lesen (z.B. "Strip[0].Label").</summary>
+    string GetParameterString(string paramName);
 }
