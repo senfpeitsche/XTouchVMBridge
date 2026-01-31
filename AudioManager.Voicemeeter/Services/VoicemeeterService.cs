@@ -139,6 +139,19 @@ public class VoicemeeterService : IVoicemeeterService
 
     public bool IsStrip(int channel) => channel < VoicemeeterState.StripCount;
 
+    // ─── Generische Parameter ─────────────────────────────────────────
+
+    public float GetParameter(string paramName)
+    {
+        VoicemeeterRemote.GetParameterFloat(paramName, out float value);
+        return value;
+    }
+
+    public void SetParameter(string paramName, float value)
+    {
+        VoicemeeterRemote.SetParameterFloat(paramName, value);
+    }
+
     // ─── State Snapshot ─────────────────────────────────────────────
 
     public VoicemeeterState GetCurrentState()

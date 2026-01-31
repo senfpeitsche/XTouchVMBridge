@@ -43,4 +43,10 @@ public interface IVoicemeeterService : IDisposable
 
     /// <summary>Ob der Kanal ein Input-Strip ist (0–7) oder ein Bus (8–15).</summary>
     bool IsStrip(int channel);
+
+    /// <summary>Generischer Float-Parameter lesen (z.B. "Strip[0].Gain").</summary>
+    float GetParameter(string paramName);
+
+    /// <summary>Generischer Float-Parameter setzen (z.B. "Strip[0].Gain", -6.0f).</summary>
+    void SetParameter(string paramName, float value);
 }

@@ -7,6 +7,7 @@ using AudioManager.Core.Enums;
 using AudioManager.Core.Hardware;
 using AudioManager.Core.Interfaces;
 using AudioManager.Core.Models;
+using AudioManager.Voicemeeter.Services;
 using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
 using Color = System.Windows.Media.Color;
@@ -28,6 +29,8 @@ public partial class XTouchPanelWindow : Window
 {
     private readonly IMidiDevice? _device;
     private readonly AudioManagerConfig? _config;
+    private readonly IConfigurationService? _configService;
+    private readonly VoicemeeterBridge? _bridge;
     private readonly DispatcherTimer _refreshTimer;
 
     // ─── UI-Referenzen: 8 Kanalstreifen ──────────────────────────────
@@ -52,13 +55,22 @@ public partial class XTouchPanelWindow : Window
     // ─── UI-Referenzen: Master Section Buttons ───────────────────────
     private readonly Dictionary<string, Button> _masterButtons = new();
 
-    public XTouchPanelWindow() : this(null, null) { }
+    // ─── Mapping-Editor State ────────────────────────────────────────
+    private int _selectedVmChannel = -1;
+    private string _selectedControlType = ""; // "Button", "Fader", "Encoder"
+    private XTouchButtonType _selectedButtonType;
+    private bool _suppressMappingEvents;
 
-    public XTouchPanelWindow(IMidiDevice? device, AudioManagerConfig? config)
+    public XTouchPanelWindow() : this(null, null, null, null) { }
+
+    public XTouchPanelWindow(IMidiDevice? device, AudioManagerConfig? config,
+        IConfigurationService? configService = null, VoicemeeterBridge? bridge = null)
     {
         InitializeComponent();
         _device = device;
         _config = config;
+        _configService = configService;
+        _bridge = bridge;
 
         BuildChannelStrips();
         BuildMainFader();
@@ -517,6 +529,7 @@ public partial class XTouchPanelWindow : Window
     {
         JogWheelButton.Click += (_, _) =>
         {
+            MappingPanel.Visibility = Visibility.Collapsed;
             DetailHeader.Text = "Jog Wheel";
             DetailText.Text =
                 "Funktion:       Scrub / Shuttle / Navigation\n" +
@@ -732,6 +745,7 @@ public partial class XTouchPanelWindow : Window
 
     private void ShowDisplayDetail(int ch)
     {
+        MappingPanel.Visibility = Visibility.Collapsed;
         var xtCh = _device?.Channels[ch];
         string chName = GetConfigName(ch);
         var color = xtCh?.Display.Color ?? XTouchColor.Off;
@@ -785,6 +799,9 @@ public partial class XTouchPanelWindow : Window
             $"MIDI Drücken:   Note On #{32 + ch} (vel 127=press, vel 0=release)\n" +
             $"MIDI Ring:      CC {48 + ch} (value = mode×16 + pos [+64 LED])\n" +
             $"Hersteller:     Encoder CC 80..87, Encoder Rings CC 80..87";
+
+        // Mapping-Panel anzeigen
+        ShowEncoderMappingPanel(ch);
     }
 
     private void ShowButtonDetail(int ch, XTouchButtonType type)
@@ -817,6 +834,9 @@ public partial class XTouchPanelWindow : Window
             $"MIDI LED:       Note On #{noteNum} (vel 0..63=off, 64=flash, 65..127=on)\n" +
             $"Note-Formel:    {type}={((int)type)} × 8 + Kanal={ch} = {noteNum}\n" +
             $"Hersteller:     Buttons Note On #0..103";
+
+        // Mapping-Panel anzeigen
+        ShowButtonMappingPanel(ch, type);
     }
 
     private void ShowFaderDetail(int ch)
@@ -838,10 +858,14 @@ public partial class XTouchPanelWindow : Window
             $"MIDI Touch:     Note On #{110 + ch} (touch: vel 127, release: vel 0)\n" +
             $"MIDI CC Mode:   CC {70 + ch} (value 0..127) — nur im MIDI-Mode\n" +
             $"Hersteller:     Fader CC 70..77, Fader Touch Note #110..117";
+
+        // Mapping-Panel anzeigen
+        ShowFaderMappingPanel(ch);
     }
 
     private void ShowLevelMeterDetail(int ch)
     {
+        MappingPanel.Visibility = Visibility.Collapsed;
         var meter = _device?.Channels[ch].LevelMeter;
         int level = meter?.Level ?? 0;
 
@@ -860,6 +884,7 @@ public partial class XTouchPanelWindow : Window
 
     private void ShowMainFaderDetail()
     {
+        MappingPanel.Visibility = Visibility.Collapsed;
         DetailHeader.Text = "Main Fader";
         DetailText.Text =
             "Funktion:       Master-Fader. Steuert den Master-Bus-Pegel.\n" +
@@ -876,6 +901,7 @@ public partial class XTouchPanelWindow : Window
 
     private void ShowMasterButtonDetail(string section, string name, int noteNumber, string description)
     {
+        MappingPanel.Visibility = Visibility.Collapsed;
         DetailHeader.Text = $"{section} — {name}";
         DetailText.Text =
             $"{description}\n\n" +
@@ -883,6 +909,421 @@ public partial class XTouchPanelWindow : Window
             $"                Push: vel 127, Release: vel 0\n" +
             $"LED-Feedback:   Note On #{noteNumber} (vel 0=off, 64=blink, 127=on)\n\n" +
             $"Mackie Control: Standardisierte Zuordnung im MCU-Protokoll.";
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  Mapping-Editor: Panel anzeigen und befüllen
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Ermittelt den VM-Kanal-Index für einen X-Touch-Kanal.
+    /// Verwendet die aktuelle Display-Anzeige (Config-Name) zur Zuordnung,
+    /// da die Panel-Ansicht die gleichen Kanäle wie die Bridge zeigt.
+    /// </summary>
+    private int ResolveVmChannel(int xtChannel)
+    {
+        // Versuche aus dem Display-Namen den Config-Kanal zu ermitteln
+        var displayName = _device?.Channels[xtChannel].Display.TopRow.TrimEnd();
+        if (displayName != null && _config != null)
+        {
+            foreach (var (vmCh, chConfig) in _config.Channels)
+            {
+                if (chConfig.Name == displayName)
+                    return vmCh;
+            }
+        }
+
+        // Fallback: X-Touch-Kanal = VM-Kanal
+        return xtChannel;
+    }
+
+    /// <summary>Blendet alle Mapping-Sub-Panels aus.</summary>
+    private void HideMappingSubPanels()
+    {
+        ButtonMappingPanel.Visibility = Visibility.Collapsed;
+        FaderMappingPanel.Visibility = Visibility.Collapsed;
+        EncoderMappingPanel.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>Zeigt das Button-Mapping-Panel für einen Kanal und Button-Typ.</summary>
+    private void ShowButtonMappingPanel(int xtChannel, XTouchButtonType buttonType)
+    {
+        if (_config == null || _configService == null)
+        {
+            MappingPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        int vmCh = ResolveVmChannel(xtChannel);
+        _selectedVmChannel = vmCh;
+        _selectedControlType = "Button";
+        _selectedButtonType = buttonType;
+
+        _suppressMappingEvents = true;
+        try
+        {
+            HideMappingSubPanels();
+
+            // ComboBox mit Bool-Parametern befüllen
+            var boolParams = VoicemeeterParameterCatalog.GetBoolParameters(vmCh);
+            ButtonParamCombo.Items.Clear();
+            ButtonParamCombo.Items.Add(new ComboBoxItem { Content = "(nicht zugewiesen)", Tag = "" });
+
+            foreach (var p in boolParams)
+            {
+                ButtonParamCombo.Items.Add(new ComboBoxItem
+                {
+                    Content = $"{p.DisplayName}  [{p.Parameter}]",
+                    Tag = p.Parameter
+                });
+            }
+
+            // Aktuellen Wert auswählen
+            string? currentParam = null;
+            if (_config.Mappings.TryGetValue(vmCh, out var mapping))
+            {
+                string btnKey = buttonType.ToString();
+                if (mapping.Buttons.TryGetValue(btnKey, out var btnMap) && btnMap != null)
+                    currentParam = btnMap.Parameter;
+            }
+
+            ButtonParamCombo.SelectedIndex = 0; // Default: nicht zugewiesen
+            if (currentParam != null)
+            {
+                for (int i = 1; i < ButtonParamCombo.Items.Count; i++)
+                {
+                    if (ButtonParamCombo.Items[i] is ComboBoxItem item && (string)item.Tag == currentParam)
+                    {
+                        ButtonParamCombo.SelectedIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            ButtonMappingPanel.Visibility = Visibility.Visible;
+            MappingPanel.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            _suppressMappingEvents = false;
+        }
+    }
+
+    /// <summary>Zeigt das Fader-Mapping-Panel für einen Kanal.</summary>
+    private void ShowFaderMappingPanel(int xtChannel)
+    {
+        if (_config == null || _configService == null)
+        {
+            MappingPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        int vmCh = ResolveVmChannel(xtChannel);
+        _selectedVmChannel = vmCh;
+        _selectedControlType = "Fader";
+
+        _suppressMappingEvents = true;
+        try
+        {
+            HideMappingSubPanels();
+
+            // ComboBox mit Float-Parametern befüllen
+            var floatParams = VoicemeeterParameterCatalog.GetFloatParameters(vmCh);
+            FaderParamCombo.Items.Clear();
+            FaderParamCombo.Items.Add(new ComboBoxItem { Content = "(nicht zugewiesen)", Tag = "" });
+
+            foreach (var p in floatParams)
+            {
+                FaderParamCombo.Items.Add(new ComboBoxItem
+                {
+                    Content = $"{p.DisplayName}  [{p.Parameter}]",
+                    Tag = p.Parameter
+                });
+            }
+
+            // Aktuellen Wert auswählen
+            FaderParamCombo.SelectedIndex = 0;
+            FaderMinBox.Text = "-60";
+            FaderMaxBox.Text = "12";
+
+            if (_config.Mappings.TryGetValue(vmCh, out var mapping) && mapping.Fader != null)
+            {
+                FaderMinBox.Text = mapping.Fader.Min.ToString();
+                FaderMaxBox.Text = mapping.Fader.Max.ToString();
+
+                for (int i = 1; i < FaderParamCombo.Items.Count; i++)
+                {
+                    if (FaderParamCombo.Items[i] is ComboBoxItem item && (string)item.Tag == mapping.Fader.Parameter)
+                    {
+                        FaderParamCombo.SelectedIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            FaderMappingPanel.Visibility = Visibility.Visible;
+            MappingPanel.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            _suppressMappingEvents = false;
+        }
+    }
+
+    /// <summary>Zeigt das Encoder-Mapping-Panel für einen Kanal.</summary>
+    private void ShowEncoderMappingPanel(int xtChannel)
+    {
+        if (_config == null || _configService == null)
+        {
+            MappingPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        int vmCh = ResolveVmChannel(xtChannel);
+        _selectedVmChannel = vmCh;
+        _selectedControlType = "Encoder";
+
+        _suppressMappingEvents = true;
+        try
+        {
+            HideMappingSubPanels();
+
+            // Funktionsliste befüllen
+            RefreshEncoderFunctionList(vmCh);
+
+            // ComboBox mit Float-Parametern befüllen (für "Hinzufügen")
+            var floatParams = VoicemeeterParameterCatalog.GetFloatParameters(vmCh);
+            EncoderAddParamCombo.Items.Clear();
+            foreach (var p in floatParams)
+            {
+                EncoderAddParamCombo.Items.Add(new ComboBoxItem
+                {
+                    Content = $"{p.DisplayName}  [{p.Parameter}]",
+                    Tag = p.Parameter
+                });
+            }
+            if (EncoderAddParamCombo.Items.Count > 0)
+                EncoderAddParamCombo.SelectedIndex = 0;
+
+            EncoderAddLabelBox.Text = "";
+
+            EncoderMappingPanel.Visibility = Visibility.Visible;
+            MappingPanel.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            _suppressMappingEvents = false;
+        }
+    }
+
+    /// <summary>Aktualisiert die Encoder-Funktionsliste im Panel.</summary>
+    private void RefreshEncoderFunctionList(int vmCh)
+    {
+        EncoderFunctionList.Items.Clear();
+
+        if (_config?.Mappings.TryGetValue(vmCh, out var mapping) == true)
+        {
+            foreach (var fn in mapping.EncoderFunctions)
+            {
+                EncoderFunctionList.Items.Add(new ListBoxItem
+                {
+                    Content = $"{fn.Label,-7} → {fn.Parameter} ({fn.Min}..{fn.Max}, Step {fn.Step} {fn.Unit})",
+                    Tag = fn
+                });
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  Mapping-Editor: Event-Handler (aus XAML referenziert)
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>Button-Parameter geändert (ComboBox SelectionChanged).</summary>
+    private void OnButtonParamChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressMappingEvents || _config == null || _configService == null) return;
+        if (_selectedVmChannel < 0 || _selectedControlType != "Button") return;
+
+        var selected = ButtonParamCombo.SelectedItem as ComboBoxItem;
+        string paramName = (string)(selected?.Tag ?? "");
+
+        EnsureMapping(_selectedVmChannel);
+        var mapping = _config.Mappings[_selectedVmChannel];
+        string btnKey = _selectedButtonType.ToString();
+
+        if (string.IsNullOrEmpty(paramName))
+        {
+            mapping.Buttons[btnKey] = null;
+        }
+        else
+        {
+            mapping.Buttons[btnKey] = new ButtonMappingConfig { Parameter = paramName };
+        }
+
+        SaveAndReload();
+    }
+
+    /// <summary>Button-Zuweisung entfernen (Clear-Button Click).</summary>
+    private void OnButtonMappingClear(object sender, RoutedEventArgs e)
+    {
+        if (_config == null || _configService == null) return;
+        if (_selectedVmChannel < 0 || _selectedControlType != "Button") return;
+
+        EnsureMapping(_selectedVmChannel);
+        string btnKey = _selectedButtonType.ToString();
+        _config.Mappings[_selectedVmChannel].Buttons[btnKey] = null;
+
+        _suppressMappingEvents = true;
+        ButtonParamCombo.SelectedIndex = 0;
+        _suppressMappingEvents = false;
+
+        SaveAndReload();
+    }
+
+    /// <summary>Fader-Parameter geändert (ComboBox SelectionChanged).</summary>
+    private void OnFaderParamChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressMappingEvents || _config == null || _configService == null) return;
+        if (_selectedVmChannel < 0 || _selectedControlType != "Fader") return;
+
+        var selected = FaderParamCombo.SelectedItem as ComboBoxItem;
+        string paramName = (string)(selected?.Tag ?? "");
+
+        if (string.IsNullOrEmpty(paramName))
+        {
+            // Sofort speichern: Fader-Zuweisung entfernen
+            EnsureMapping(_selectedVmChannel);
+            _config.Mappings[_selectedVmChannel].Fader = null;
+            SaveAndReload();
+            return;
+        }
+
+        // Min/Max aus Katalog vorausfüllen
+        var template = VoicemeeterParameterCatalog.FindTemplate(paramName);
+        if (template != null)
+        {
+            FaderMinBox.Text = template.DefaultMin.ToString();
+            FaderMaxBox.Text = template.DefaultMax.ToString();
+        }
+    }
+
+    /// <summary>Fader-Mapping speichern (Speichern-Button Click).</summary>
+    private void OnFaderMappingSave(object sender, RoutedEventArgs e)
+    {
+        if (_config == null || _configService == null) return;
+        if (_selectedVmChannel < 0 || _selectedControlType != "Fader") return;
+
+        var selected = FaderParamCombo.SelectedItem as ComboBoxItem;
+        string paramName = (string)(selected?.Tag ?? "");
+
+        EnsureMapping(_selectedVmChannel);
+
+        if (string.IsNullOrEmpty(paramName))
+        {
+            _config.Mappings[_selectedVmChannel].Fader = null;
+        }
+        else
+        {
+            if (!double.TryParse(FaderMinBox.Text, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double min))
+                min = -60;
+            if (!double.TryParse(FaderMaxBox.Text, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double max))
+                max = 12;
+
+            var template = VoicemeeterParameterCatalog.FindTemplate(paramName);
+            double step = template?.DefaultStep ?? 0.1;
+
+            _config.Mappings[_selectedVmChannel].Fader = new FaderMappingConfig
+            {
+                Parameter = paramName,
+                Min = min,
+                Max = max,
+                Step = step
+            };
+        }
+
+        SaveAndReload();
+    }
+
+    /// <summary>Encoder-Funktion hinzufügen (+-Button Click).</summary>
+    private void OnEncoderFunctionAdd(object sender, RoutedEventArgs e)
+    {
+        if (_config == null || _configService == null) return;
+        if (_selectedVmChannel < 0 || _selectedControlType != "Encoder") return;
+
+        var selected = EncoderAddParamCombo.SelectedItem as ComboBoxItem;
+        string paramName = (string)(selected?.Tag ?? "");
+        if (string.IsNullOrEmpty(paramName)) return;
+
+        string label = EncoderAddLabelBox.Text.Trim();
+        if (string.IsNullOrEmpty(label))
+        {
+            // Label aus DisplayName ableiten
+            var resolved = VoicemeeterParameterCatalog.GetFloatParameters(_selectedVmChannel)
+                .FirstOrDefault(p => p.Parameter == paramName);
+            label = resolved?.DisplayName ?? "PARAM";
+            if (label.Length > 7) label = label[..7];
+        }
+        else if (label.Length > 7)
+        {
+            label = label[..7];
+        }
+
+        var template = VoicemeeterParameterCatalog.FindTemplate(paramName);
+
+        EnsureMapping(_selectedVmChannel);
+        _config.Mappings[_selectedVmChannel].EncoderFunctions.Add(new EncoderFunctionConfig
+        {
+            Label = label.ToUpperInvariant(),
+            Parameter = paramName,
+            Min = template?.DefaultMin ?? 0,
+            Max = template?.DefaultMax ?? 1,
+            Step = template?.DefaultStep ?? 0.5,
+            Unit = template?.Unit ?? ""
+        });
+
+        RefreshEncoderFunctionList(_selectedVmChannel);
+        EncoderAddLabelBox.Text = "";
+        SaveAndReload();
+    }
+
+    /// <summary>Encoder-Funktion entfernen (−-Button Click).</summary>
+    private void OnEncoderFunctionRemove(object sender, RoutedEventArgs e)
+    {
+        if (_config == null || _configService == null) return;
+        if (_selectedVmChannel < 0 || _selectedControlType != "Encoder") return;
+
+        int idx = EncoderFunctionList.SelectedIndex;
+        if (idx < 0) return;
+
+        if (_config.Mappings.TryGetValue(_selectedVmChannel, out var mapping) &&
+            idx < mapping.EncoderFunctions.Count)
+        {
+            mapping.EncoderFunctions.RemoveAt(idx);
+            RefreshEncoderFunctionList(_selectedVmChannel);
+            SaveAndReload();
+        }
+    }
+
+    // ─── Mapping Helpers ─────────────────────────────────────────────
+
+    /// <summary>Stellt sicher, dass ein Mapping für den VM-Kanal existiert.</summary>
+    private void EnsureMapping(int vmChannel)
+    {
+        if (_config == null) return;
+        if (!_config.Mappings.ContainsKey(vmChannel))
+        {
+            _config.Mappings[vmChannel] = new ControlMappingConfig();
+        }
+    }
+
+    /// <summary>Speichert die Config und benachrichtigt die Bridge.</summary>
+    private void SaveAndReload()
+    {
+        if (_config == null || _configService == null) return;
+        _configService.Save(_config);
+        _bridge?.ReloadMappings();
     }
 
     // ═══════════════════════════════════════════════════════════════════

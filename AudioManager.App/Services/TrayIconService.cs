@@ -5,6 +5,7 @@ using Application = System.Windows.Application;
 using AudioManager.App.Views;
 using AudioManager.Core.Interfaces;
 using AudioManager.Core.Models;
+using AudioManager.Voicemeeter.Services;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.Logging;
 
@@ -18,8 +19,10 @@ public class TrayIconService : IDisposable
 {
     private readonly ILogger<TrayIconService> _logger;
     private readonly IVoicemeeterService _vm;
-    private readonly IMidiDevice? _midiDevice;
-    private readonly AudioManagerConfig? _config;
+    private readonly IMidiDevice _midiDevice;
+    private readonly AudioManagerConfig _config;
+    private readonly IConfigurationService _configService;
+    private readonly VoicemeeterBridge _bridge;
     private TaskbarIcon? _trayIcon;
     private LogWindow? _logWindow;
     private MidiDebugWindow? _midiDebugWindow;
@@ -29,13 +32,17 @@ public class TrayIconService : IDisposable
     public TrayIconService(
         ILogger<TrayIconService> logger,
         IVoicemeeterService vm,
-        IMidiDevice? midiDevice = null,
-        AudioManagerConfig? config = null)
+        IMidiDevice midiDevice,
+        AudioManagerConfig config,
+        IConfigurationService configService,
+        VoicemeeterBridge bridge)
     {
         _logger = logger;
         _vm = vm;
         _midiDevice = midiDevice;
         _config = config;
+        _configService = configService;
+        _bridge = bridge;
     }
 
     /// <summary>
@@ -137,7 +144,7 @@ public class TrayIconService : IDisposable
             return;
         }
 
-        _xtouchPanelWindow = new XTouchPanelWindow(_midiDevice, _config);
+        _xtouchPanelWindow = new XTouchPanelWindow(_midiDevice, _config, _configService, _bridge);
         _xtouchPanelWindow.Closed += (_, _) => _xtouchPanelWindow = null;
         _xtouchPanelWindow.Show();
 

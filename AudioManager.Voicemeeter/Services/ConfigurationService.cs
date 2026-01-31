@@ -104,10 +104,71 @@ public class ConfigurationService : IConfigurationService
                 [13] = new() { Name = "Cable",   Type = "Virtual Bus B2",  Color = XTouchColor.Magenta },
                 [14] = new() { Name = "Discrd",  Type = "Virtual Bus B3",  Color = XTouchColor.Magenta },
                 [15] = new() { Name = "Record",  Type = "Virtual Bus B4",  Color = XTouchColor.White }
-            }
+            },
+            Mappings = CreateDefaultMappings()
         };
 
         return config;
+    }
+
+    /// <summary>
+    /// Erzeugt Standard-Mappings für alle 16 Kanäle.
+    /// Reproduziert das bisherige hardcoded Verhalten aus VoicemeeterBridge.
+    /// </summary>
+    public static Dictionary<int, ControlMappingConfig> CreateDefaultMappings()
+    {
+        var mappings = new Dictionary<int, ControlMappingConfig>();
+
+        // Input Strips (0–7)
+        for (int i = 0; i < 8; i++)
+        {
+            mappings[i] = new ControlMappingConfig
+            {
+                Fader = new FaderMappingConfig
+                {
+                    Parameter = $"Strip[{i}].Gain",
+                    Min = -60, Max = 12, Step = 0.1
+                },
+                Buttons = new Dictionary<string, ButtonMappingConfig?>
+                {
+                    ["Mute"]   = new() { Parameter = $"Strip[{i}].Mute" },
+                    ["Solo"]   = new() { Parameter = $"Strip[{i}].Solo" },
+                    ["Rec"]    = null,
+                    ["Select"] = null
+                },
+                EncoderFunctions = new List<EncoderFunctionConfig>
+                {
+                    new() { Label = "HIGH", Parameter = $"Strip[{i}].EQGain3", Min = -12, Max = 12, Step = 0.5, Unit = "dB" },
+                    new() { Label = "MID",  Parameter = $"Strip[{i}].EQGain2", Min = -12, Max = 12, Step = 0.5, Unit = "dB" },
+                    new() { Label = "LOW",  Parameter = $"Strip[{i}].EQGain1", Min = -12, Max = 12, Step = 0.5, Unit = "dB" },
+                    new() { Label = "PAN",  Parameter = $"Strip[{i}].Pan_x",   Min = -0.5, Max = 0.5, Step = 0.05, Unit = "" },
+                    new() { Label = "GAIN", Parameter = $"Strip[{i}].Gain",    Min = -60, Max = 12, Step = 0.5, Unit = "dB" }
+                }
+            };
+        }
+
+        // Output Buses (8–15 → Bus[0]–Bus[7])
+        for (int i = 0; i < 8; i++)
+        {
+            mappings[i + 8] = new ControlMappingConfig
+            {
+                Fader = new FaderMappingConfig
+                {
+                    Parameter = $"Bus[{i}].Gain",
+                    Min = -60, Max = 12, Step = 0.1
+                },
+                Buttons = new Dictionary<string, ButtonMappingConfig?>
+                {
+                    ["Mute"]   = new() { Parameter = $"Bus[{i}].Mute" },
+                    ["Solo"]   = null,
+                    ["Rec"]    = null,
+                    ["Select"] = null
+                },
+                EncoderFunctions = new List<EncoderFunctionConfig>()
+            };
+        }
+
+        return mappings;
     }
 
     private void ValidateConfig(AudioManagerConfig config)
@@ -137,6 +198,35 @@ public class ConfigurationService : IConfigurationService
             {
                 config.Channels[i] = defaults.Channels[i];
                 _logger.LogDebug("Kanal {Channel} mit Standardwert ergänzt.", i);
+            }
+        }
+
+        // Fehlende Mappings mit Standard auffüllen
+        if (config.Mappings.Count == 0)
+        {
+            _logger.LogInformation("Keine Mappings in config.json — verwende Standard-Mappings.");
+            config.Mappings = CreateDefaultMappings();
+        }
+        else
+        {
+            var defaultMappings = CreateDefaultMappings();
+            for (int i = 0; i < 16; i++)
+            {
+                if (!config.Mappings.ContainsKey(i) && defaultMappings.ContainsKey(i))
+                {
+                    config.Mappings[i] = defaultMappings[i];
+                    _logger.LogDebug("Mapping für Kanal {Channel} mit Standard ergänzt.", i);
+                }
+            }
+
+            // Encoder-Labels auf 7 Zeichen begrenzen
+            foreach (var (key, mapping) in config.Mappings)
+            {
+                foreach (var fn in mapping.EncoderFunctions)
+                {
+                    if (fn.Label.Length > 7)
+                        fn.Label = fn.Label[..7];
+                }
             }
         }
     }

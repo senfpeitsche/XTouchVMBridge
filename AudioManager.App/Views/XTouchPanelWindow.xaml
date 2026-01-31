@@ -121,6 +121,66 @@
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,2,0,4"/>
         </Style>
+
+        <!-- Dark-Theme SystemColors Override für ComboBox/ListBox Popups -->
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#2A2A2A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#DDD"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#3A5A8A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFF"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#2A2A2A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#DDD"/>
+
+        <!-- Dark ComboBox -->
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#2A2A2A"/>
+            <Setter Property="Foreground" Value="#DDD"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="BorderBrush" Value="#555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#2A2A2A"/>
+            <Setter Property="Foreground" Value="#DDD"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#3A5A8A"/>
+                    <Setter Property="Foreground" Value="#FFF"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#2A4A7A"/>
+                    <Setter Property="Foreground" Value="#FFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Dark ListBox -->
+        <Style TargetType="ListBox">
+            <Setter Property="Background" Value="#2A2A2A"/>
+            <Setter Property="Foreground" Value="#DDD"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="BorderBrush" Value="#555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Background" Value="#2A2A2A"/>
+            <Setter Property="Foreground" Value="#DDD"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#2A4A7A"/>
+                    <Setter Property="Foreground" Value="#FFF"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#3A5A8A"/>
+                    <Setter Property="Foreground" Value="#FFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="8">
@@ -299,21 +359,100 @@
 
         <!-- Detail-Panel unten -->
         <Border Grid.Row="1" Background="#1A1A1A" BorderBrush="#333" BorderThickness="0,1,0,0"
-                Margin="0,6,0,0" Padding="12,8">
+                Margin="0,6,0,0" Padding="12,8" MinHeight="120">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" x:Name="DetailHeader"
-                           Text="Klicke auf ein Control um Details zu sehen"
-                           Foreground="#569CD6" FontFamily="Consolas" FontSize="13"
-                           FontWeight="Bold" VerticalAlignment="Top" Margin="0,0,16,0"/>
+                <!-- Info (links) -->
+                <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                    <TextBlock x:Name="DetailHeader"
+                               Text="Klicke auf ein Control um Details zu sehen"
+                               Foreground="#569CD6" FontFamily="Consolas" FontSize="13"
+                               FontWeight="Bold" Margin="0,0,0,4"/>
+                    <TextBlock x:Name="DetailText"
+                               Text="" Foreground="#D4D4D4" FontFamily="Consolas" FontSize="11"
+                               TextWrapping="Wrap" MaxWidth="600"/>
+                </StackPanel>
 
-                <TextBlock Grid.Column="1" x:Name="DetailText"
-                           Text="" Foreground="#D4D4D4" FontFamily="Consolas" FontSize="12"
+                <!-- MIDI-Info (Mitte) -->
+                <TextBlock Grid.Column="1" x:Name="DetailMidiInfo"
+                           Text="" Foreground="#888" FontFamily="Consolas" FontSize="10"
                            TextWrapping="Wrap" VerticalAlignment="Top"/>
+
+                <!-- Mapping-Editor (rechts) -->
+                <Border Grid.Column="2" BorderBrush="#333" BorderThickness="1,0,0,0"
+                        Padding="12,0,0,0" MinWidth="320">
+                    <StackPanel x:Name="MappingPanel" Visibility="Collapsed">
+                        <TextBlock Text="VM-Parameter Zuweisung" Foreground="#569CD6"
+                                   FontFamily="Consolas" FontSize="11" FontWeight="Bold" Margin="0,0,0,6"/>
+
+                        <!-- Button-Mapping: ComboBox -->
+                        <StackPanel x:Name="ButtonMappingPanel" Visibility="Collapsed">
+                            <TextBlock Text="Parameter:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="ButtonParamCombo" Grid.Column="0"
+                                          Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="11"
+                                          SelectionChanged="OnButtonParamChanged"/>
+                                <Button Grid.Column="1" Content="✕" Width="24" Height="24" Margin="4,0,0,0"
+                                        Background="#3C0F0F" Foreground="#FF6666" FontWeight="Bold"
+                                        BorderThickness="0" Cursor="Hand" Click="OnButtonMappingClear"
+                                        ToolTip="Zuweisung entfernen"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Fader-Mapping: ComboBox + Min/Max -->
+                        <StackPanel x:Name="FaderMappingPanel" Visibility="Collapsed">
+                            <TextBlock Text="Parameter:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                            <ComboBox x:Name="FaderParamCombo"
+                                      Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="11"
+                                      SelectionChanged="OnFaderParamChanged"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <TextBlock Text="Min:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBox x:Name="FaderMinBox" Width="50" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                <TextBlock Text="Max:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center" Margin="8,0,4,0"/>
+                                <TextBox x:Name="FaderMaxBox" Width="50" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                <Button Content="Speichern" Margin="8,0,0,0" Padding="6,2"
+                                        Background="#1E3A1E" Foreground="#6CBF6C" FontFamily="Consolas" FontSize="10"
+                                        BorderThickness="0" Cursor="Hand" Click="OnFaderMappingSave"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Encoder-Mapping: Liste + Hinzufügen -->
+                        <StackPanel x:Name="EncoderMappingPanel" Visibility="Collapsed">
+                            <TextBlock Text="Funktionen (Drücken = nächste):" Foreground="#AAA"
+                                       FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                            <ListBox x:Name="EncoderFunctionList" MaxHeight="80"
+                                     Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"
+                                     BorderBrush="#444"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <ComboBox x:Name="EncoderAddParamCombo" Width="160"
+                                          Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"/>
+                                <TextBox x:Name="EncoderAddLabelBox" Width="60" Margin="4,0,0,0"
+                                         Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"
+                                         BorderBrush="#444" MaxLength="7" ToolTip="Label (max 7 Zeichen)"/>
+                                <Button Content="+" Width="24" Height="22" Margin="4,0,0,0"
+                                        Background="#1E3A1E" Foreground="#6CBF6C" FontWeight="Bold"
+                                        BorderThickness="0" Cursor="Hand" Click="OnEncoderFunctionAdd"
+                                        ToolTip="Funktion hinzufügen"/>
+                                <Button Content="−" Width="24" Height="22" Margin="4,0,0,0"
+                                        Background="#3C0F0F" Foreground="#FF6666" FontWeight="Bold"
+                                        BorderThickness="0" Cursor="Hand" Click="OnEncoderFunctionRemove"
+                                        ToolTip="Ausgewählte Funktion entfernen"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
     </Grid>

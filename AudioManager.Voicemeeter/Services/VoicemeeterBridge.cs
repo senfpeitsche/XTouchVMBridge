@@ -15,13 +15,17 @@ namespace AudioManager.Voicemeeter.Services;
 ///
 /// Läuft als BackgroundService mit 100ms Polling-Intervall.
 /// Verwaltet Channel-Mounting, Shortcut-Modi und Level-Meter-Updates.
+///
+/// Control-Mappings (Fader, Buttons, Encoder) werden aus der Config gelesen,
+/// nicht mehr hardcoded. Siehe <see cref="ControlMappingConfig"/>.
 /// </summary>
 public class VoicemeeterBridge : BackgroundService
 {
     private readonly ILogger<VoicemeeterBridge> _logger;
     private readonly IMidiDevice _xtouch;
     private readonly IVoicemeeterService _vm;
-    private readonly AudioManagerConfig _config;
+    private readonly IConfigurationService _configService;
+    private AudioManagerConfig _config;
     private readonly TaskScheduler _scheduler;
 
     // ─── Channel Mounting System ────────────────────────────────────
@@ -59,12 +63,14 @@ public class VoicemeeterBridge : BackgroundService
         ILogger<VoicemeeterBridge> logger,
         IMidiDevice xtouch,
         IVoicemeeterService vm,
-        IOptions<AudioManagerConfig> config)
+        IOptions<AudioManagerConfig> config,
+        IConfigurationService configService)
     {
         _logger = logger;
         _xtouch = xtouch;
         _vm = vm;
         _config = config.Value;
+        _configService = configService;
         _scheduler = new TaskScheduler();
 
         RegisterEncoderFunctions();
@@ -73,7 +79,7 @@ public class VoicemeeterBridge : BackgroundService
     // ─── Encoder-Funktionen registrieren ─────────────────────────────
 
     /// <summary>
-    /// Registriert die Funktionen für jeden Encoder (pro Kanal).
+    /// Registriert die Funktionen für jeden Encoder (pro Kanal) aus der Config.
     /// Durch Drücken des Encoders wird die nächste Funktion in der Liste aktiviert.
     /// Drehen ändert den Wert der aktiven Funktion.
     /// </summary>
@@ -82,25 +88,45 @@ public class VoicemeeterBridge : BackgroundService
         // Encoder 0: bleibt für Ansichtswechsel (keine Funktionen)
         // Encoder 2: bleibt für Shortcut-Modus (keine Funktionen)
 
-        // Encoder 1,3,4,5,6,7: EQ-Funktionen (High/Mid/Low) pro Kanal
-        int[] eqEncoderChannels = { 1, 3, 4, 5, 6, 7 };
-        foreach (int xtCh in eqEncoderChannels)
+        for (int xtCh = 0; xtCh < Math.Min(8, _xtouch.ChannelCount); xtCh++)
         {
-            var encoder = _xtouch.Channels[xtCh].Encoder;
+            // Kanäle 0 und 2 bleiben für Navigation/Shortcuts
+            if (xtCh == 0 || xtCh == 2) continue;
+
             int vmCh = _channelViews[0].Channels[xtCh]; // Home-View Kanal
 
-            encoder.AddFunctions(new[]
+            if (!_config.Mappings.TryGetValue(vmCh, out var mapping))
+                continue;
+
+            if (mapping.EncoderFunctions.Count == 0)
+                continue;
+
+            var encoder = _xtouch.Channels[xtCh].Encoder;
+
+            // Bestehende Funktionen entfernen (für Reload)
+            encoder.ClearFunctions();
+
+            foreach (var fn in mapping.EncoderFunctions)
             {
-                new EncoderFunction("HIGH", $"Strip[{vmCh}].EQGain3", -12, 12, 0.5, "dB"),
-                new EncoderFunction("MID",  $"Strip[{vmCh}].EQGain2", -12, 12, 0.5, "dB"),
-                new EncoderFunction("LOW",  $"Strip[{vmCh}].EQGain1", -12, 12, 0.5, "dB"),
-                new EncoderFunction("PAN",  $"Strip[{vmCh}].Pan_x",   -0.5, 0.5, 0.05, ""),
-                new EncoderFunction("GAIN", $"Strip[{vmCh}].Gain",    -60, 12, 0.5, "dB")
-            });
+                encoder.AddFunction(new EncoderFunction(
+                    fn.Label, fn.Parameter, fn.Min, fn.Max, fn.Step, fn.Unit));
+            }
 
             encoder.RingMode = XTouchEncoderRingMode.Pan;
             encoder.SyncRingToActiveFunction();
         }
+    }
+
+    /// <summary>
+    /// Lädt die Config neu und re-registriert die Encoder-Funktionen.
+    /// Wird aufgerufen wenn die Config im Panel geändert wurde.
+    /// </summary>
+    public void ReloadMappings()
+    {
+        _config = _configService.Load();
+        RegisterEncoderFunctions();
+        _needsFullRefresh = true;
+        _logger.LogInformation("Mappings neu geladen.");
     }
 
     // ─── BackgroundService ──────────────────────────────────────────
@@ -150,6 +176,26 @@ public class VoicemeeterBridge : BackgroundService
         _xtouch.FaderTouched += OnFaderTouched;
     }
 
+    // ─── Helpers: Mapping-Zugriff ────────────────────────────────────
+
+    /// <summary>Gibt das Mapping für einen VM-Kanal zurück (oder null).</summary>
+    private ControlMappingConfig? GetMapping(int vmChannel)
+    {
+        _config.Mappings.TryGetValue(vmChannel, out var mapping);
+        return mapping;
+    }
+
+    /// <summary>Gibt das ButtonMapping für einen VM-Kanal + ButtonType zurück.</summary>
+    private ButtonMappingConfig? GetButtonMapping(int vmChannel, XTouchButtonType buttonType)
+    {
+        var mapping = GetMapping(vmChannel);
+        if (mapping == null) return null;
+
+        string btnKey = buttonType.ToString();
+        mapping.Buttons.TryGetValue(btnKey, out var btnMap);
+        return btnMap;
+    }
+
     // ─── Update Methods ─────────────────────────────────────────────
 
     private void UpdateLevels()
@@ -176,27 +222,36 @@ public class VoicemeeterBridge : BackgroundService
         for (int xtCh = 0; xtCh < MidiDevice_ChannelCount(); xtCh++)
         {
             int vmCh = CurrentChannelMapping[xtCh];
+            var mapping = GetMapping(vmCh);
 
-            // Fader-Position synchronisieren
-            double gain = _vmState.Gains[vmCh];
+            // Fader-Position synchronisieren (aus Mapping oder Fallback)
             if (!_xtouch.Channels[xtCh].Fader.IsTouched)
             {
-                _xtouch.SetFaderDb(xtCh, gain);
+                if (mapping?.Fader != null)
+                {
+                    float gain = _vm.GetParameter(mapping.Fader.Parameter);
+                    _xtouch.SetFaderDb(xtCh, gain);
+                }
+                else
+                {
+                    _xtouch.SetFaderDb(xtCh, _vmState.Gains[vmCh]);
+                }
             }
 
-            // Mute-Button LED
-            _xtouch.SetButtonLed(xtCh, XTouchButtonType.Mute,
-                _vmState.Mutes[vmCh] ? LedState.On : LedState.Off);
-
-            // Solo-Button LED (nur Strips)
-            if (_vm.IsStrip(vmCh))
+            // Button-LEDs synchronisieren (alle 4 Buttons)
+            foreach (XTouchButtonType btnType in Enum.GetValues<XTouchButtonType>())
             {
-                _xtouch.SetButtonLed(xtCh, XTouchButtonType.Solo,
-                    _vmState.Solos[vmCh] ? LedState.On : LedState.Off);
-            }
-            else
-            {
-                _xtouch.SetButtonLed(xtCh, XTouchButtonType.Solo, LedState.Off);
+                var btnMap = GetButtonMapping(vmCh, btnType);
+                if (btnMap != null)
+                {
+                    float val = _vm.GetParameter(btnMap.Parameter);
+                    _xtouch.SetButtonLed(xtCh, btnType,
+                        val > 0.5f ? LedState.On : LedState.Off);
+                }
+                else
+                {
+                    _xtouch.SetButtonLed(xtCh, btnType, LedState.Off);
+                }
             }
         }
 
@@ -234,8 +289,19 @@ public class VoicemeeterBridge : BackgroundService
     private void OnFaderChanged(object? sender, FaderEventArgs e)
     {
         int vmCh = CurrentChannelMapping[e.Channel];
-        double db = Math.Max(e.Db, -60.0); // Clamp wie im Python-Original
-        _vm.SetGain(vmCh, db);
+        var mapping = GetMapping(vmCh);
+
+        if (mapping?.Fader != null)
+        {
+            double db = Math.Clamp(e.Db, mapping.Fader.Min, mapping.Fader.Max);
+            _vm.SetParameter(mapping.Fader.Parameter, (float)db);
+        }
+        else
+        {
+            // Fallback: Standard-Gain
+            double db = Math.Max(e.Db, -60.0);
+            _vm.SetGain(vmCh, db);
+        }
 
         // dB-Wert temporär anzeigen
         string dbText = e.Db <= -60 ? " -inf " : $"{e.Db:F1}dB";
@@ -252,23 +318,14 @@ public class VoicemeeterBridge : BackgroundService
         if (!e.IsPressed) return; // Nur auf Press reagieren
 
         int vmCh = CurrentChannelMapping[e.Channel];
+        var btnMap = GetButtonMapping(vmCh, e.ButtonType);
 
-        switch (e.ButtonType)
+        if (btnMap != null)
         {
-            case XTouchButtonType.Mute:
-                bool currentMute = _vmState.Mutes[vmCh];
-                _vm.SetMute(vmCh, !currentMute);
-                _needsFullRefresh = true;
-                break;
-
-            case XTouchButtonType.Solo:
-                if (_vm.IsStrip(vmCh))
-                {
-                    bool currentSolo = _vmState.Solos[vmCh];
-                    _vm.SetSolo(vmCh, !currentSolo);
-                    _needsFullRefresh = true;
-                }
-                break;
+            // Generisch: Bool-Parameter toggeln
+            float current = _vm.GetParameter(btnMap.Parameter);
+            _vm.SetParameter(btnMap.Parameter, current > 0.5f ? 0f : 1f);
+            _needsFullRefresh = true;
         }
     }
 
@@ -282,6 +339,9 @@ public class VoicemeeterBridge : BackgroundService
             var fn = encoder.ApplyTicks(e.Ticks);
             if (fn != null)
             {
+                // Wert an Voicemeeter senden
+                _vm.SetParameter(fn.VmParameter, (float)fn.CurrentValue);
+
                 // Ring-Position am Gerät aktualisieren
                 _xtouch.SetEncoderRing(e.Channel, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);
 
@@ -383,7 +443,18 @@ public class VoicemeeterBridge : BackgroundService
         {
             // Bei Touch: aktuellen dB-Wert anzeigen
             int vmCh = CurrentChannelMapping[e.Channel];
-            double db = _vmState.Gains[vmCh];
+            var mapping = GetMapping(vmCh);
+
+            double db;
+            if (mapping?.Fader != null)
+            {
+                db = _vm.GetParameter(mapping.Fader.Parameter);
+            }
+            else
+            {
+                db = _vmState.Gains[vmCh];
+            }
+
             string dbText = db <= -60 ? " -inf " : $"{db:F1}dB";
             _xtouch.SetDisplayText(e.Channel, 1, dbText);
         }

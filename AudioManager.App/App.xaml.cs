@@ -49,6 +49,7 @@ public partial class App : Application
                         new LoggerFactory().CreateLogger<ConfigurationService>());
                     var config = configService.Load();
                     services.AddSingleton(Options.Create(config));
+                    services.AddSingleton(config); // Direkte Registrierung für TrayIconService/XTouchPanel
                     services.AddSingleton<IConfigurationService>(configService);
 
                     // Core Services
@@ -60,7 +61,8 @@ public partial class App : Application
 
                     // Background Services
                     services.AddHostedService<AudioDeviceMonitorService>();
-                    services.AddHostedService<VoicemeeterBridge>();
+                    services.AddSingleton<VoicemeeterBridge>();
+                    services.AddHostedService(sp => sp.GetRequiredService<VoicemeeterBridge>());
 
                     // WPF-spezifisch
                     services.AddSingleton<TrayIconService>();
