@@ -58,17 +58,44 @@ public class TrayIconService : IDisposable
         _trayIcon = new TaskbarIcon
         {
             Icon = CreateIcon(),
-            ToolTipText = "AudioManager",
+            ToolTipText = BuildTooltip(),
             ContextMenu = CreateContextMenu()
         };
 
         _trayIcon.TrayMouseDoubleClick += (_, _) => ShowLogWindow();
+
+        // Tooltip automatisch aktualisieren wenn sich der Verbindungsstatus ändert
+        _midiDevice.ConnectionStateChanged += (_, connected) =>
+        {
+            Application.Current?.Dispatcher?.Invoke(() =>
+            {
+                if (_trayIcon != null)
+                    _trayIcon.ToolTipText = BuildTooltip();
+            });
+        };
+
         _logger.LogInformation("Tray-Icon initialisiert.");
+    }
+
+    private string BuildTooltip()
+    {
+        string status = _midiDevice.IsConnected ? "Verbunden" : "Getrennt";
+        return $"AudioManager — X-Touch: {status}";
     }
 
     private System.Windows.Controls.ContextMenu CreateContextMenu()
     {
         var menu = new System.Windows.Controls.ContextMenu();
+
+        // Dynamischer Verbindungsstatus (wird bei jedem Öffnen aktualisiert)
+        var statusItem = new System.Windows.Controls.MenuItem
+        {
+            Header = GetConnectionStatusText(),
+            IsEnabled = false
+        };
+        menu.Items.Add(statusItem);
+
+        menu.Items.Add(new System.Windows.Controls.Separator());
 
         var showLog = new System.Windows.Controls.MenuItem { Header = "Log anzeigen" };
         showLog.Click += (_, _) => ShowLogWindow();
@@ -81,6 +108,12 @@ public class TrayIconService : IDisposable
         var showPanel = new System.Windows.Controls.MenuItem { Header = "X-Touch Panel" };
         showPanel.Click += (_, _) => ShowXTouchPanel();
         menu.Items.Add(showPanel);
+
+        menu.Items.Add(new System.Windows.Controls.Separator());
+
+        // X-Touch Geräteauswahl Untermenü
+        var deviceMenu = new System.Windows.Controls.MenuItem { Header = "X-Touch Gerät" };
+        menu.Items.Add(deviceMenu);
 
         menu.Items.Add(new System.Windows.Controls.Separator());
 
@@ -106,7 +139,69 @@ public class TrayIconService : IDisposable
         };
         menu.Items.Add(exit);
 
+        // Beim Öffnen des Menüs: Status und Geräteliste aktualisieren
+        menu.Opened += (_, _) =>
+        {
+            statusItem.Header = GetConnectionStatusText();
+            RefreshDeviceMenu(deviceMenu);
+        };
+
         return menu;
+    }
+
+    private string GetConnectionStatusText()
+    {
+        return _midiDevice.IsConnected ? "X-Touch: Verbunden" : "X-Touch: Getrennt";
+    }
+
+    private void RefreshDeviceMenu(System.Windows.Controls.MenuItem deviceMenu)
+    {
+        deviceMenu.Items.Clear();
+
+        // "Auto" Option
+        var autoItem = new System.Windows.Controls.MenuItem
+        {
+            Header = "Auto",
+            IsCheckable = true,
+            IsChecked = _midiDevice.SelectedDeviceName == null
+        };
+        autoItem.Click += (_, _) =>
+        {
+            _midiDevice.SelectedDeviceName = null;
+            _logger.LogInformation("X-Touch Gerät: Auto ausgewählt.");
+        };
+        deviceMenu.Items.Add(autoItem);
+
+        // Verfügbare Geräte auflisten
+        var devices = _midiDevice.ListDevices();
+        if (devices.Count == 0)
+        {
+            var noDevice = new System.Windows.Controls.MenuItem
+            {
+                Header = "Kein X-Touch gefunden",
+                IsEnabled = false
+            };
+            deviceMenu.Items.Add(noDevice);
+        }
+        else
+        {
+            foreach (var deviceName in devices)
+            {
+                var devItem = new System.Windows.Controls.MenuItem
+                {
+                    Header = deviceName,
+                    IsCheckable = true,
+                    IsChecked = _midiDevice.SelectedDeviceName == deviceName
+                };
+                var name = deviceName; // Capture für Closure
+                devItem.Click += (_, _) =>
+                {
+                    _midiDevice.SelectedDeviceName = name;
+                    _logger.LogInformation("X-Touch Gerät ausgewählt: {Device}", name);
+                };
+                deviceMenu.Items.Add(devItem);
+            }
+        }
     }
 
     private void ShowLogWindow()

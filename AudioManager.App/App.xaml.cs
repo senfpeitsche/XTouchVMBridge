@@ -76,9 +76,11 @@ public partial class App : Application
             var vm = _host.Services.GetRequiredService<IVoicemeeterService>();
             vm.Connect();
 
-            // X-Touch verbinden
+            // X-Touch verbinden (Reconnect läuft automatisch über AudioDeviceMonitorService)
             var xtouch = _host.Services.GetRequiredService<IMidiDevice>();
             await xtouch.ConnectAsync();
+            if (!xtouch.IsConnected)
+                Log.Warning("X-Touch beim Start nicht gefunden — Reconnect läuft im Hintergrund.");
 
             // Screen Lock Filter initialisieren (registriert sich selbst auf MIDI-Events)
             _host.Services.GetRequiredService<ScreenLockMidiFilter>();

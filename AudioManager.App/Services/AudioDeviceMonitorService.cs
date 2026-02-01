@@ -11,11 +11,13 @@ namespace AudioManager.App.Services;
 ///
 /// Läuft als BackgroundService und prüft alle 5 Sekunden die Geräteanzahl.
 /// Bei Änderung: Benachrichtigung + Voicemeeter Neustart.
+/// Prüft außerdem ob der X-Touch verbunden ist und versucht Reconnect.
 /// </summary>
 public class AudioDeviceMonitorService : BackgroundService
 {
     private readonly ILogger<AudioDeviceMonitorService> _logger;
     private readonly IVoicemeeterService _vm;
+    private readonly IMidiDevice _midiDevice;
     private int _previousDeviceCount;
     private bool _changeDetectedLastCheck;
 
@@ -23,10 +25,12 @@ public class AudioDeviceMonitorService : BackgroundService
 
     public AudioDeviceMonitorService(
         ILogger<AudioDeviceMonitorService> logger,
-        IVoicemeeterService vm)
+        IVoicemeeterService vm,
+        IMidiDevice midiDevice)
     {
         _logger = logger;
         _vm = vm;
+        _midiDevice = midiDevice;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -65,6 +69,20 @@ public class AudioDeviceMonitorService : BackgroundService
                 else
                 {
                     _changeDetectedLastCheck = false;
+                }
+
+                // X-Touch Reconnect: wenn nicht verbunden, versuche erneut zu verbinden
+                if (!_midiDevice.IsConnected)
+                {
+                    _logger.LogDebug("X-Touch nicht verbunden — versuche Reconnect...");
+                    try
+                    {
+                        await _midiDevice.ConnectAsync(stoppingToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "X-Touch Reconnect fehlgeschlagen.");
+                    }
                 }
             }
             catch (Exception ex)

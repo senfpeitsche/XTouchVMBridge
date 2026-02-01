@@ -19,6 +19,9 @@ public interface IMidiDevice : IDisposable
     /// <summary>Zugriff auf die Kanal-Objekte.</summary>
     IReadOnlyList<XTouchChannel> Channels { get; }
 
+    /// <summary>Name des aktuell verbundenen oder gewählten Geräts (null = Auto).</summary>
+    string? SelectedDeviceName { get; set; }
+
     // ─── Events (Input vom Gerät) ───────────────────────────────────
 
     /// <summary>Fader wurde bewegt.</summary>
@@ -70,4 +73,10 @@ public interface IMidiDevice : IDisposable
 
     /// <summary>Verbindung trennen.</summary>
     void Disconnect();
+
+    /// <summary>Listet alle verfügbaren X-Touch MIDI-Geräte auf.</summary>
+    IReadOnlyList<string> ListDevices();
+
+    /// <summary>Wird ausgelöst wenn sich der Verbindungsstatus ändert.</summary>
+    event EventHandler<bool>? ConnectionStateChanged;
 }

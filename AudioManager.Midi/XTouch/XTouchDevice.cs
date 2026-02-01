@@ -27,6 +27,7 @@ public class XTouchDevice : IMidiDevice
     private MidiOut? _midiOut;
     private bool _isConnected;
     private bool _disposed;
+    private string? _selectedDeviceName;
 
     // ─── Events ─────────────────────────────────────────────────────
 
@@ -36,12 +37,22 @@ public class XTouchDevice : IMidiDevice
     public event EventHandler<ButtonEventArgs>? ButtonChanged;
     public event EventHandler<FaderTouchEventArgs>? FaderTouched;
     public event EventHandler<MidiMessageEventArgs>? RawMidiReceived;
+    public event EventHandler<bool>? ConnectionStateChanged;
 
     // ─── Properties ─────────────────────────────────────────────────
 
     public bool IsConnected => _isConnected;
     public int ChannelCount => MackieProtocol.ChannelCount;
     public IReadOnlyList<XTouchChannel> Channels => _channels;
+
+    /// <summary>
+    /// Name des gewählten Geräts. Null = automatische Erkennung (erstes X-Touch Gerät).
+    /// </summary>
+    public string? SelectedDeviceName
+    {
+        get => _selectedDeviceName;
+        set => _selectedDeviceName = value;
+    }
 
     public XTouchDevice(ILogger<XTouchDevice> logger)
     {
@@ -74,14 +85,16 @@ public class XTouchDevice : IMidiDevice
             _isConnected = true;
 
             SendInitialization();
-            _logger.LogInformation("X-Touch Extender verbunden (In: {Input}, Out: {Output}).",
+            _logger.LogInformation("X-Touch verbunden (In: {Input}, Out: {Output}).",
                 MidiIn.DeviceInfo(inputIndex).ProductName,
                 MidiOut.DeviceInfo(outputIndex).ProductName);
+            ConnectionStateChanged?.Invoke(this, true);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Fehler beim Verbinden mit X-Touch Extender.");
+            _logger.LogError(ex, "Fehler beim Verbinden mit X-Touch.");
             _isConnected = false;
+            ConnectionStateChanged?.Invoke(this, false);
         }
 
         return Task.CompletedTask;
@@ -89,6 +102,7 @@ public class XTouchDevice : IMidiDevice
 
     public void Disconnect()
     {
+        bool wasConnected = _isConnected;
         _isConnected = false;
 
         if (_midiIn != null)
@@ -106,7 +120,9 @@ public class XTouchDevice : IMidiDevice
             _midiOut = null;
         }
 
-        _logger.LogInformation("X-Touch Extender getrennt.");
+        _logger.LogInformation("X-Touch getrennt.");
+        if (wasConnected)
+            ConnectionStateChanged?.Invoke(this, false);
     }
 
     // ─── Output: Gerät steuern ──────────────────────────────────────
@@ -354,7 +370,9 @@ public class XTouchDevice : IMidiDevice
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Fehler beim Senden der MIDI-Nachricht.");
+            _logger.LogError(ex, "Fehler beim Senden der MIDI-Nachricht — Gerät möglicherweise getrennt.");
+            _isConnected = false;
+            ConnectionStateChanged?.Invoke(this, false);
         }
     }
 
@@ -368,7 +386,9 @@ public class XTouchDevice : IMidiDevice
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Fehler beim Senden der SysEx-Nachricht.");
+            _logger.LogError(ex, "Fehler beim Senden der SysEx-Nachricht — Gerät möglicherweise getrennt.");
+            _isConnected = false;
+            ConnectionStateChanged?.Invoke(this, false);
         }
     }
 
@@ -386,14 +406,42 @@ public class XTouchDevice : IMidiDevice
 
     // ─── Geräte-Erkennung ───────────────────────────────────────────
 
+    /// <summary>
+    /// Listet alle verfügbaren X-Touch MIDI-Geräte auf.
+    /// Gibt Gerätenamen zurück, die sowohl als Input als auch Output vorhanden sind.
+    /// </summary>
+    public IReadOnlyList<string> ListDevices()
+    {
+        var inputs = new HashSet<string>();
+        var outputs = new HashSet<string>();
+
+        for (int i = 0; i < MidiIn.NumberOfDevices; i++)
+        {
+            var name = MidiIn.DeviceInfo(i).ProductName;
+            if (name.Contains("X-Touch", StringComparison.OrdinalIgnoreCase))
+                inputs.Add(name);
+        }
+
+        for (int i = 0; i < MidiOut.NumberOfDevices; i++)
+        {
+            var name = MidiOut.DeviceInfo(i).ProductName;
+            if (name.Contains("X-Touch", StringComparison.OrdinalIgnoreCase))
+                outputs.Add(name);
+        }
+
+        inputs.IntersectWith(outputs);
+        return inputs.OrderBy(n => n).ToList();
+    }
+
     private (int inputIndex, int outputIndex) FindDevice()
     {
         int inputIndex = -1;
         int outputIndex = -1;
+        string searchTerm = _selectedDeviceName ?? "X-Touch";
 
         for (int i = 0; i < MidiIn.NumberOfDevices; i++)
         {
-            if (MidiIn.DeviceInfo(i).ProductName.Contains("X-Touch-Ext", StringComparison.OrdinalIgnoreCase))
+            if (MidiIn.DeviceInfo(i).ProductName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             {
                 inputIndex = i;
                 break;
@@ -402,7 +450,7 @@ public class XTouchDevice : IMidiDevice
 
         for (int i = 0; i < MidiOut.NumberOfDevices; i++)
         {
-            if (MidiOut.DeviceInfo(i).ProductName.Contains("X-Touch-Ext", StringComparison.OrdinalIgnoreCase))
+            if (MidiOut.DeviceInfo(i).ProductName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             {
                 outputIndex = i;
                 break;
