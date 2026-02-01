@@ -64,6 +64,9 @@ public partial class App : Application
                     services.AddSingleton<VoicemeeterBridge>();
                     services.AddHostedService(sp => sp.GetRequiredService<VoicemeeterBridge>());
 
+                    // Master-Button-Aktionen
+                    services.AddSingleton<MasterButtonActionService>();
+
                     // WPF-spezifisch
                     services.AddSingleton<TrayIconService>();
                 })
@@ -84,6 +87,9 @@ public partial class App : Application
 
             // Screen Lock Filter initialisieren (registriert sich selbst auf MIDI-Events)
             _host.Services.GetRequiredService<ScreenLockMidiFilter>();
+
+            // Master-Button-Aktionen initialisieren (registriert sich auf MasterButtonChanged)
+            _host.Services.GetRequiredService<MasterButtonActionService>();
 
             // Fantom prüfen
             var fantom = _host.Services.GetRequiredService<FantomMidiHandler>();

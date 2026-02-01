@@ -42,6 +42,9 @@ public interface IMidiDevice : IDisposable
     /// <summary>Rohe MIDI-Nachricht empfangen (Direct Hook).</summary>
     event EventHandler<MidiMessageEventArgs>? RawMidiReceived;
 
+    /// <summary>Master-Section-Button wurde gedrückt/losgelassen (Notes 40–95).</summary>
+    event EventHandler<MasterButtonEventArgs>? MasterButtonChanged;
+
     // ─── Ausgabe (an das Gerät senden) ──────────────────────────────
 
     /// <summary>Setzt die Fader-Position eines Kanals.</summary>

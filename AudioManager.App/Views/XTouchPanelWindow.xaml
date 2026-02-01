@@ -469,7 +469,7 @@
                 <Border Grid.Column="2" BorderBrush="#333" BorderThickness="1,0,0,0"
                         Padding="12,0,0,0" MinWidth="320">
                     <StackPanel x:Name="MappingPanel" Visibility="Collapsed">
-                        <TextBlock Text="VM-Parameter Zuweisung" Foreground="#569CD6"
+                        <TextBlock x:Name="MappingPanelHeader" Text="VM-Parameter Zuweisung" Foreground="#569CD6"
                                    FontFamily="Consolas" FontSize="11" FontWeight="Bold" Margin="0,0,0,6"/>
 
                         <!-- Button-Mapping: ComboBox -->
@@ -525,6 +525,71 @@
                                         Background="#3C0F0F" Foreground="#FF6666" FontWeight="Bold"
                                         BorderThickness="0" Cursor="Hand" Click="OnEncoderFunctionRemove"
                                         ToolTip="Ausgewählte Funktion entfernen"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Master-Button-Mapping: Aktionstyp + dynamische Felder -->
+                        <StackPanel x:Name="MasterButtonMappingPanel" Visibility="Collapsed">
+                            <TextBlock Text="Aktionstyp:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                            <ComboBox x:Name="MasterActionTypeCombo"
+                                      SelectionChanged="OnMasterActionTypeChanged"/>
+
+                            <!-- VmParameter -->
+                            <StackPanel x:Name="MasterVmParamPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="VM-Parameter:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox x:Name="MasterVmParamBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                         ToolTip="z.B. Strip[0].Mute, Bus[2].EQ.on"/>
+                            </StackPanel>
+
+                            <!-- LaunchProgram -->
+                            <StackPanel x:Name="MasterLaunchPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="Programmpfad:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="MasterProgramPathBox" Grid.Column="0" Background="#222" Foreground="#DDD"
+                                             FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                             ToolTip="Pfad zum Programm (z.B. notepad.exe)"/>
+                                    <Button Grid.Column="1" Content="..." Width="28" Height="22" Margin="4,0,0,0"
+                                            Background="#2D2D30" Foreground="#DDD" BorderThickness="0" Cursor="Hand"
+                                            Click="OnMasterBrowseProgram" ToolTip="Programm auswählen"/>
+                                </Grid>
+                                <TextBlock Text="Argumente:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <TextBox x:Name="MasterProgramArgsBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                         ToolTip="Optionale Programmargumente"/>
+                            </StackPanel>
+
+                            <!-- SendKeys -->
+                            <StackPanel x:Name="MasterSendKeysPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="Tastenkombination:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox x:Name="MasterKeyCombinationBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                         ToolTip="z.B. Ctrl+Shift+M, Alt+F4, F5"/>
+                            </StackPanel>
+
+                            <!-- SendText -->
+                            <StackPanel x:Name="MasterSendTextPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="Text:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox x:Name="MasterTextBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                         TextWrapping="Wrap" AcceptsReturn="True" Height="50"
+                                         ToolTip="Text der in die Zwischenablage kopiert und eingefügt wird"/>
+                            </StackPanel>
+
+                            <!-- Speichern / Entfernen Buttons -->
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Content="Speichern" Padding="8,3" Cursor="Hand"
+                                        Background="#1E3A1E" Foreground="#6CBF6C" FontFamily="Consolas" FontSize="10"
+                                        BorderThickness="0" Click="OnMasterActionSave"
+                                        ToolTip="Aktion speichern"/>
+                                <Button Content="Entfernen" Padding="8,3" Margin="6,0,0,0" Cursor="Hand"
+                                        Background="#3C0F0F" Foreground="#FF6666" FontFamily="Consolas" FontSize="10"
+                                        BorderThickness="0" Click="OnMasterActionClear"
+                                        ToolTip="Aktion entfernen"/>
                             </StackPanel>
                         </StackPanel>
 

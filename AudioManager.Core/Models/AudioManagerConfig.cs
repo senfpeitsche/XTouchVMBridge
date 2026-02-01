@@ -35,4 +35,10 @@ public class AudioManagerConfig
     /// Zwischen Views wird mit Encoder 0 gewechselt.
     /// </summary>
     public List<ChannelViewConfig> ChannelViews { get; set; } = new();
+
+    /// <summary>
+    /// Aktionen für Master-Section-Buttons (Key = MIDI Note Number 40–95).
+    /// Ermöglicht das Zuweisen von Programm-Start, Tastenkombinationen oder Text-Aktionen.
+    /// </summary>
+    public Dictionary<int, MasterButtonActionConfig> MasterButtonActions { get; set; } = new();
 }

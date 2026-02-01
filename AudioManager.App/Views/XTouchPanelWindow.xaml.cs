@@ -58,8 +58,9 @@ public partial class XTouchPanelWindow : Window
 
     // ─── Mapping-Editor State ────────────────────────────────────────
     private int _selectedVmChannel = -1;
-    private string _selectedControlType = ""; // "Button", "Fader", "Encoder"
+    private string _selectedControlType = ""; // "Button", "Fader", "Encoder", "MasterButton"
     private XTouchButtonType _selectedButtonType;
+    private int _selectedMasterButtonNote = -1;
     private bool _suppressMappingEvents;
 
     public XTouchPanelWindow() : this(null, null, null, null, null) { }
@@ -914,7 +915,10 @@ public partial class XTouchPanelWindow : Window
 
     private void ShowMasterButtonDetail(string section, string name, int noteNumber, string description)
     {
-        MappingPanel.Visibility = Visibility.Collapsed;
+        _selectedMasterButtonNote = noteNumber;
+        _selectedControlType = "MasterButton";
+        _selectedVmChannel = -1;
+
         DetailHeader.Text = $"{section} — {name}";
         DetailText.Text =
             $"{description}\n\n" +
@@ -922,6 +926,8 @@ public partial class XTouchPanelWindow : Window
             $"                Push: vel 127, Release: vel 0\n" +
             $"LED-Feedback:   Note On #{noteNumber} (vel 0=off, 64=blink, 127=on)\n\n" +
             $"Mackie Control: Standardisierte Zuordnung im MCU-Protokoll.";
+
+        ShowMasterButtonMappingPanel(noteNumber);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -956,6 +962,7 @@ public partial class XTouchPanelWindow : Window
         ButtonMappingPanel.Visibility = Visibility.Collapsed;
         FaderMappingPanel.Visibility = Visibility.Collapsed;
         EncoderMappingPanel.Visibility = Visibility.Collapsed;
+        MasterButtonMappingPanel.Visibility = Visibility.Collapsed;
     }
 
     /// <summary>Zeigt das Button-Mapping-Panel für einen Kanal und Button-Typ.</summary>
@@ -1014,6 +1021,7 @@ public partial class XTouchPanelWindow : Window
             }
 
             ButtonMappingPanel.Visibility = Visibility.Visible;
+            MappingPanelHeader.Text = "VM-Parameter Zuweisung";
             MappingPanel.Visibility = Visibility.Visible;
         }
         finally
@@ -1145,6 +1153,151 @@ public partial class XTouchPanelWindow : Window
                 });
             }
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  Master-Button-Mapping-Editor
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>Zeigt das Master-Button-Mapping-Panel für eine MIDI-Note.</summary>
+    private void ShowMasterButtonMappingPanel(int noteNumber)
+    {
+        if (_config == null || _configService == null)
+        {
+            MappingPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _suppressMappingEvents = true;
+        try
+        {
+            HideMappingSubPanels();
+
+            // ActionType-ComboBox befüllen
+            MasterActionTypeCombo.Items.Clear();
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "(keine Aktion)", Tag = MasterButtonActionType.None });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM-Parameter toggeln", Tag = MasterButtonActionType.VmParameter });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "Programm starten", Tag = MasterButtonActionType.LaunchProgram });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "Tastenkombination senden", Tag = MasterButtonActionType.SendKeys });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "Text senden", Tag = MasterButtonActionType.SendText });
+
+            // Aktuelle Config laden
+            MasterButtonActionConfig? actionConfig = null;
+            _config.MasterButtonActions.TryGetValue(noteNumber, out actionConfig);
+
+            var activeType = actionConfig?.ActionType ?? MasterButtonActionType.None;
+
+            // ComboBox auf aktuellen Typ setzen
+            for (int i = 0; i < MasterActionTypeCombo.Items.Count; i++)
+            {
+                if (MasterActionTypeCombo.Items[i] is ComboBoxItem item &&
+                    item.Tag is MasterButtonActionType type && type == activeType)
+                {
+                    MasterActionTypeCombo.SelectedIndex = i;
+                    break;
+                }
+            }
+
+            // Felder befüllen
+            MasterVmParamBox.Text = actionConfig?.VmParameter ?? "";
+            MasterProgramPathBox.Text = actionConfig?.ProgramPath ?? "";
+            MasterProgramArgsBox.Text = actionConfig?.ProgramArgs ?? "";
+            MasterKeyCombinationBox.Text = actionConfig?.KeyCombination ?? "";
+            MasterTextBox.Text = actionConfig?.Text ?? "";
+
+            // Sub-Panel für aktiven Typ anzeigen
+            UpdateMasterActionSubPanels(activeType);
+
+            MasterButtonMappingPanel.Visibility = Visibility.Visible;
+            MappingPanelHeader.Text = "Master-Button Aktion";
+            MappingPanel.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            _suppressMappingEvents = false;
+        }
+    }
+
+    /// <summary>Zeigt/versteckt die Sub-Panels je nach Aktionstyp.</summary>
+    private void UpdateMasterActionSubPanels(MasterButtonActionType type)
+    {
+        MasterVmParamPanel.Visibility = type == MasterButtonActionType.VmParameter ? Visibility.Visible : Visibility.Collapsed;
+        MasterLaunchPanel.Visibility = type == MasterButtonActionType.LaunchProgram ? Visibility.Visible : Visibility.Collapsed;
+        MasterSendKeysPanel.Visibility = type == MasterButtonActionType.SendKeys ? Visibility.Visible : Visibility.Collapsed;
+        MasterSendTextPanel.Visibility = type == MasterButtonActionType.SendText ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Aktionstyp-ComboBox geändert.</summary>
+    private void OnMasterActionTypeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressMappingEvents) return;
+        if (MasterActionTypeCombo.SelectedItem is not ComboBoxItem item) return;
+        if (item.Tag is not MasterButtonActionType type) return;
+
+        UpdateMasterActionSubPanels(type);
+    }
+
+    /// <summary>Programm-Pfad per Datei-Dialog auswählen.</summary>
+    private void OnMasterBrowseProgram(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Programm auswählen",
+            Filter = "Ausführbare Dateien (*.exe)|*.exe|Alle Dateien (*.*)|*.*"
+        };
+        if (dlg.ShowDialog() == true)
+        {
+            MasterProgramPathBox.Text = dlg.FileName;
+        }
+    }
+
+    /// <summary>Master-Button-Aktion speichern.</summary>
+    private void OnMasterActionSave(object sender, RoutedEventArgs e)
+    {
+        if (_config == null || _configService == null || _selectedMasterButtonNote < 0) return;
+
+        var selectedType = MasterButtonActionType.None;
+        if (MasterActionTypeCombo.SelectedItem is ComboBoxItem item && item.Tag is MasterButtonActionType type)
+            selectedType = type;
+
+        if (selectedType == MasterButtonActionType.None)
+        {
+            _config.MasterButtonActions.Remove(_selectedMasterButtonNote);
+        }
+        else
+        {
+            _config.MasterButtonActions[_selectedMasterButtonNote] = new MasterButtonActionConfig
+            {
+                ActionType = selectedType,
+                VmParameter = selectedType == MasterButtonActionType.VmParameter ? MasterVmParamBox.Text.Trim() : null,
+                ProgramPath = selectedType == MasterButtonActionType.LaunchProgram ? MasterProgramPathBox.Text.Trim() : null,
+                ProgramArgs = selectedType == MasterButtonActionType.LaunchProgram ? MasterProgramArgsBox.Text.Trim() : null,
+                KeyCombination = selectedType == MasterButtonActionType.SendKeys ? MasterKeyCombinationBox.Text.Trim() : null,
+                Text = selectedType == MasterButtonActionType.SendText ? MasterTextBox.Text : null
+            };
+        }
+
+        SaveAndReload();
+    }
+
+    /// <summary>Master-Button-Aktion entfernen.</summary>
+    private void OnMasterActionClear(object sender, RoutedEventArgs e)
+    {
+        if (_config == null || _configService == null || _selectedMasterButtonNote < 0) return;
+
+        _config.MasterButtonActions.Remove(_selectedMasterButtonNote);
+
+        _suppressMappingEvents = true;
+        MasterActionTypeCombo.SelectedIndex = 0;
+        MasterVmParamBox.Text = "";
+        MasterProgramPathBox.Text = "";
+        MasterProgramArgsBox.Text = "";
+        MasterKeyCombinationBox.Text = "";
+        MasterTextBox.Text = "";
+        UpdateMasterActionSubPanels(MasterButtonActionType.None);
+        _suppressMappingEvents = false;
+
+        SaveAndReload();
     }
 
     // ═══════════════════════════════════════════════════════════════════

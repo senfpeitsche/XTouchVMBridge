@@ -37,6 +37,7 @@ public class XTouchDevice : IMidiDevice
     public event EventHandler<ButtonEventArgs>? ButtonChanged;
     public event EventHandler<FaderTouchEventArgs>? FaderTouched;
     public event EventHandler<MidiMessageEventArgs>? RawMidiReceived;
+    public event EventHandler<MasterButtonEventArgs>? MasterButtonChanged;
     public event EventHandler<bool>? ConnectionStateChanged;
 
     // ─── Properties ─────────────────────────────────────────────────
@@ -339,6 +340,13 @@ public class XTouchDevice : IMidiDevice
             var timePressed = GetTimePressed(note, isPressed);
 
             ButtonChanged?.Invoke(this, new ButtonEventArgs(ch, buttonType, isPressed, timePressed));
+        }
+        // Master-Section-Buttons (Notes 40–95: F1–F8, Transport, Utility, etc.)
+        else if (note >= 40 && note <= 95)
+        {
+            if (isPressed) _noteTimers[note] = DateTime.UtcNow;
+            var timePressed = GetTimePressed(note, isPressed);
+            MasterButtonChanged?.Invoke(this, new MasterButtonEventArgs(note, isPressed));
         }
     }
 
