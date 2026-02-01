@@ -28,7 +28,11 @@ zu den entsprechenden C#-Implementierungen.
 | `audiomanager.pyw` (Notificator) | Noch nicht portiert (via Toast-Notification-Paket machbar) | — |
 | `islocked.py` | `App/Services/ScreenLockDetector.cs` | App |
 | — (neu) | `Core/Hardware/EncoderFunction.cs` | Core |
+| — (neu) | `Core/Models/MasterButtonActionConfig.cs` | Core |
+| — (neu) | `Core/Events/MasterButtonEventArgs.cs` | Core |
 | — (neu) | `Midi/XTouch/MidiMessageDecoder.cs` | Midi |
+| — (neu) | `App/Services/MasterButtonActionService.cs` | App |
+| — (neu) | `App/Services/SegmentDisplayService.cs` | App |
 | — (neu) | `App/Views/MidiDebugWindow.xaml` + `.xaml.cs` | App |
 | — (neu) | `App/Views/XTouchPanelWindow.xaml` + `.xaml.cs` | App |
 
@@ -147,7 +151,7 @@ Die offizielle Behringer-Dokumentation liegt als PDF im Projekt:
 | **Foot Controller** | CC 4 | value 0..127 | IN |
 | **Foot Switch** | CC 64 (FS1), CC 67 (FS2) | push: 127, release: 0 | IN |
 | **LCDs** | SysEx F0 00 20 32 dd 4C nn cc c1..c14 F7 | dd=DeviceID, nn=LCD#, cc=Farbe, c1..c14=ASCII | OUT |
-| **Segment Display** | SysEx F0 00 20 32 dd 37 s1..s12 d1 d2 F7 | 7-Segment-Daten + Dots | OUT |
+| **Segment Display** | SysEx F0 00 20 32 dd 37 s1..s12 d1 d2 F7 | 7-Segment-Daten + Dots (dd=DeviceID) | OUT |
 
 ### Button Note-Nummern (MC-Mode)
 
@@ -187,6 +191,22 @@ F0 00 20 32 dd 4C nn cc c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c14 F7
 └────────────────────────── Behringer Manufacturer SysEx Header
 ```
 
+### 7-Segment-Display SysEx Aufbau
+
+```
+F0 00 20 32 dd 37 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 d1 d2 F7
+│           │  │  └── s1..s12: 7-Segment-Bitmuster (je 7 Bits: a-g)
+│           │  └───── 37 = Segment Display Command
+│           └──────── Device ID: 14=X-Touch, 15=X-Touch-Ext
+└──────────────────── Behringer Manufacturer SysEx Header
+```
+
+Segment-Bits: `bit 0=a(oben), bit 1=b(rechts oben), bit 2=c(rechts unten), bit 3=d(unten), bit 4=e(links unten), bit 5=f(links oben), bit 6=g(mitte)`.
+
+Dot-Bytes: `d1` = Dots für Display 1-7 (bit 0=Display 1, ..., bit 6=Display 7), `d2` = Dots für Display 8-12.
+
+Im C#-Code: `MackieProtocol.BuildSegmentDisplayMessage()`, `MackieProtocol.TextToSegments()`, `XTouchDevice.SetSegmentDisplay()`.
+
 ### Mackie Control SysEx (intern verwendet)
 
 Parallel zum Behringer-Protokoll nutzt das Projekt auch den Mackie-Kompatibilitätsmodus:
@@ -221,3 +241,8 @@ Folgende Features aus dem Python-Projekt sind noch nicht implementiert:
 | **Encoder-Funktionsliste** | `EncoderControl.cs`, `EncoderFunction.cs` | Encoder schalten per Drücken zyklisch durch konfigurierbare Funktionen (HIGH/MID/LOW/PAN/GAIN). Jede Funktion hat eigenen Wertebereich, Schrittweite und merkt sich den Zustand. |
 | **X-Touch Panel** | `XTouchPanelWindow.xaml(.cs)` | Vollständige interaktive Visualisierung der X-Touch Oberfläche (8 Strips + Main + Master Section mit Jog Wheel, Transport, Function Keys etc.) |
 | **MIDI Debug Monitor** | `MidiDebugWindow.xaml(.cs)`, `MidiMessageDecoder.cs` | Echtzeit-Dekodierung und Anzeige aller MIDI-Nachrichten basierend auf der Behringer-Dokumentation |
+| **X-Touch Geräteauswahl** | `TrayIconService.cs`, `XTouchDevice.cs` | Dynamische Geräteliste im Tray-Menu, Unterstützung für X-Touch und X-Touch Extender |
+| **Auto-Reconnect** | `AudioDeviceMonitorService.cs` | Automatische Wiederverbindung alle 5 Sekunden wenn X-Touch getrennt |
+| **Verbindungsstatus** | `TrayIconService.cs`, `IMidiDevice.cs` | Tooltip + Menü zeigen Verbindungsstatus, `ConnectionStateChanged` Event |
+| **Master-Button-Aktionen** | `MasterButtonActionService.cs`, `MasterButtonActionConfig.cs` | F1-F8 etc. konfigurierbar für Programm-Start, Tastenkombinationen, Text, VM-Parameter-Toggle. Editor im X-Touch Panel integriert. |
+| **7-Segment-Display** | `SegmentDisplayService.cs`, `MackieProtocol.cs` | Timecode-Anzeige zeigt Uhrzeit/Datum/Speicher. SMPTE-Button cycled Modi. Vollständiger 7-Segment-Font, Behringer SysEx-Protokoll. |

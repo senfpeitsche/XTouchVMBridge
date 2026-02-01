@@ -51,7 +51,8 @@ AudioManagerCSharp/
 │   └── Services/                      # VoicemeeterService, VoicemeeterBridge, Config
 │
 ├── AudioManager.App/                  # WPF-Anwendung (Entry Point)
-│   ├── Services/                      # TrayIcon, AudioDeviceMonitor, ScreenLock
+│   ├── Services/                      # TrayIcon, AudioDeviceMonitor, ScreenLock,
+│   │                                  # MasterButtonActionService, SegmentDisplayService
 │   └── Views/                         # LogWindow, MidiDebugWindow, XTouchPanelWindow
 │
 └── AudioManager.Tests/                # xUnit Tests
@@ -69,10 +70,16 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
   "voicemeeterApiType": "potato",
   "enableXTouch": true,
   "enableFantom": true,
+  "segmentDisplayCycleButton": 113,
   "channels": {
     "0": { "name": "WaveMIC", "type": "Hardware Input 1", "color": "green" },
     "1": { "name": "RiftMIC", "type": "Hardware Input 2", "color": "green" },
     ...
+  },
+  "masterButtonActions": {
+    "54": { "actionType": "LaunchProgram", "programPath": "notepad.exe" },
+    "55": { "actionType": "SendKeys", "keyCombination": "Ctrl+Shift+M" },
+    "56": { "actionType": "SendText", "text": "Hallo Welt" }
   }
 }
 ```
@@ -105,6 +112,16 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 - **X-Touch Panel**: Interaktive visuelle Darstellung der X-Touch Oberfläche (Tray-Menu).
   Zeigt alle Controls in Echtzeit, Klick auf ein Control zeigt MIDI-Details und zugeordnete Funktion.
 - **Log-Fenster**: Rolling-Log mit Level-Filter (Tray-Menu / Doppelklick)
+- **X-Touch Geräteauswahl**: Unterstützung für X-Touch und X-Touch Extender, wählbar im Tray-Menu
+- **Auto-Reconnect**: Automatische Wiederverbindung bei Gerätetrennung (alle 5 Sekunden)
+- **Verbindungsstatus**: Anzeige im Tray-Tooltip und Kontextmenü ("X-Touch: Verbunden/Getrennt")
+- **Master-Button-Aktionen**: F1-F8 und andere Master-Buttons können konfiguriert werden für:
+  - Windows-Programme starten (mit Argumenten)
+  - Tastenkombinationen senden (z.B. Ctrl+Shift+M, Alt+F4)
+  - Text senden (via Zwischenablage + Ctrl+V)
+  - Voicemeeter-Parameter toggeln
+- **7-Segment-Display**: Timecode-Anzeige zeigt Uhrzeit, Datum oder Speicherverbrauch.
+  SMPTE-Button (Note 113) schaltet zwischen Modi um.
 
 ## MIDI Debug Monitor
 
@@ -147,3 +164,54 @@ Standardmäßig sind für Encoder 2, 4-8 folgende Funktionen registriert:
 - **Encoder-Ring**: Position zeigt den aktuellen Wert relativ zum Bereich (0-15 LEDs)
 
 Encoder 1 bleibt für Ansichtswechsel, Encoder 3 für Shortcut-Modus.
+
+## Master-Button-Aktionen
+
+Die Master-Section-Buttons (F1-F8, Transport, Utility, etc.) können im X-Touch Panel mit
+benutzerdefinierten Aktionen belegt werden. Klick auf einen Master-Button im Panel zeigt den
+Mapping-Editor mit folgenden Aktionstypen:
+
+| Aktionstyp | Beschreibung | Konfigurationsfelder |
+|---|---|---|
+| **VM-Parameter toggeln** | Bool-Parameter in Voicemeeter umschalten | VM-Parameter (z.B. `Strip[0].Mute`) |
+| **Programm starten** | Windows-Programm ausführen | Programmpfad + optionale Argumente |
+| **Tastenkombination** | Keyboard-Shortcut simulieren | Kombination (z.B. `Ctrl+Shift+M`, `Alt+F4`, `F5`) |
+| **Text senden** | Text via Zwischenablage einfügen | Beliebiger Text |
+
+Unterstützte Modifier: `Ctrl`, `Alt`, `Shift`, `Win`. Unterstützte Sondertasten: `F1`-`F24`,
+`Enter`, `Escape`, `Tab`, `Space`, `Delete`, `Home`, `End`, `PageUp`, `PageDown`, Pfeiltasten,
+`VolumeUp`, `VolumeDown`, `Mute`, `MediaPlay`, `MediaNext`, `MediaPrev`, `MediaStop`, etc.
+
+In der `config.json` unter `masterButtonActions` (Key = MIDI Note-Nummer):
+
+```json
+"masterButtonActions": {
+  "54": { "actionType": "LaunchProgram", "programPath": "C:\\Windows\\notepad.exe", "programArgs": "" },
+  "55": { "actionType": "SendKeys", "keyCombination": "Ctrl+Shift+M" },
+  "56": { "actionType": "SendText", "text": "Hallo Welt" },
+  "57": { "actionType": "VmParameter", "vmParameter": "Strip[0].Mute" }
+}
+```
+
+Note-Nummern für Function-Buttons: F1=54, F2=55, ..., F8=61.
+
+## 7-Segment-Display (Timecode-Anzeige)
+
+Das 12-stellige 7-Segment-Display auf dem X-Touch zeigt standardmäßig die **Uhrzeit** an.
+Per SMPTE-Button (Note 113) kann zwischen folgenden Modi gewechselt werden:
+
+| Modus | Anzeige | Update-Intervall |
+|---|---|---|
+| **Time** (Standard) | `HH.MM.SS` | 500ms |
+| **Date** | `dd.MM.YYYY` | 10s |
+| **Memory** | Speicherverbrauch in MB | 2s |
+| **Off** | Display leer | - |
+
+Der Cycle-Button kann in der Config angepasst werden:
+
+```json
+"segmentDisplayCycleButton": 113
+```
+
+`0` = Cycle-Funktion deaktiviert. Das Display kommuniziert über Behringer-eigene SysEx-Nachrichten
+(`F0 00 20 32 dd 37 ...`) mit automatischer Device-ID-Erkennung (X-Touch=0x14, Ext=0x15).

@@ -716,6 +716,10 @@ public partial class XTouchPanelWindow : Window
         {
             ViewSwitchButton.Content = $"⚙ {_bridge.CurrentViewName}";
         }
+
+        // 7-Segment-Display: Uhrzeit anzeigen
+        var now = DateTime.Now;
+        SegmentDisplay.Text = now.ToString("HH : mm : ss");
     }
 
     private void UpdateButtonVisual(Button btn, LedState state)

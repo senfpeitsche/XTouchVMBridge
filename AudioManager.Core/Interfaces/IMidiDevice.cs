@@ -71,6 +71,9 @@ public interface IMidiDevice : IDisposable
     /// <summary>Setzt alle Display-Farben auf einmal (effizienter).</summary>
     void SetAllDisplayColors(XTouchColor[] colors);
 
+    /// <summary>Setzt das 7-Segment-Display (Timecode-Anzeige) als Text.</summary>
+    void SetSegmentDisplay(string text);
+
     /// <summary>Verbindung zum Gerät herstellen.</summary>
     Task ConnectAsync(CancellationToken cancellationToken = default);
 

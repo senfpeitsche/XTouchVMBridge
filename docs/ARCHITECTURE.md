@@ -7,7 +7,9 @@
                     │         AudioManager.App (WPF)              │
                     │   TrayIcon, LogWindow, MidiDebugWindow,     │
                     │   XTouchPanelWindow                         │
-                    │   AudioDeviceMonitor, ScreenLockDetector     │
+                    │   AudioDeviceMonitor, ScreenLockDetector,    │
+                    │   MasterButtonActionService,                 │
+                    │   SegmentDisplayService                      │
                     └──────────────┬──────────────────────────────┘
                                    │ DI (Microsoft.Extensions.Hosting)
                     ┌──────────────┼──────────────────────┐
@@ -45,8 +47,10 @@ services.AddSingleton<IMidiDevice, XTouchDevice>();    // Core-Interface → Mid
 services.AddSingleton<IVoicemeeterService, VoicemeeterService>();
 services.AddSingleton<IScreenLockDetector, ScreenLockDetector>();
 services.AddSingleton<FantomMidiHandler>();
-services.AddHostedService<AudioDeviceMonitorService>(); // läuft als Hintergrund-Thread
+services.AddHostedService<AudioDeviceMonitorService>(); // Hintergrund-Thread + X-Touch Reconnect
 services.AddHostedService<VoicemeeterBridge>();          // 100ms Polling-Loop
+services.AddSingleton<MasterButtonActionService>();      // Master-Button → Programm/Keys/Text
+services.AddHostedService<SegmentDisplayService>();      // 7-Segment-Display (Uhrzeit etc.)
 services.AddSingleton<TrayIconService>();
 ```
 
@@ -297,6 +301,96 @@ Die Ansicht wird automatisch per Encoder 1 erreichbar.
 
 ---
 
+## Master-Button-Aktionen
+
+Master-Section-Buttons (Notes 40+) feuern das `MasterButtonChanged`-Event. Der `MasterButtonActionService`
+reagiert auf konfigurierte Buttons und führt die zugehörige Aktion aus.
+
+### Neuen Aktionstyp hinzufügen
+
+1. **Enum erweitern** in `Core/Models/MasterButtonActionConfig.cs`:
+```csharp
+public enum MasterButtonActionType
+{
+    None, VmParameter, LaunchProgram, SendKeys, SendText,
+    HttpRequest  // NEU
+}
+```
+
+2. **Config-Felder ergänzen** in `MasterButtonActionConfig`:
+```csharp
+public string? HttpUrl { get; set; }
+public string? HttpMethod { get; set; }
+```
+
+3. **Execute-Methode** in `MasterButtonActionService.cs` hinzufügen:
+```csharp
+private async Task ExecuteHttpRequest(MasterButtonActionConfig config) { ... }
+```
+
+4. **Im Switch-Case** aufrufen:
+```csharp
+case MasterButtonActionType.HttpRequest:
+    ExecuteHttpRequest(actionConfig);
+    break;
+```
+
+5. **Editor** in `XTouchPanelWindow.xaml` ein neues Sub-Panel einfügen
+   und in `.xaml.cs` die `UpdateMasterActionSubPanels`-Methode erweitern.
+
+### Note-Nummern (Master Section)
+
+| Sektion | Notes | Beispiele |
+|---|---|---|
+| Encoder Assign | 40-45 | TRACK=40, SEND=41, PAN=42, PLUG-IN=43, EQ=44, INST=45 |
+| NAME/VALUE | 52-53 | NAME=52, VALUE=53 |
+| Function Keys | 54-61 | F1=54, F2=55, ..., F8=61 |
+| Global View | 62-69 | MIDI=62, INPUTS=63, AUDIO=64, ... |
+| Transport | 91-95 | REW=91, FF=92, STOP=93, PLAY=94, REC=95 |
+| SMPTE/BEATS | 113-114 | SMPTE=113, BEATS=114 |
+
+---
+
+## 7-Segment-Display (SegmentDisplayService)
+
+Der `SegmentDisplayService` ist ein `BackgroundService` der das 12-stellige 7-Segment-Display ansteuert.
+
+### Neuen Anzeige-Modus hinzufügen
+
+1. **Enum erweitern** in `SegmentDisplayService.cs`:
+```csharp
+public enum SegmentDisplayMode
+{
+    Time, Date, CpuUsage, Off,
+    IpAddress  // NEU
+}
+```
+
+2. **Format-Methode** hinzufügen:
+```csharp
+private static string FormatIpAddress()
+{
+    // Max 12 Zeichen, Punkte werden als Dots gerendert
+    return "192.168.1.42";
+}
+```
+
+3. **Im Switch-Case** aufrufen:
+```csharp
+SegmentDisplayMode.IpAddress => FormatIpAddress(),
+```
+
+Der Modus wird automatisch per Cycle-Button erreichbar.
+
+### 7-Segment-Font
+
+Der Font in `MackieProtocol.SegmentFont` mappt Zeichen auf Segment-Bitmuster.
+Unterstützt: 0-9, A-F, H, J, L, P, S, U, Y, n, o, r, t, h, b, c, d, u, -, _, Leerzeichen, °.
+
+Punkte (`.`) und Doppelpunkte (`:`) in Strings werden automatisch als Dot auf dem vorherigen Digit gesetzt.
+
+---
+
 ## Neue MIDI-Nachricht im Debug Monitor
 
 Der `MidiMessageDecoder` dekodiert alle Nachrichten. Um einen neuen Typ hinzuzufügen:
@@ -313,8 +407,8 @@ Der `MidiMessageDecoder` dekodiert alle Nachrichten. Um einen neuen Typ hinzuzuf
 | Pattern | Wo | Zweck |
 |---|---|---|
 | **Dependency Injection** | `App.xaml.cs` | Alle Services austauschbar, testbar |
-| **BackgroundService** | `VoicemeeterBridge`, `AudioDeviceMonitorService` | Managed Threading mit CancellationToken |
-| **Observer (Events)** | `IMidiDevice` Events | Entkopplung MIDI-Input → Business-Logic |
+| **BackgroundService** | `VoicemeeterBridge`, `AudioDeviceMonitorService`, `SegmentDisplayService` | Managed Threading mit CancellationToken |
+| **Observer (Events)** | `IMidiDevice` Events, `MasterButtonChanged`, `ConnectionStateChanged` | Entkopplung MIDI-Input → Business-Logic |
 | **Strategy** | `ChannelView`, `ShortcutMode`, `EncoderFunction` | Umschaltbare Kanal-Zuordnungen / Encoder-Funktionen |
 | **State Cycling** | `EncoderControl.CycleFunction()` | Zyklisches Durchschalten von Encoder-Funktionen |
 | **Factory** | `XTouchChannel` Constructor | Automatische Button-Erzeugung per Enum |
@@ -342,6 +436,7 @@ Dort dokumentiert:
 |---|---|---|
 | NAudio 2.2.1 | Midi, App | MIDI I/O, Audio-Device-Enumeration |
 | Hardcodet.NotifyIcon.Wpf 1.1.0 | App | System-Tray-Icon |
+| InputSimulatorCore 1.0.5 | App | Keyboard-Simulation (SendKeys, SendText) |
 | Microsoft.Extensions.Hosting 8.0.1 | App | DI, BackgroundService, Logging |
 | Serilog + Sinks | App | Strukturiertes Logging in Datei + Console |
 | Microsoft.Extensions.Logging.Abstractions | Midi, Voicemeeter | ILogger<T> Interface |

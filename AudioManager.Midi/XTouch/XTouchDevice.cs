@@ -227,6 +227,26 @@ public class XTouchDevice : IMidiDevice
         SendSysEx(MackieProtocol.BuildDisplayColorMessage(raw));
     }
 
+    public void SetSegmentDisplay(string text)
+    {
+        var (segments, dots1, dots2) = MackieProtocol.TextToSegments(text);
+        byte deviceId = GetBehringerDeviceId();
+        SendSysEx(MackieProtocol.BuildSegmentDisplayMessage(segments, dots1, dots2, deviceId));
+    }
+
+    /// <summary>
+    /// Ermittelt die Behringer Device-ID anhand des verbundenen Gerätenamens.
+    /// X-Touch = 0x14, X-Touch Extender = 0x15.
+    /// </summary>
+    private byte GetBehringerDeviceId()
+    {
+        var name = _selectedDeviceName ?? "";
+        // "X-Touch-Ext" → Extender, alles andere → X-Touch
+        if (name.Contains("Ext", StringComparison.OrdinalIgnoreCase))
+            return MackieProtocol.DeviceIdXTouchExt;
+        return MackieProtocol.DeviceIdXTouch;
+    }
+
     // ─── MIDI Input Callback ────────────────────────────────────────
 
     private void OnMidiMessageReceived(object? sender, MidiInMessageEventArgs e)
@@ -341,8 +361,8 @@ public class XTouchDevice : IMidiDevice
 
             ButtonChanged?.Invoke(this, new ButtonEventArgs(ch, buttonType, isPressed, timePressed));
         }
-        // Master-Section-Buttons (Notes 40–95: F1–F8, Transport, Utility, etc.)
-        else if (note >= 40 && note <= 95)
+        // Master-Section-Buttons (alle nicht-kanalspezifischen Notes: 40+, außer Encoder-Press 32–39 und Fader-Touch 104–111)
+        else if (note >= 40)
         {
             if (isPressed) _noteTimers[note] = DateTime.UtcNow;
             var timePressed = GetTimePressed(note, isPressed);

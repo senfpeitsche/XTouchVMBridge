@@ -37,8 +37,14 @@ public class AudioManagerConfig
     public List<ChannelViewConfig> ChannelViews { get; set; } = new();
 
     /// <summary>
-    /// Aktionen für Master-Section-Buttons (Key = MIDI Note Number 40–95).
+    /// Aktionen für Master-Section-Buttons (Key = MIDI Note Number).
     /// Ermöglicht das Zuweisen von Programm-Start, Tastenkombinationen oder Text-Aktionen.
     /// </summary>
     public Dictionary<int, MasterButtonActionConfig> MasterButtonActions { get; set; } = new();
+
+    /// <summary>
+    /// MIDI Note-Nummer des Buttons zum Durchschalten der Segment-Display-Modi.
+    /// Default: 113 (SMPTE-Button). 0 = deaktiviert.
+    /// </summary>
+    public int SegmentDisplayCycleButton { get; set; } = 113;
 }

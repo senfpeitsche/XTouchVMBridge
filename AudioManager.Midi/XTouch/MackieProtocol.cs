@@ -81,6 +81,109 @@ public static class MackieProtocol
     /// <summary>Offset für die zweite Zeile im Display-Buffer.</summary>
     public const int SecondRowOffset = 56;
 
+    // ─── Segment Display ──────────────────────────────────────────────
+
+    /// <summary>Behringer SysEx-Prefix für Segment Display (ohne Device-ID).</summary>
+    public static readonly byte[] BehringerSysExBase = { 0xF0, 0x00, 0x20, 0x32 };
+
+    /// <summary>Device-ID für X-Touch (nicht Extender).</summary>
+    public const byte DeviceIdXTouch = 0x14;
+
+    /// <summary>Device-ID für X-Touch Extender.</summary>
+    public const byte DeviceIdXTouchExt = 0x15;
+
+    /// <summary>SysEx-Kommando für Segment-Display.</summary>
+    public const byte CmdSegmentDisplay = 0x37;
+
+    /// <summary>Anzahl der 7-Segment-Digits.</summary>
+    public const int SegmentDigitCount = 12;
+
+    /// <summary>
+    /// 7-Segment-Font: Mappt Zeichen auf Segment-Bitmuster.
+    /// Bit 0=a(oben), 1=b(rechts oben), 2=c(rechts unten), 3=d(unten),
+    /// 4=e(links unten), 5=f(links oben), 6=g(mitte).
+    /// </summary>
+    public static readonly Dictionary<char, byte> SegmentFont = new()
+    {
+        ['0'] = 0x3F, ['1'] = 0x06, ['2'] = 0x5B, ['3'] = 0x4F,
+        ['4'] = 0x66, ['5'] = 0x6D, ['6'] = 0x7D, ['7'] = 0x07,
+        ['8'] = 0x7F, ['9'] = 0x6F,
+        ['A'] = 0x77, ['b'] = 0x7C, ['C'] = 0x39, ['c'] = 0x58,
+        ['d'] = 0x5E, ['E'] = 0x79, ['F'] = 0x71,
+        ['H'] = 0x76, ['h'] = 0x74, ['I'] = 0x06, ['J'] = 0x1E,
+        ['L'] = 0x38, ['n'] = 0x54, ['o'] = 0x5C, ['P'] = 0x73,
+        ['r'] = 0x50, ['S'] = 0x6D, ['t'] = 0x78, ['U'] = 0x3E,
+        ['u'] = 0x1C, ['Y'] = 0x6E, ['-'] = 0x40, ['_'] = 0x08,
+        [' '] = 0x00, ['°'] = 0x63,
+    };
+
+    /// <summary>
+    /// Baut eine SysEx-Nachricht für das 7-Segment-Display.
+    /// </summary>
+    /// <param name="segments">12 Segment-Bytes (links nach rechts).</param>
+    /// <param name="dots1">Dot-Bits für Display 1–7.</param>
+    /// <param name="dots2">Dot-Bits für Display 8–12.</param>
+    /// <param name="deviceId">Device-ID (0x14=X-Touch, 0x15=Ext).</param>
+    public static byte[] BuildSegmentDisplayMessage(byte[] segments, byte dots1, byte dots2, byte deviceId = DeviceIdXTouchExt)
+    {
+        if (segments.Length != SegmentDigitCount)
+            throw new ArgumentException($"Genau {SegmentDigitCount} Segment-Bytes erwartet.", nameof(segments));
+
+        // F0 00 20 32 dd 37 s1..s12 d1 d2 F7  => 4 + 1 + 1 + 12 + 2 + 1 = 21
+        var data = new byte[21];
+        BehringerSysExBase.CopyTo(data, 0);
+        data[4] = deviceId;
+        data[5] = CmdSegmentDisplay;
+
+        for (int i = 0; i < SegmentDigitCount; i++)
+            data[6 + i] = segments[i];
+
+        data[18] = dots1;
+        data[19] = dots2;
+        data[20] = SysExEnd;
+        return data;
+    }
+
+    /// <summary>
+    /// Konvertiert einen String in 7-Segment-Bytes + Dot-Bytes.
+    /// Punkte im String werden als Dot auf dem vorherigen Digit gesetzt.
+    /// </summary>
+    public static (byte[] segments, byte dots1, byte dots2) TextToSegments(string text)
+    {
+        var segments = new byte[SegmentDigitCount];
+        byte dots1 = 0, dots2 = 0;
+        int digitIdx = 0;
+
+        for (int i = 0; i < text.Length && digitIdx < SegmentDigitCount; i++)
+        {
+            char c = text[i];
+
+            // Punkt/Doppelpunkt als Dot auf vorheriges Digit
+            if ((c == '.' || c == ':') && digitIdx > 0)
+            {
+                int dotDigit = digitIdx; // 1-basiert (Display 1 = digitIdx 1)
+                if (dotDigit <= 7)
+                    dots1 |= (byte)(1 << (dotDigit - 1));
+                else if (dotDigit <= 12)
+                    dots2 |= (byte)(1 << (dotDigit - 8));
+                continue;
+            }
+
+            // Zeichen in Segment-Font nachschlagen
+            char upper = char.ToUpperInvariant(c);
+            if (SegmentFont.TryGetValue(c, out byte seg))
+                segments[digitIdx] = seg;
+            else if (SegmentFont.TryGetValue(upper, out byte segU))
+                segments[digitIdx] = segU;
+            else
+                segments[digitIdx] = 0x00; // Leer bei unbekannten Zeichen
+
+            digitIdx++;
+        }
+
+        return (segments, dots1, dots2);
+    }
+
     // ─── Level Meter ────────────────────────────────────────────────
 
     /// <summary>Maximaler Level-Meter-Wert.</summary>

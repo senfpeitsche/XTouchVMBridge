@@ -67,6 +67,9 @@ public partial class App : Application
                     // Master-Button-Aktionen
                     services.AddSingleton<MasterButtonActionService>();
 
+                    // Segment-Display (7-Segment Timecode-Anzeige)
+                    services.AddHostedService<SegmentDisplayService>();
+
                     // WPF-spezifisch
                     services.AddSingleton<TrayIconService>();
                 })
