@@ -186,6 +186,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="60"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="110"/>
                         </Grid.ColumnDefinitions>
                         <!-- Rows werden dynamisch erzeugt -->
                     </Grid>

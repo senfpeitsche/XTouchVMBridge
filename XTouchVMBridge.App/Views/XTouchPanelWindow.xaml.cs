@@ -232,22 +232,33 @@ public partial class XTouchPanelWindow : Window
         faderPanel.Children.Add(meter);
         _levelMeters[ch] = meter;
 
-        // Fader (rechts)
+        // Fader (rechts) — Slider ist disabled, daher transparentes Overlay für Maus-Events
         var faderContainer = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+        var faderHost = new Grid { Width = 32, Height = 150 };
         var fader = new Slider
         {
             Orientation = Orientation.Vertical,
             Height = 150, Width = 32,
             Minimum = -8192, Maximum = 8188, Value = 0,
             IsEnabled = false,
+            IsHitTestVisible = false
+        };
+        fader.ValueChanged += (_, e) => OnFaderValueChanged(ch, e.NewValue);
+        faderHost.Children.Add(fader);
+
+        // Transparentes Overlay fängt Maus-Events ab (auch wenn Slider disabled ist)
+        var faderOverlay = new System.Windows.Controls.Border
+        {
+            Background = Brushes.Transparent,
             Cursor = System.Windows.Input.Cursors.Hand
         };
-        fader.PreviewMouseLeftButtonDown += (_, e) => OnFaderMouseDown(ch, e);
-        fader.PreviewMouseLeftButtonUp += (_, _) => OnFaderMouseUp(ch);
-        fader.PreviewMouseMove += (_, e) => OnFaderMouseMove(ch, e);
-        fader.LostMouseCapture += (_, _) => OnFaderMouseUp(ch);
-        fader.ValueChanged += (_, e) => OnFaderValueChanged(ch, e.NewValue);
-        faderContainer.Children.Add(fader);
+        faderOverlay.MouseLeftButtonDown += (_, e) => OnFaderMouseDown(ch, e);
+        faderOverlay.MouseLeftButtonUp += (_, _) => OnFaderMouseUp(ch);
+        faderOverlay.MouseMove += (_, e) => OnFaderMouseMove(ch, e);
+        faderOverlay.LostMouseCapture += (_, _) => OnFaderMouseUp(ch);
+        faderHost.Children.Add(faderOverlay);
+
+        faderContainer.Children.Add(faderHost);
 
         var dbLabel = new TextBlock
         {
@@ -625,7 +636,10 @@ public partial class XTouchPanelWindow : Window
             // Mausposition → Slider-Wert setzen
             SetFaderFromMousePosition(slider, ch, e.GetPosition(slider));
 
-            slider.CaptureMouse();
+            // Overlay (= sender) für Mouse-Capture verwenden, nicht den disabled Slider
+            if (e.Source is UIElement overlay)
+                overlay.CaptureMouse();
+
             e.Handled = true;
             return;
         }
@@ -656,7 +670,11 @@ public partial class XTouchPanelWindow : Window
     {
         if (_draggingFaderChannel != ch) return;
         _draggingFaderChannel = -1;
-        _faderSliders[ch].ReleaseMouseCapture();
+
+        // Overlay-Capture freigeben (das Overlay ist Parent des Sliders im selben Grid)
+        var slider = _faderSliders[ch];
+        if (slider.Parent is Grid faderHost && faderHost.Children.Count > 1 && faderHost.Children[1] is UIElement overlay)
+            overlay.ReleaseMouseCapture();
     }
 
     /// <summary>

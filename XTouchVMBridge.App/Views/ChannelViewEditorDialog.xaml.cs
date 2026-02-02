@@ -1,11 +1,18 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shapes;
+using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Interfaces;
 using XTouchVMBridge.Core.Models;
 using XTouchVMBridge.Voicemeeter.Services;
+using Color = System.Windows.Media.Color;
 using ComboBox = System.Windows.Controls.ComboBox;
 using ComboBoxItem = System.Windows.Controls.ComboBoxItem;
+using FontFamily = System.Windows.Media.FontFamily;
 using MessageBox = System.Windows.MessageBox;
+using Orientation = System.Windows.Controls.Orientation;
+using Rectangle = System.Windows.Shapes.Rectangle;
 
 namespace XTouchVMBridge.App.Views;
 
@@ -23,6 +30,7 @@ public partial class ChannelViewEditorDialog : Window
 
     private bool _suppressEvents;
     private readonly ComboBox[] _channelCombos = new ComboBox[8];
+    private readonly ComboBox[] _colorCombos = new ComboBox[8];
 
     /// <summary>Wird true wenn der User gespeichert hat.</summary>
     public bool WasSaved { get; private set; }
@@ -60,9 +68,8 @@ public partial class ChannelViewEditorDialog : Window
             var label = new TextBlock
             {
                 Text = $"Strip {i + 1}:",
-                Foreground = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(0x99, 0x99, 0x99)),
-                FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)),
+                FontFamily = new FontFamily("Consolas"),
                 FontSize = 11,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(4, 2, 4, 2)
@@ -78,11 +85,63 @@ public partial class ChannelViewEditorDialog : Window
             Grid.SetColumn(combo, 1);
             ChannelGrid.Children.Add(combo);
 
+            var colorCombo = new ComboBox { Width = 100, Tag = i };
+            PopulateColorCombo(colorCombo);
+            colorCombo.SelectionChanged += OnColorComboChanged;
+            Grid.SetRow(colorCombo, i);
+            Grid.SetColumn(colorCombo, 2);
+            ChannelGrid.Children.Add(colorCombo);
+
             _channelCombos[i] = combo;
+            _colorCombos[i] = colorCombo;
         }
 
         // Main Fader Combo
         PopulateChannelCombo(MainFaderCombo, includeNone: true);
+    }
+
+    /// <summary>
+    /// Befüllt eine ComboBox mit allen verfügbaren X-Touch-Display-Farben.
+    /// Jeder Eintrag zeigt ein farbiges Rechteck + Farbnamen.
+    /// </summary>
+    private static void PopulateColorCombo(ComboBox combo)
+    {
+        combo.Items.Clear();
+
+        // "(Standard)" = globale Farbe verwenden
+        combo.Items.Add(new ComboBoxItem { Content = "(Standard)", Tag = (XTouchColor?)null });
+
+        var colors = new (XTouchColor Color, string Name, Color Wpf)[]
+        {
+            (XTouchColor.Red,     "Rot",     Color.FromRgb(220, 40, 40)),
+            (XTouchColor.Green,   "Grün",    Color.FromRgb(40, 200, 40)),
+            (XTouchColor.Yellow,  "Gelb",    Color.FromRgb(220, 200, 30)),
+            (XTouchColor.Blue,    "Blau",    Color.FromRgb(40, 100, 255)),
+            (XTouchColor.Magenta, "Magenta", Color.FromRgb(220, 40, 220)),
+            (XTouchColor.Cyan,    "Cyan",    Color.FromRgb(40, 220, 220)),
+            (XTouchColor.White,   "Weiß",    Color.FromRgb(200, 200, 200)),
+        };
+
+        foreach (var (color, name, wpf) in colors)
+        {
+            var panel = new StackPanel { Orientation = Orientation.Horizontal };
+            panel.Children.Add(new Rectangle
+            {
+                Width = 12, Height = 12,
+                Fill = new SolidColorBrush(wpf),
+                Margin = new Thickness(0, 0, 6, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            panel.Children.Add(new TextBlock
+            {
+                Text = name,
+                Foreground = new SolidColorBrush(Color.FromRgb(0xDD, 0xDD, 0xDD)),
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            combo.Items.Add(new ComboBoxItem { Content = panel, Tag = (XTouchColor?)color });
+        }
     }
 
     /// <summary>
@@ -176,11 +235,14 @@ public partial class ChannelViewEditorDialog : Window
 
         ViewNameBox.Text = view.Name;
 
-        // 8 Channel Combos setzen
+        // 8 Channel Combos + Farb-Combos setzen
         for (int i = 0; i < 8; i++)
         {
             int vmCh = i < view.Channels.Length ? view.Channels[i] : i;
             SelectComboByTag(_channelCombos[i], vmCh);
+
+            var viewColor = view.GetChannelColor(i);
+            SelectColorCombo(_colorCombos[i], viewColor);
         }
 
         // Main Fader
@@ -236,6 +298,44 @@ public partial class ChannelViewEditorDialog : Window
         }
     }
 
+    private void OnColorComboChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressEvents || ViewList.SelectedIndex < 0) return;
+        if (sender is not ComboBox combo || combo.Tag is not int stripIndex) return;
+        if (combo.SelectedItem is not ComboBoxItem item) return;
+
+        var view = _config.ChannelViews[ViewList.SelectedIndex];
+
+        // ChannelColors-Array initialisieren falls nötig
+        if (view.ChannelColors == null)
+            view.ChannelColors = new XTouchColor?[8];
+
+        if (stripIndex >= 0 && stripIndex < view.ChannelColors.Length)
+        {
+            view.ChannelColors[stripIndex] = item.Tag as XTouchColor?;
+        }
+    }
+
+    /// <summary>
+    /// Wählt die Farbe in einer Farb-ComboBox aus.
+    /// </summary>
+    private static void SelectColorCombo(ComboBox combo, XTouchColor? color)
+    {
+        for (int i = 0; i < combo.Items.Count; i++)
+        {
+            if (combo.Items[i] is ComboBoxItem item)
+            {
+                var itemColor = item.Tag as XTouchColor?;
+                if (itemColor == color)
+                {
+                    combo.SelectedIndex = i;
+                    return;
+                }
+            }
+        }
+        combo.SelectedIndex = 0; // "(Standard)"
+    }
+
     private void OnMainFaderChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressEvents || ViewList.SelectedIndex < 0) return;
@@ -251,6 +351,7 @@ public partial class ChannelViewEditorDialog : Window
         {
             Name = "New",
             Channels = new[] { 0, 1, 2, 3, 4, 5, 6, 7 },
+            ChannelColors = new XTouchColor?[8],
             MainFaderChannel = null
         };
         _config.ChannelViews.Add(newView);

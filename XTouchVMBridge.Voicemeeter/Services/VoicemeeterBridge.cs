@@ -290,8 +290,11 @@ public class VoicemeeterBridge : BackgroundService
             string vmLabel = GetVmLabel(vmCh);
             _xtouch.SetDisplayText(xtCh, 0, vmLabel);
 
-            // Farbe aus Config (VM hat keine Farbinfo)
-            if (_config.Channels.TryGetValue(vmCh, out var chConfig))
+            // Farbe: View-Override hat Vorrang, sonst globale Channel-Config
+            var viewColor = ChannelViews[_currentViewIndex].GetChannelColor(xtCh);
+            if (viewColor.HasValue)
+                colors[xtCh] = viewColor.Value;
+            else if (_config.Channels.TryGetValue(vmCh, out var chConfig))
                 colors[xtCh] = chConfig.Color;
             else
                 colors[xtCh] = XTouchColor.White;
