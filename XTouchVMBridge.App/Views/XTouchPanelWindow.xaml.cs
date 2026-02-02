@@ -1160,7 +1160,12 @@ public partial class XTouchPanelWindow : Window
     {
         if (System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
         {
-            _masterButtonActionService?.ExecuteAction(noteNumber);
+            // Konfigurierte Aktion ausführen (z.B. SendKeys für Transport-Buttons)
+            if (_masterButtonActionService?.ExecuteAction(noteNumber) == true)
+                return;
+
+            // Fallback: Note-On an das X-Touch senden (z.B. SMPTE/BEATS/NAME/VALUE umschalten)
+            _device?.SetMasterButtonLed(noteNumber, Core.Enums.LedState.On);
             return;
         }
 

@@ -298,6 +298,121 @@ private readonly List<ChannelView> _channelViews = new()
 
 Die Ansicht wird automatisch per Encoder 1 erreichbar.
 
+### Per-View Display-Farben
+
+Jede Channel View kann pro Strip eine eigene Display-Farbe definieren, die die globale Kanalfarbe überschreibt.
+
+```csharp
+// In ChannelViewConfig (Core/Models/ChannelViewConfig.cs):
+public XTouchColor?[]? ChannelColors { get; set; }
+
+public XTouchColor? GetChannelColor(int stripIndex)
+{
+    if (ChannelColors == null || stripIndex < 0 || stripIndex >= ChannelColors.Length)
+        return null;
+    return ChannelColors[stripIndex];
+}
+```
+
+Die Farb-Auswertung in `VoicemeeterBridge.UpdateDisplays()`:
+
+```csharp
+// View-Farbe hat Priorität vor globaler Kanalfarbe
+var viewColor = ChannelViews[_currentViewIndex].GetChannelColor(xtCh);
+if (viewColor.HasValue)
+    colors[xtCh] = viewColor.Value;
+else if (_config.Channels.TryGetValue(vmCh, out var chConfig))
+    colors[xtCh] = chConfig.Color;
+```
+
+Der Channel View Editor (`ChannelViewEditorDialog`) zeigt pro Strip eine Farb-ComboBox
+mit farbigen Rechteck-Vorschauen. `null`-Einträge werden als "—" dargestellt (globale Farbe).
+
+---
+
+## Strg+Klick-Steuerung im X-Touch Panel
+
+Das X-Touch Panel unterstützt Strg+Klick als Direkt-Steuerung für alle Controls:
+
+### Master-Buttons
+
+```csharp
+// OnMasterButtonClick: Strg+Klick → Aktion oder MIDI-Note
+if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+{
+    // 1. Konfigurierte Aktion ausführen (z.B. Media-Keys)
+    if (_masterButtonActionService?.ExecuteAction(noteNumber) == true)
+        return;
+    // 2. Fallback: Note-On ans X-Touch senden (z.B. SMPTE/BEATS umschalten)
+    _device?.SetMasterButtonLed(noteNumber, LedState.On);
+    return;
+}
+```
+
+`ExecuteAction()` gibt `bool` zurück — `true` wenn eine Aktion konfiguriert und ausgeführt wurde.
+
+### Kanal-Buttons (REC/SOLO/MUTE/SELECT)
+
+```csharp
+// OnHwButtonClick: Strg+Klick → VM-Parameter toggeln
+if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+{
+    ExecuteHwButtonAction(ch, type); // Liest Mapping, toggelt VM-Parameter
+    return;
+}
+```
+
+Die Kanal-Zuordnung wird über `_bridge.CurrentChannelMapping[xtChannel]` aufgelöst,
+damit Channel Views korrekt berücksichtigt werden.
+
+### Fader (Transparentes Overlay-Pattern)
+
+WPF-Slider mit `IsEnabled = false` empfangen keine Maus-Events (auch nicht Preview/Tunneling).
+Lösung: Ein transparentes `Border`-Overlay über dem Slider im selben `Grid`:
+
+```
+Grid (faderHost)
+├── Slider (IsEnabled=false, IsHitTestVisible=false)  ← visuell
+└── Border (Background=Transparent, Cursor=Hand)       ← fängt Maus-Events
+```
+
+```csharp
+var faderHost = new Grid { Width = 32, Height = 150 };
+faderHost.Children.Add(fader);           // Slider (disabled, kein HitTest)
+
+var faderOverlay = new Border { Background = Brushes.Transparent };
+faderOverlay.MouseLeftButtonDown += (_, e) => OnFaderMouseDown(ch, e);
+faderOverlay.MouseMove += (_, e) => OnFaderMouseMove(ch, e);
+faderOverlay.MouseLeftButtonUp += (_, _) => OnFaderMouseUp(ch);
+faderHost.Children.Add(faderOverlay);    // Overlay (empfängt Maus-Events)
+```
+
+Bei Strg+Klick wird die Mausposition in einen Fader-Wert umgerechnet (`SetFaderFromMousePosition`),
+der Slider-Value direkt gesetzt und der dB-Wert an Voicemeeter gesendet.
+Mouse-Capture liegt auf dem Overlay, damit Drag-Bewegungen auch außerhalb verfolgt werden.
+`RefreshAll()` überspringt den Fader während `_draggingFaderChannel` aktiv ist.
+
+---
+
+## SetMasterButtonLed (MIDI-Ausgabe)
+
+Neue Methode in `IMidiDevice` / `XTouchDevice` zum Senden von Note-On an Master-Section-Buttons:
+
+```csharp
+// IMidiDevice:
+void SetMasterButtonLed(int noteNumber, LedState state);
+
+// XTouchDevice:
+public void SetMasterButtonLed(int noteNumber, LedState state)
+{
+    byte velocity = state switch { ... };
+    SendShortMessage(0x90, (byte)noteNumber, velocity);
+}
+```
+
+Wird im Panel für Strg+Klick auf nicht-konfigurierte Master-Buttons verwendet
+(z.B. SMPTE, BEATS, NAME, VALUE), um die MIDI-Note direkt ans Gerät zu senden.
+
 ---
 
 ## Master-Button-Aktionen
@@ -414,6 +529,8 @@ Der `MidiMessageDecoder` dekodiert alle Nachrichten. Um einen neuen Typ hinzuzuf
 | **Adapter** | `VoicemeeterService` | Abstrahiert P/Invoke-Aufrufe |
 | **Template Method** | `HardwareControlBase` | Gemeinsame Basis für alle Controls |
 | **Scheduler** | `TaskScheduler` (in Bridge) | Verzögerte Aktionen (Display-Reset) |
+| **Transparent Overlay** | `XTouchPanelWindow` Fader | Maus-Events über deaktiviertem WPF-Control abfangen |
+| **Fallback Chain** | `OnMasterButtonClick` | Aktion → MIDI-Note → Detail-Panel |
 
 ## Voicemeeter API Parameter
 

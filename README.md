@@ -76,7 +76,11 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
   "masterButtonActions": {
     "54": { "actionType": "LaunchProgram", "programPath": "notepad.exe" },
     "55": { "actionType": "SendKeys", "keyCombination": "Ctrl+Shift+M" },
-    "56": { "actionType": "SendText", "text": "Hallo Welt" }
+    "56": { "actionType": "SendText", "text": "Hallo Welt" },
+    "91": { "actionType": "SendKeys", "keyCombination": "MediaPrev" },
+    "92": { "actionType": "SendKeys", "keyCombination": "MediaNext" },
+    "93": { "actionType": "SendKeys", "keyCombination": "MediaStop" },
+    "94": { "actionType": "SendKeys", "keyCombination": "MediaPlay" }
   }
 }
 ```
@@ -107,6 +111,12 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 - **MIDI Debug Monitor**: Echtzeit-Anzeige aller MIDI-Nachrichten (Tray-Menu)
 - **X-Touch Panel**: Interaktive visuelle Darstellung der X-Touch Oberfläche (Tray-Menu).
   Zeigt alle Controls in Echtzeit, Klick auf ein Control zeigt MIDI-Details und zugeordnete Funktion.
+  - **Strg+Klick auf Master-Buttons**: Führt die konfigurierte Aktion aus (z.B. Media-Keys).
+    Ohne konfigurierte Aktion wird die MIDI-Note direkt ans X-Touch gesendet (z.B. SMPTE/BEATS umschalten).
+  - **Strg+Klick auf Kanal-Buttons** (REC/SOLO/MUTE/SELECT): Toggelt den zugeordneten Voicemeeter-Parameter.
+  - **Strg+Klick auf Fader**: Fader per Mausbewegung steuern (Drag), Wert wird in Echtzeit an Voicemeeter gesendet.
+- **Per-View Display-Farben**: Jede Channel View kann eigene Display-Farben pro Strip definieren,
+  die die globale Kanalfarbe überschreiben. Konfigurierbar im Channel View Editor.
 - **Log-Fenster**: Rolling-Log mit Level-Filter (Tray-Menu / Doppelklick)
 - **X-Touch Geräteauswahl**: Unterstützung für X-Touch und X-Touch Extender, wählbar im Tray-Menu
 - **Auto-Reconnect**: Automatische Wiederverbindung bei Gerätetrennung (alle 5 Sekunden)
@@ -114,6 +124,7 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 - **Master-Button-Aktionen**: F1-F8 und andere Master-Buttons können konfiguriert werden für:
   - Windows-Programme starten (mit Argumenten)
   - Tastenkombinationen senden (z.B. Ctrl+Shift+M, Alt+F4)
+  - Media-Keys senden (MediaPlay, MediaNext, MediaPrev, MediaStop)
   - Text senden (via Zwischenablage + Ctrl+V)
   - Voicemeeter-Parameter toggeln
 - **7-Segment-Display**: Timecode-Anzeige zeigt Uhrzeit, Datum oder Speicherverbrauch.
@@ -140,6 +151,40 @@ Interaktive visuelle Darstellung der vollständigen X-Touch Oberfläche, erreich
 - **Echtzeit-Updates**: 100ms Timer + Events vom MIDI-Device
 - **Klick-Detail**: Jedes Control zeigt im Detail-Panel: aktueller Zustand, Encoder-Funktionsliste mit
   aktivem Modus (z.B. ">HIGH = 3.5dB"), MIDI-Protokoll-Details, Hersteller-Doku-Referenzen
+- **Strg+Klick-Steuerung**: Alle Controls können per Strg+Klick direkt bedient werden:
+  - Master-Buttons: konfigurierte Aktion ausführen, oder MIDI-Note ans Gerät senden (z.B. SMPTE/BEATS)
+  - Kanal-Buttons (REC/SOLO/MUTE/SELECT): zugeordneten VM-Parameter toggeln
+  - Fader: per Maus-Drag steuern (transparentes Overlay über dem deaktivierten Slider)
+
+## Channel View Editor
+
+Channel Views können im X-Touch Panel über den Mapping-Editor bearbeitet werden.
+Pro View werden 8 Voicemeeter-Kanäle auf die physischen X-Touch-Strips gemappt.
+
+- **Kanal-Zuordnung**: Jeder Strip kann einem beliebigen VM-Kanal (0-15) zugewiesen werden
+- **Display-Farben**: Pro Strip kann eine eigene Display-Farbe festgelegt werden,
+  die die globale Kanalfarbe überschreibt. Verfügbare Farben: Off, Red, Green, Yellow, Blue, Magenta, Cyan, White.
+  Wird keine Farbe gesetzt ("—"), gilt die globale Kanalfarbe.
+
+In der `config.json` unter `channelViews`:
+
+```json
+"channelViews": [
+  {
+    "name": "Home",
+    "channels": [3, 4, 5, 6, 7, 9, 10, 12],
+    "channelColors": ["green", "green", "cyan", "cyan", "cyan", "yellow", "yellow", "magenta"]
+  },
+  {
+    "name": "Outputs",
+    "channels": [8, 9, 10, 11, 12, 13, 14, 15],
+    "channelColors": null
+  }
+]
+```
+
+`channelColors`: Array mit 8 Einträgen (je Strip) oder `null` für globale Farben.
+Einzelne Einträge können `null` sein um die globale Farbe für diesen Strip beizubehalten.
 
 ## Encoder-Funktionsliste
 
@@ -190,6 +235,23 @@ In der `config.json` unter `masterButtonActions` (Key = MIDI Note-Nummer):
 ```
 
 Note-Nummern für Function-Buttons: F1=54, F2=55, ..., F8=61.
+Transport-Buttons: REW=91, FF=92, STOP=93, PLAY=94, REC=95.
+
+### Media-Fernbedienung (z.B. YouTube in Vivaldi/Chrome)
+
+Die Transport-Buttons können als Media-Keys konfiguriert werden, um Browser-Mediaplayer zu steuern:
+
+```json
+"masterButtonActions": {
+  "91": { "actionType": "SendKeys", "keyCombination": "MediaPrev" },
+  "92": { "actionType": "SendKeys", "keyCombination": "MediaNext" },
+  "93": { "actionType": "SendKeys", "keyCombination": "MediaStop" },
+  "94": { "actionType": "SendKeys", "keyCombination": "MediaPlay" }
+}
+```
+
+Die Media-Keys werden vom Betriebssystem an den aktiven Mediaplayer weitergeleitet
+(z.B. YouTube im Browser, Spotify, VLC).
 
 ## 7-Segment-Display (Timecode-Anzeige)
 

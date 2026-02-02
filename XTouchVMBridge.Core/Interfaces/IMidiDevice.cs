@@ -56,6 +56,9 @@ public interface IMidiDevice : IDisposable
     /// <summary>Setzt den LED-Status eines Buttons.</summary>
     void SetButtonLed(int channel, XTouchButtonType button, LedState state);
 
+    /// <summary>Setzt den LED-Status eines Master-Section-Buttons (Note 40+).</summary>
+    void SetMasterButtonLed(int noteNumber, LedState state);
+
     /// <summary>Setzt den Encoder-Ring eines Kanals.</summary>
     void SetEncoderRing(int channel, int value, XTouchEncoderRingMode mode, bool led = false);
 

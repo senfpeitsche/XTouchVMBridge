@@ -53,17 +53,18 @@ public class MasterButtonActionService : IDisposable
     /// <summary>
     /// Führt die konfigurierte Aktion für eine Master-Button-Note aus.
     /// Kann sowohl vom MIDI-Event als auch von der UI (Strg+Klick) aufgerufen werden.
+    /// Gibt true zurück wenn eine Aktion ausgeführt wurde, false wenn keine konfiguriert ist.
     /// </summary>
-    public void ExecuteAction(int noteNumber)
+    public bool ExecuteAction(int noteNumber)
     {
         if (!_config.MasterButtonActions.TryGetValue(noteNumber, out var actionConfig))
         {
             _logger.LogDebug("Keine Aktion für Master-Button Note {Note} konfiguriert.", noteNumber);
-            return;
+            return false;
         }
 
         if (actionConfig.ActionType == MasterButtonActionType.None)
-            return;
+            return false;
 
         _logger.LogDebug("Master-Button Note {Note}: Führe Aktion {Action} aus.", noteNumber, actionConfig.ActionType);
 
@@ -84,11 +85,14 @@ public class MasterButtonActionService : IDisposable
                     ExecuteVmParameter(actionConfig);
                     break;
             }
+
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Fehler bei Master-Button-Aktion Note {Note} ({Action}).",
                 noteNumber, actionConfig.ActionType);
+            return false;
         }
     }
 

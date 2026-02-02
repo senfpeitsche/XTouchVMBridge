@@ -162,6 +162,19 @@ public class XTouchDevice : IMidiDevice
         SendShortMessage(0x90, (byte)btn.NoteNumber, velocity);
     }
 
+    public void SetMasterButtonLed(int noteNumber, LedState state)
+    {
+        byte velocity = state switch
+        {
+            LedState.Off => MackieProtocol.VelocityOff,
+            LedState.Blink => MackieProtocol.VelocityBlink,
+            LedState.On => MackieProtocol.VelocityOn,
+            _ => MackieProtocol.VelocityOff
+        };
+
+        SendShortMessage(0x90, (byte)noteNumber, velocity);
+    }
+
     public void SetEncoderRing(int channel, int value, XTouchEncoderRingMode mode, bool led = false)
     {
         ValidateChannel(channel);
