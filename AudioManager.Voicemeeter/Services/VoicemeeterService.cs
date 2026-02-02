@@ -91,12 +91,13 @@ public class VoicemeeterService : IVoicemeeterService
 
     public double GetLevel(int channel)
     {
+        float linear;
         if (channel < VoicemeeterState.StripCount)
         {
             // Strip: PostFader Level (type=1), beide Kanäle (L+R), Maximum nehmen
             VoicemeeterRemote.GetLevel(1, channel * 2, out float left);
             VoicemeeterRemote.GetLevel(1, channel * 2 + 1, out float right);
-            return Math.Max(left, right);
+            linear = Math.Max(left, right);
         }
         else
         {
@@ -104,8 +105,12 @@ public class VoicemeeterService : IVoicemeeterService
             int busIndex = channel - VoicemeeterState.StripCount;
             VoicemeeterRemote.GetLevel(3, busIndex * 8, out float left);
             VoicemeeterRemote.GetLevel(3, busIndex * 8 + 1, out float right);
-            return Math.Max(left, right);
+            linear = Math.Max(left, right);
         }
+
+        // VBVMR_GetLevel gibt lineare Amplitude zurück (0.0–1.0+), nicht dB.
+        // Umrechnung: dB = 20 * log10(linear). Bei Stille (0.0) → -200 dB.
+        return linear > 0 ? 20.0 * Math.Log10(linear) : -200.0;
     }
 
     public void SetGain(int channel, double db)

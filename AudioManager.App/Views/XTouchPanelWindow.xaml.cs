@@ -63,6 +63,10 @@ public partial class XTouchPanelWindow : Window
     private int _selectedMasterButtonNote = -1;
     private bool _suppressMappingEvents;
 
+    // ─── Detail-Panel Live-Update State ────────────────────────────
+    private string _activeDetailType = ""; // "Fader", "LevelMeter", "Encoder", "Button", "Master", ""
+    private int _activeDetailChannel = -1;
+
     public XTouchPanelWindow() : this(null, null, null, null, null) { }
 
     public XTouchPanelWindow(IMidiDevice? device, AudioManagerConfig? config,
@@ -720,6 +724,66 @@ public partial class XTouchPanelWindow : Window
         // 7-Segment-Display: Uhrzeit anzeigen
         var now = DateTime.Now;
         SegmentDisplay.Text = now.ToString("HH : mm : ss");
+
+        // Detail-Panel: Live-Werte aktualisieren
+        RefreshDetailLiveValues();
+    }
+
+    /// <summary>
+    /// Aktualisiert die Live-Werte im Detail-Panel (Fader-Position, Level-Meter, Encoder).
+    /// Wird alle 100ms vom RefreshAll-Timer aufgerufen.
+    /// </summary>
+    private void RefreshDetailLiveValues()
+    {
+        if (_device == null || _activeDetailChannel < 0 || _activeDetailChannel >= _device.Channels.Count)
+            return;
+
+        var ch = _activeDetailChannel;
+        var xtCh = _device.Channels[ch];
+
+        switch (_activeDetailType)
+        {
+            case "LevelMeter":
+            {
+                int level = xtCh.LevelMeter.Level;
+                string bar = new string('█', level) + new string('░', 13 - level);
+                DetailHeader.Text = $"Level Meter — Kanal {ch + 1}";
+                DetailMidiInfo.Text =
+                    $"Level: {level,2}/13  [{bar}]\n" +
+                    $"Aftertouch: ({ch}<<4 | {level}) = {(ch << 4) | level}";
+                break;
+            }
+
+            case "Fader":
+            {
+                var fader = xtCh.Fader;
+                int pos = fader.Position;
+                double db = FaderControl.PositionToDb(pos);
+                string dbStr = db <= -65 ? "-∞" : $"{db:F1}";
+                string bar = new string('█', Math.Max(0, (pos + 8192) * 20 / 16384)) + new string('░', Math.Max(0, 20 - (pos + 8192) * 20 / 16384));
+                DetailMidiInfo.Text =
+                    $"Position: {pos,6}  [{bar}]  {dbStr} dB\n" +
+                    $"Touch: {(fader.IsTouched ? "Ja" : "Nein")}   PW: {pos + 8192}";
+                break;
+            }
+
+            case "Encoder":
+            {
+                var enc = xtCh.Encoder;
+                if (enc.HasFunctions && enc.ActiveFunction != null)
+                {
+                    DetailMidiInfo.Text =
+                        $"Aktiv: {enc.ActiveFunction.Name} = {enc.ActiveFunction.FormatValue()}\n" +
+                        $"Ring: {enc.RingPosition}/15   Gedrückt: {(enc.IsPressed ? "Ja" : "Nein")}";
+                }
+                else
+                {
+                    DetailMidiInfo.Text =
+                        $"Ring: {enc.RingPosition}/15   Gedrückt: {(enc.IsPressed ? "Ja" : "Nein")}";
+                }
+                break;
+            }
+        }
     }
 
     private void UpdateButtonVisual(Button btn, LedState state)
@@ -763,7 +827,9 @@ public partial class XTouchPanelWindow : Window
 
     private void ShowDisplayDetail(int ch)
     {
+        _activeDetailType = "Display"; _activeDetailChannel = ch;
         MappingPanel.Visibility = Visibility.Collapsed;
+        DetailMidiInfo.Text = "";
         var xtCh = _device?.Channels[ch];
         string chName = GetConfigName(ch);
         var color = xtCh?.Display.Color ?? XTouchColor.Off;
@@ -782,6 +848,8 @@ public partial class XTouchPanelWindow : Window
 
     private void ShowEncoderDetail(int ch)
     {
+        _activeDetailType = "Encoder"; _activeDetailChannel = ch;
+        DetailMidiInfo.Text = "";
         var enc = _device?.Channels[ch].Encoder;
 
         // Funktionsliste aufbauen
@@ -824,6 +892,8 @@ public partial class XTouchPanelWindow : Window
 
     private void ShowButtonDetail(int ch, XTouchButtonType type)
     {
+        _activeDetailType = "Button"; _activeDetailChannel = ch;
+        DetailMidiInfo.Text = "";
         var btn = _device?.Channels[ch].GetButton(type);
         int noteNum = btn?.NoteNumber ?? ((int)type * 8 + ch);
 
@@ -859,6 +929,8 @@ public partial class XTouchPanelWindow : Window
 
     private void ShowFaderDetail(int ch)
     {
+        _activeDetailType = "Fader"; _activeDetailChannel = ch;
+        DetailMidiInfo.Text = "";
         var fader = _device?.Channels[ch].Fader;
         int pos = fader?.Position ?? 0;
         double db = FaderControl.PositionToDb(pos);
@@ -883,26 +955,25 @@ public partial class XTouchPanelWindow : Window
 
     private void ShowLevelMeterDetail(int ch)
     {
+        _activeDetailType = "LevelMeter"; _activeDetailChannel = ch;
         MappingPanel.Visibility = Visibility.Collapsed;
-        var meter = _device?.Channels[ch].LevelMeter;
-        int level = meter?.Level ?? 0;
 
         DetailHeader.Text = $"Level Meter — Kanal {ch + 1}";
         DetailText.Text =
-            $"Aktueller Level: {level}/13\n" +
             $"Stufen:          0=Stille, 1..8=Normal, 9..11=Laut, 12..13=Clip\n\n" +
             $"Funktion:        Zeigt den Post-Fader-Pegel des gemappten VM-Kanals.\n" +
             $"                 Wird alle 100ms per Polling aktualisiert.\n\n" +
             $"dB-Skala:        -200→0, -100→1, -50→2, -40→3, -35→4, -30→5,\n" +
             $"                 -25→6, -20→7, -15→8, -10→9, -5→10, 0→11, +5→12\n\n" +
-            $"MIDI:            Channel Aftertouch: (Kanal<<4 | Level)\n" +
-            $"                 Byte = ({ch}<<4 | {level}) = {(ch << 4) | level}\n" +
             $"Hersteller:      Meter LEDs CC 90..97 (value 0..127)";
+        DetailMidiInfo.Text = ""; // Wird von RefreshDetailLiveValues aktualisiert
     }
 
     private void ShowMainFaderDetail()
     {
+        _activeDetailType = "MainFader"; _activeDetailChannel = -1;
         MappingPanel.Visibility = Visibility.Collapsed;
+        DetailMidiInfo.Text = "";
         DetailHeader.Text = "Main Fader";
         DetailText.Text =
             "Funktion:       Master-Fader. Steuert den Master-Bus-Pegel.\n" +
@@ -919,6 +990,8 @@ public partial class XTouchPanelWindow : Window
 
     private void ShowMasterButtonDetail(string section, string name, int noteNumber, string description)
     {
+        _activeDetailType = "Master"; _activeDetailChannel = -1;
+        DetailMidiInfo.Text = "";
         _selectedMasterButtonNote = noteNumber;
         _selectedControlType = "MasterButton";
         _selectedVmChannel = -1;
