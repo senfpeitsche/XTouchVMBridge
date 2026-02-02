@@ -1,0 +1,177 @@
+<Window x:Class="XTouchVMBridge.App.Views.MidiDebugWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MIDI Debug Monitor" Width="1100" Height="650"
+        Background="#1E1E1E" WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <!-- Dunkles Theme -->
+        <Style x:Key="HeaderText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style x:Key="MonoText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#D4D4D4"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="11.5"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+            <TextBlock Text="MIDI Debug Monitor" FontSize="16" FontWeight="Bold"
+                       Foreground="#569CD6" VerticalAlignment="Center" Margin="0,0,20,0"
+                       FontFamily="Consolas"/>
+
+            <CheckBox x:Name="CaptureIncoming" Content="Eingehend (IN)" IsChecked="True"
+                      Foreground="#4EC9B0" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <CheckBox x:Name="CaptureOutgoing" Content="Ausgehend (OUT)" IsChecked="True"
+                      Foreground="#CE9178" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <CheckBox x:Name="CaptureSysEx" Content="SysEx" IsChecked="True"
+                      Foreground="#DCDCAA" VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+            <Separator Width="1" Background="#444" Margin="4,2"/>
+
+            <TextBlock Text=" Filter:" Foreground="#888" VerticalAlignment="Center" FontFamily="Consolas"/>
+            <ComboBox x:Name="ControlTypeFilter" Width="140" Margin="6,0"
+                      Background="#2D2D2D" Foreground="#D4D4D4" BorderBrush="#555"
+                      SelectionChanged="OnFilterChanged">
+                <ComboBoxItem Content="Alle" IsSelected="True"/>
+                <ComboBoxItem Content="Button"/>
+                <ComboBoxItem Content="Fader"/>
+                <ComboBoxItem Content="Fader Touch"/>
+                <ComboBoxItem Content="Encoder"/>
+                <ComboBoxItem Content="Encoder Press"/>
+                <ComboBoxItem Content="Level Meter"/>
+                <ComboBoxItem Content="Display"/>
+                <ComboBoxItem Content="SysEx"/>
+                <ComboBoxItem Content="Foot Switch"/>
+                <ComboBoxItem Content="Jog Wheel"/>
+            </ComboBox>
+
+            <TextBlock Text=" Kanal:" Foreground="#888" VerticalAlignment="Center" FontFamily="Consolas"/>
+            <ComboBox x:Name="ChannelFilter" Width="70" Margin="6,0"
+                      Background="#2D2D2D" Foreground="#D4D4D4" BorderBrush="#555"
+                      SelectionChanged="OnFilterChanged">
+                <ComboBoxItem Content="Alle" IsSelected="True"/>
+                <ComboBoxItem Content="1"/>
+                <ComboBoxItem Content="2"/>
+                <ComboBoxItem Content="3"/>
+                <ComboBoxItem Content="4"/>
+                <ComboBoxItem Content="5"/>
+                <ComboBoxItem Content="6"/>
+                <ComboBoxItem Content="7"/>
+                <ComboBoxItem Content="8"/>
+            </ComboBox>
+        </StackPanel>
+
+        <!-- Spalten-Header -->
+        <Grid Grid.Row="1" Margin="0,0,0,2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="85"/>
+                <ColumnDefinition Width="40"/>
+                <ColumnDefinition Width="120"/>
+                <ColumnDefinition Width="160"/>
+                <ColumnDefinition Width="230"/>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="Zeit" Style="{StaticResource HeaderText}"/>
+            <TextBlock Grid.Column="1" Text="Dir" Style="{StaticResource HeaderText}"/>
+            <TextBlock Grid.Column="2" Text="Control" Style="{StaticResource HeaderText}"/>
+            <TextBlock Grid.Column="3" Text="ID" Style="{StaticResource HeaderText}"/>
+            <TextBlock Grid.Column="4" Text="Wert" Style="{StaticResource HeaderText}"/>
+            <TextBlock Grid.Column="5" Text="Aktion" Style="{StaticResource HeaderText}"/>
+            <TextBlock Grid.Column="6" Text="Raw (Hex)" Style="{StaticResource HeaderText}"/>
+        </Grid>
+
+        <!-- Nachrichten-Liste -->
+        <ListView x:Name="MessageList" Grid.Row="2"
+                  Background="#1E1E1E" BorderBrush="#333" BorderThickness="1"
+                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Padding" Value="0,1"/>
+                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                    <Setter Property="BorderBrush" Value="#2A2A2A"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#2A2D3E"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="85"/>
+                            <ColumnDefinition Width="40"/>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="160"/>
+                            <ColumnDefinition Width="230"/>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" Text="{Binding Timestamp, StringFormat=HH:mm:ss.fff}"
+                                   Style="{StaticResource MonoText}" Foreground="#858585"/>
+                        <TextBlock Grid.Column="1" Text="{Binding DirectionText}"
+                                   Style="{StaticResource MonoText}" Foreground="{Binding DirectionColor}"/>
+                        <TextBlock Grid.Column="2" Text="{Binding ControlType}"
+                                   Style="{StaticResource MonoText}" Foreground="{Binding ControlColor}" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="3" Text="{Binding ControlId}"
+                                   Style="{StaticResource MonoText}"/>
+                        <TextBlock Grid.Column="4" Text="{Binding Value}"
+                                   Style="{StaticResource MonoText}" Foreground="#B5CEA8"/>
+                        <TextBlock Grid.Column="5" Text="{Binding Action}"
+                                   Style="{StaticResource MonoText}" Foreground="#C586C0"/>
+                        <TextBlock Grid.Column="6" Text="{Binding RawHex}"
+                                   Style="{StaticResource MonoText}" Foreground="#6A9955"/>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <!-- Status-Leiste -->
+        <Grid Grid.Row="3" Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock x:Name="StatusText" Grid.Column="0" Text="Warte auf MIDI-Gerät..."
+                       Foreground="#888" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"/>
+            <TextBlock x:Name="MessageCountText" Grid.Column="2" Text="0 Nachrichten"
+                       Foreground="#888" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"
+                       Margin="0,0,12,0"/>
+
+            <CheckBox x:Name="AutoScrollCheck" Grid.Column="3" Content="Auto-Scroll" IsChecked="True"
+                      Foreground="#888" VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+            <Button x:Name="ClearButton" Grid.Column="4" Content="Leeren" Click="OnClearClick"
+                    Width="70" Background="#333" Foreground="#D4D4D4" BorderBrush="#555"
+                    Padding="4,2"/>
+        </Grid>
+    </Grid>
+</Window>

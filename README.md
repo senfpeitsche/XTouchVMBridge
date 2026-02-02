@@ -1,4 +1,4 @@
-# AudioManager (C#)
+# XTouchVMBridge (C#)
 
 Windows-Anwendung zur Steuerung von Voicemeeter Potato via Behringer X-Touch (Full / Extender).
 System-Tray-App mit Audio-Device-Monitoring, Roland Fantom MIDI-Filterung und Screen-Lock-Schutz.
@@ -16,15 +16,15 @@ Portiert vom originalen Python-Projekt in ein C# .NET 8 Projekt.
 ## Build & Start
 
 ```bash
-cd AudioManagerCSharp
-dotnet build AudioManager.slnx
-dotnet run --project AudioManager.App
+cd XTouchVMBridgeCSharp
+dotnet build XTouchVMBridge.slnx
+dotnet run --project XTouchVMBridge.App
 ```
 
 ## Tests
 
 ```bash
-dotnet test AudioManager.Tests
+dotnet test XTouchVMBridge.Tests
 ```
 
 Aktuell 99 Tests: Hardware-Controls, EncoderFunction/CycleLogic, MackieProtocol, MidiMessageDecoder, XTouchChannel-Model.
@@ -32,30 +32,30 @@ Aktuell 99 Tests: Hardware-Controls, EncoderFunction/CycleLogic, MackieProtocol,
 ## Solution-Struktur
 
 ```
-AudioManagerCSharp/
-├── AudioManager.slnx                  # Solution (5 Projekte)
+XTouchVMBridgeCSharp/
+├── XTouchVMBridge.slnx                  # Solution (5 Projekte)
 │
-├── AudioManager.Core/                 # Shared: Enums, Interfaces, Models, Hardware
+├── XTouchVMBridge.Core/                 # Shared: Enums, Interfaces, Models, Hardware
 │   ├── Enums/                         # XTouchColor, XTouchButtonType, LedState, ...
 │   ├── Events/                        # FaderEventArgs, ButtonEventArgs, ...
 │   ├── Hardware/                      # FaderControl, ButtonControl, EncoderControl, EncoderFunction, ...
 │   ├── Interfaces/                    # IMidiDevice, IVoicemeeterService, ...
-│   └── Models/                        # XTouchChannel, AudioManagerConfig, ...
+│   └── Models/                        # XTouchChannel, XTouchVMBridgeConfig, ...
 │
-├── AudioManager.Midi/                 # MIDI-Kommunikation (NAudio)
+├── XTouchVMBridge.Midi/                 # MIDI-Kommunikation (NAudio)
 │   ├── XTouch/                        # XTouchDevice, MackieProtocol, MidiMessageDecoder
 │   └── Fantom/                        # FantomMidiHandler
 │
-├── AudioManager.Voicemeeter/          # Voicemeeter-Integration
+├── XTouchVMBridge.Voicemeeter/          # Voicemeeter-Integration
 │   ├── Native/                        # VoicemeeterRemote P/Invoke
 │   └── Services/                      # VoicemeeterService, VoicemeeterBridge, Config
 │
-├── AudioManager.App/                  # WPF-Anwendung (Entry Point)
+├── XTouchVMBridge.App/                  # WPF-Anwendung (Entry Point)
 │   ├── Services/                      # TrayIcon, AudioDeviceMonitor, ScreenLock,
 │   │                                  # MasterButtonActionService, SegmentDisplayService
 │   └── Views/                         # LogWindow, MidiDebugWindow, XTouchPanelWindow
 │
-└── AudioManager.Tests/                # xUnit Tests
+└── XTouchVMBridge.Tests/                # xUnit Tests
     ├── Hardware/                      # Fader, Display, Encoder, EncoderFunction, LevelMeter
     ├── XTouch/                        # MackieProtocol, MidiMessageDecoder
     └── Models/                        # XTouchChannel

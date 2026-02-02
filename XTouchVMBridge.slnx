@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="XTouchVMBridge.App/XTouchVMBridge.App.csproj" />
+  <Project Path="XTouchVMBridge.Core/XTouchVMBridge.Core.csproj" />
+  <Project Path="XTouchVMBridge.Midi/XTouchVMBridge.Midi.csproj" />
+  <Project Path="XTouchVMBridge.Tests/XTouchVMBridge.Tests.csproj" />
+  <Project Path="XTouchVMBridge.Voicemeeter/XTouchVMBridge.Voicemeeter.csproj" />
+</Solution>

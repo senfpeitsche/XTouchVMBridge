@@ -4,7 +4,7 @@
 
 ```
                     ┌─────────────────────────────────────────────┐
-                    │         AudioManager.App (WPF)              │
+                    │         XTouchVMBridge.App (WPF)              │
                     │   TrayIcon, LogWindow, MidiDebugWindow,     │
                     │   XTouchPanelWindow                         │
                     │   AudioDeviceMonitor, ScreenLockDetector,    │
@@ -15,7 +15,7 @@
                     ┌──────────────┼──────────────────────┐
                     │              │                       │
         ┌───────────▼──┐   ┌──────▼───────────┐   ┌──────▼───────────┐
-        │ AudioManager │   │  AudioManager     │   │  AudioManager    │
+        │ XTouchVMBridge │   │  XTouchVMBridge     │   │  XTouchVMBridge    │
         │    .Midi     │   │   .Voicemeeter    │   │     .Core        │
         │              │   │                   │   │                  │
         │ XTouchDevice │   │ VoicemeeterBridge │   │ Enums, Models    │
@@ -28,11 +28,11 @@
 ## Abhängigkeiten zwischen den Projekten
 
 ```
-AudioManager.Core       ← keine Abhängigkeiten (Fundament)
-AudioManager.Midi       ← Core
-AudioManager.Voicemeeter← Core
-AudioManager.App        ← Core, Midi, Voicemeeter
-AudioManager.Tests      ← Core, Midi, Voicemeeter
+XTouchVMBridge.Core       ← keine Abhängigkeiten (Fundament)
+XTouchVMBridge.Midi       ← Core
+XTouchVMBridge.Voicemeeter← Core
+XTouchVMBridge.App        ← Core, Midi, Voicemeeter
+XTouchVMBridge.Tests      ← Core, Midi, Voicemeeter
 ```
 
 Die Richtung ist immer "nach unten": App kennt alles, Core kennt niemanden.
@@ -106,11 +106,11 @@ Jede Funktion merkt sich ihren eigenen Wert — beim Umschalten bleibt der Zusta
 
 Das X-Touch hat ein Jog Wheel (CC 88, CW=65, CCW=1), das aktuell nicht als Control modelliert ist.
 
-#### 1. Neues Control in `AudioManager.Core/Hardware/`
+#### 1. Neues Control in `XTouchVMBridge.Core/Hardware/`
 
 ```csharp
-// AudioManager.Core/Hardware/JogWheelControl.cs
-namespace AudioManager.Core.Hardware;
+// XTouchVMBridge.Core/Hardware/JogWheelControl.cs
+namespace XTouchVMBridge.Core.Hardware;
 
 public class JogWheelControl : HardwareControlBase
 {
@@ -121,11 +121,11 @@ public class JogWheelControl : HardwareControlBase
 }
 ```
 
-#### 2. Event in `AudioManager.Core/Events/`
+#### 2. Event in `XTouchVMBridge.Core/Events/`
 
 ```csharp
-// AudioManager.Core/Events/JogWheelEventArgs.cs
-namespace AudioManager.Core.Events;
+// XTouchVMBridge.Core/Events/JogWheelEventArgs.cs
+namespace XTouchVMBridge.Core.Events;
 
 public class JogWheelEventArgs : EventArgs
 {
@@ -138,14 +138,14 @@ public class JogWheelEventArgs : EventArgs
 #### 3. Event in `IMidiDevice` Interface ergänzen
 
 ```csharp
-// In AudioManager.Core/Interfaces/IMidiDevice.cs:
+// In XTouchVMBridge.Core/Interfaces/IMidiDevice.cs:
 event EventHandler<JogWheelEventArgs>? JogWheelTurned;
 ```
 
 #### 4. In `XTouchDevice` implementieren
 
 ```csharp
-// In AudioManager.Midi/XTouch/XTouchDevice.cs:
+// In XTouchVMBridge.Midi/XTouch/XTouchDevice.cs:
 // 1. Event deklarieren:
 public event EventHandler<JogWheelEventArgs>? JogWheelTurned;
 
@@ -166,7 +166,7 @@ private void HandleEncoder(byte cc, byte value)
 #### 5. In `VoicemeeterBridge` nutzen
 
 ```csharp
-// In AudioManager.Voicemeeter/Services/VoicemeeterBridge.cs:
+// In XTouchVMBridge.Voicemeeter/Services/VoicemeeterBridge.cs:
 _xtouch.JogWheelTurned += (_, e) =>
 {
     // z.B. Master-Volume anpassen
@@ -185,7 +185,7 @@ Falls das X-Touch um einen zusätzlichen Button-Typ erweitert wird:
 #### 1. Enum erweitern
 
 ```csharp
-// AudioManager.Core/Enums/XTouchButtonType.cs
+// XTouchVMBridge.Core/Enums/XTouchButtonType.cs
 public enum XTouchButtonType : byte
 {
     Rec = 0,
@@ -212,7 +212,7 @@ Für Assign wäre das Note 32–39 (aktuell Encoder Press — Kollision prüfen!
 Falls die Note-Berechnung anders sein muss, die Formel in `ButtonControl` anpassen:
 
 ```csharp
-// AudioManager.Core/Hardware/ButtonControl.cs
+// XTouchVMBridge.Core/Hardware/ButtonControl.cs
 NoteNumber = buttonType == XTouchButtonType.Assign
     ? 40 + channel   // eigene Note-Range
     : (int)buttonType * 8 + channel;
@@ -267,7 +267,7 @@ public class LogarithmicEncoderFunction : EncoderFunction
 ## Neuen Encoder-Ring-Modus hinzufügen
 
 ```csharp
-// AudioManager.Core/Enums/XTouchEncoderRingMode.cs
+// XTouchVMBridge.Core/Enums/XTouchEncoderRingMode.cs
 public enum XTouchEncoderRingMode : byte
 {
     Dot = 0,

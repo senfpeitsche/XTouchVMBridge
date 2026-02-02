@@ -1,0 +1,601 @@
+<Window x:Class="XTouchVMBridge.App.Views.XTouchPanelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="X-Touch — Live Panel" Width="1440" Height="820"
+        Background="#111" WindowStartupLocation="CenterScreen" MinWidth="1200" MinHeight="700">
+
+    <Window.Resources>
+        <!-- Globale Stile -->
+        <Style x:Key="ChannelBorder" TargetType="Border">
+            <Setter Property="BorderBrush" Value="#333"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Background" Value="#1A1A1A"/>
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="Padding" Value="6"/>
+        </Style>
+
+        <!-- Button-Stil für Rec/Solo/Mute/Select -->
+        <Style x:Key="HwButton" TargetType="Button">
+            <Setter Property="Width" Value="56"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#DDD"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3" Padding="2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Master Section kleine Buttons -->
+        <Style x:Key="MasterButton" TargetType="Button">
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="MinWidth" Value="48"/>
+            <Setter Property="Margin" Value="1"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="8"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#CCC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="2" Padding="3,1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Transport-Button (größer) -->
+        <Style x:Key="TransportButton" TargetType="Button" BasedOn="{StaticResource MasterButton}">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+
+        <!-- Encoder-Ring -->
+        <Style x:Key="EncoderButton" TargetType="Button">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="Margin" Value="0,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Ellipse Fill="#222" Stroke="#555" StrokeThickness="2"/>
+                            <Ellipse Fill="#333" Width="20" Height="20"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Fader-Slider -->
+        <Style x:Key="FaderSlider" TargetType="Slider">
+            <Setter Property="Orientation" Value="Vertical"/>
+            <Setter Property="Height" Value="160"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Minimum" Value="-8192"/>
+            <Setter Property="Maximum" Value="8188"/>
+            <Setter Property="IsEnabled" Value="False"/>
+            <Setter Property="Margin" Value="0,4"/>
+        </Style>
+
+        <!-- Section Header -->
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#888"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="8"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,2,0,4"/>
+        </Style>
+
+        <!-- Dark-Theme SystemColors Override für ComboBox/ListBox Popups -->
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#2A2A2A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#DDD"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#3A5A8A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFF"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#2A2A2A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#DDD"/>
+
+        <!-- Dark ComboBox mit vollständigem Template für sichtbaren Text im geschlossenen Zustand -->
+        <ControlTemplate x:Key="DarkComboBoxToggleButton" TargetType="ToggleButton">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="20"/>
+                </Grid.ColumnDefinitions>
+                <Border x:Name="Border" Grid.ColumnSpan="2" Background="#2A2A2A"
+                        BorderBrush="#555" BorderThickness="1" CornerRadius="2"/>
+                <Border Grid.Column="0" Background="Transparent" Margin="1"/>
+                <Path Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Data="M 0 0 L 4 4 L 8 0 Z" Fill="#AAA"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Border" Property="BorderBrush" Value="#888"/>
+                </Trigger>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter TargetName="Border" Property="BorderBrush" Value="#0AF"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#2A2A2A"/>
+            <Setter Property="Foreground" Value="#DDD"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="BorderBrush" Value="#555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Template="{StaticResource DarkComboBoxToggleButton}"
+                                          IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False" ClickMode="Press"/>
+                            <ContentPresenter x:Name="ContentSite"
+                                              IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                              Margin="6,2,24,2"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left">
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#DDD"/>
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
+                            <TextBox x:Name="PART_EditableTextBox"
+                                     Visibility="Hidden" IsReadOnly="{TemplateBinding IsReadOnly}"
+                                     Background="Transparent" Foreground="#DDD"
+                                     FontFamily="{TemplateBinding FontFamily}"
+                                     FontSize="{TemplateBinding FontSize}"
+                                     HorizontalAlignment="Left" VerticalAlignment="Center"
+                                     Margin="6,2,24,2" Focusable="True"/>
+                            <Popup x:Name="Popup" Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True" Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Grid x:Name="DropDown"
+                                      SnapsToDevicePixels="True"
+                                      MinWidth="{TemplateBinding ActualWidth}"
+                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border x:Name="DropDownBorder"
+                                            Background="#2A2A2A" BorderBrush="#555"
+                                            BorderThickness="1" CornerRadius="2"/>
+                                    <ScrollViewer Margin="2" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True"
+                                                    KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#2A2A2A"/>
+            <Setter Property="Foreground" Value="#DDD"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#3A5A8A"/>
+                    <Setter Property="Foreground" Value="#FFF"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#2A4A7A"/>
+                    <Setter Property="Foreground" Value="#FFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Dark ListBox -->
+        <Style TargetType="ListBox">
+            <Setter Property="Background" Value="#2A2A2A"/>
+            <Setter Property="Foreground" Value="#DDD"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="BorderBrush" Value="#555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Background" Value="#2A2A2A"/>
+            <Setter Property="Foreground" Value="#DDD"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#2A4A7A"/>
+                    <Setter Property="Foreground" Value="#FFF"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#3A5A8A"/>
+                    <Setter Property="Foreground" Value="#FFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+            <Button x:Name="ViewSwitchButton" Content="⚙ Home" Style="{StaticResource MasterButton}"
+                    Padding="10,4" Click="OnOpenChannelViewEditor"
+                    ToolTip="Klick: Channel Views bearbeiten&#x0a;Wechsel über Fader Bank ◄ ►"
+                    FontFamily="Consolas" FontSize="12" MinWidth="120"
+                    Foreground="Black" Background="#888"/>
+        </StackPanel>
+
+        <!-- Hauptbereich: 8 Kanäle + Master Section -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 8+1 Kanäle (8 Strips + Main Fader) -->
+            <Grid Grid.Column="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <UniformGrid Grid.Column="0" Columns="8" x:Name="ChannelGrid"/>
+                <!-- Main Fader Strip -->
+                <Border Grid.Column="1" x:Name="MainFaderBorder"
+                        BorderBrush="#444" BorderThickness="1" CornerRadius="4"
+                        Background="#1A1A1A" Margin="3" Padding="6" Width="70">
+                    <StackPanel x:Name="MainFaderPanel" HorizontalAlignment="Center"/>
+                </Border>
+            </Grid>
+
+            <!-- Master Section (rechts) -->
+            <Border Grid.Column="1" BorderBrush="#444" BorderThickness="1" CornerRadius="6"
+                    Background="#181818" Margin="4,0,0,0" Padding="8" Width="340">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="MasterSectionPanel">
+
+                        <!-- Titel -->
+                        <TextBlock Text="UNIVERSAL CONTROL SURFACE" Foreground="#569CD6"
+                                   FontFamily="Consolas" FontSize="10" FontWeight="Bold"
+                                   HorizontalAlignment="Center" Margin="0,0,0,6"/>
+
+                        <!-- ENCODER ASSIGN -->
+                        <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
+                                Background="#1A1A1A" Padding="4" Margin="0,2">
+                            <StackPanel>
+                                <TextBlock Text="ENCODER ASSIGN" Style="{StaticResource SectionHeader}"/>
+                                <WrapPanel HorizontalAlignment="Center" x:Name="EncoderAssignPanel"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- DISPLAY + SEGMENT -->
+                        <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
+                                Background="#1A1A1A" Padding="4" Margin="0,2">
+                            <StackPanel>
+                                <TextBlock Text="DISPLAY / ASSIGNMENT" Style="{StaticResource SectionHeader}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <!-- Name/Value + SMPTE/Beats -->
+                                    <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                        <WrapPanel x:Name="DisplayModePanel"/>
+                                    </StackPanel>
+                                    <!-- 7-Segment Display -->
+                                    <Border Grid.Column="1" Background="#0A0A0A" CornerRadius="3" Padding="6,4">
+                                        <TextBlock x:Name="SegmentDisplay" Text="00 00 00 00 00"
+                                                   Foreground="#FF4444" FontFamily="Consolas"
+                                                   FontSize="16" FontWeight="Bold"
+                                                   HorizontalAlignment="Center"/>
+                                    </Border>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- GLOBAL VIEW -->
+                        <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
+                                Background="#1A1A1A" Padding="4" Margin="0,2">
+                            <StackPanel>
+                                <TextBlock Text="GLOBAL VIEW" Style="{StaticResource SectionHeader}"/>
+                                <WrapPanel HorizontalAlignment="Center" x:Name="GlobalViewPanel"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- FUNCTION -->
+                        <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
+                                Background="#1A1A1A" Padding="4" Margin="0,2">
+                            <StackPanel>
+                                <TextBlock Text="FUNCTION" Style="{StaticResource SectionHeader}"/>
+                                <WrapPanel HorizontalAlignment="Center" x:Name="FunctionPanel"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- MODIFY / AUTOMATION / UTILITY -->
+                        <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
+                                Background="#1A1A1A" Padding="4" Margin="0,2">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="MODIFY" Style="{StaticResource SectionHeader}"/>
+                                        <StackPanel x:Name="ModifyPanel"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="AUTOMATION" Style="{StaticResource SectionHeader}"/>
+                                        <StackPanel x:Name="AutomationPanel"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="UTILITY" Style="{StaticResource SectionHeader}"/>
+                                        <StackPanel x:Name="UtilityPanel"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- TRANSPORT -->
+                        <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
+                                Background="#1A1A1A" Padding="4" Margin="0,2">
+                            <StackPanel>
+                                <TextBlock Text="TRANSPORT" Style="{StaticResource SectionHeader}"/>
+                                <WrapPanel HorizontalAlignment="Center" x:Name="TransportTopPanel" Margin="0,0,0,4"/>
+                                <StackPanel HorizontalAlignment="Center" x:Name="TransportButtonPanel" Orientation="Horizontal"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- FADER BANK / CHANNEL + JOG WHEEL -->
+                        <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
+                                Background="#1A1A1A" Padding="4" Margin="0,2">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Fader Bank / Channel Buttons -->
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="FADER BANK" Style="{StaticResource SectionHeader}"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" x:Name="FaderBankPanel"/>
+                                    <TextBlock Text="CHANNEL" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" x:Name="ChannelNavPanel"/>
+                                </StackPanel>
+
+                                <!-- Jog Wheel -->
+                                <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="JOG / SCRUB" Style="{StaticResource SectionHeader}"/>
+                                    <Button x:Name="JogWheelButton" Width="100" Height="100" Cursor="Hand"
+                                            ToolTip="Jog Wheel — CC 88">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Grid>
+                                                    <Ellipse Fill="#1E1E1E" Stroke="#555" StrokeThickness="3"/>
+                                                    <Ellipse Fill="#222" Width="60" Height="60" Stroke="#444" StrokeThickness="1"/>
+                                                    <Ellipse Fill="#333" Width="30" Height="30"/>
+                                                    <TextBlock Text="JOG" Foreground="#888" FontFamily="Consolas"
+                                                               FontSize="9" FontWeight="Bold"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    <TextBlock x:Name="JogWheelLabel" Text="CC 88" Foreground="#666"
+                                               FontFamily="Consolas" FontSize="8"
+                                               HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- Detail-Panel unten -->
+        <Border Grid.Row="2" Background="#1A1A1A" BorderBrush="#333" BorderThickness="0,1,0,0"
+                Margin="0,6,0,0" Padding="12,8" MinHeight="120">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Info (links) -->
+                <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                    <TextBlock x:Name="DetailHeader"
+                               Text="Klicke auf ein Control um Details zu sehen"
+                               Foreground="#569CD6" FontFamily="Consolas" FontSize="13"
+                               FontWeight="Bold" Margin="0,0,0,4"/>
+                    <TextBlock x:Name="DetailText"
+                               Text="" Foreground="#D4D4D4" FontFamily="Consolas" FontSize="11"
+                               TextWrapping="Wrap" MaxWidth="600"/>
+                </StackPanel>
+
+                <!-- MIDI-Info (Mitte) -->
+                <TextBlock Grid.Column="1" x:Name="DetailMidiInfo"
+                           Text="" Foreground="#888" FontFamily="Consolas" FontSize="10"
+                           TextWrapping="Wrap" VerticalAlignment="Top"/>
+
+                <!-- Mapping-Editor (rechts) -->
+                <Border Grid.Column="2" BorderBrush="#333" BorderThickness="1,0,0,0"
+                        Padding="12,0,0,0" MinWidth="320">
+                    <StackPanel x:Name="MappingPanel" Visibility="Collapsed">
+                        <TextBlock x:Name="MappingPanelHeader" Text="VM-Parameter Zuweisung" Foreground="#569CD6"
+                                   FontFamily="Consolas" FontSize="11" FontWeight="Bold" Margin="0,0,0,6"/>
+
+                        <!-- Button-Mapping: ComboBox -->
+                        <StackPanel x:Name="ButtonMappingPanel" Visibility="Collapsed">
+                            <TextBlock Text="Parameter:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="ButtonParamCombo" Grid.Column="0"
+                                          SelectionChanged="OnButtonParamChanged"/>
+                                <Button Grid.Column="1" Content="✕" Width="24" Height="24" Margin="4,0,0,0"
+                                        Background="#3C0F0F" Foreground="#FF6666" FontWeight="Bold"
+                                        BorderThickness="0" Cursor="Hand" Click="OnButtonMappingClear"
+                                        ToolTip="Zuweisung entfernen"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Fader-Mapping: ComboBox + Min/Max -->
+                        <StackPanel x:Name="FaderMappingPanel" Visibility="Collapsed">
+                            <TextBlock Text="Parameter:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                            <ComboBox x:Name="FaderParamCombo"
+                                      SelectionChanged="OnFaderParamChanged"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <TextBlock Text="Min:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBox x:Name="FaderMinBox" Width="50" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                <TextBlock Text="Max:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center" Margin="8,0,4,0"/>
+                                <TextBox x:Name="FaderMaxBox" Width="50" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                <Button Content="Speichern" Margin="8,0,0,0" Padding="6,2"
+                                        Background="#1E3A1E" Foreground="#6CBF6C" FontFamily="Consolas" FontSize="10"
+                                        BorderThickness="0" Cursor="Hand" Click="OnFaderMappingSave"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Encoder-Mapping: Liste + Hinzufügen -->
+                        <StackPanel x:Name="EncoderMappingPanel" Visibility="Collapsed">
+                            <TextBlock Text="Funktionen (Drücken = nächste):" Foreground="#AAA"
+                                       FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                            <ListBox x:Name="EncoderFunctionList" MaxHeight="80"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <ComboBox x:Name="EncoderAddParamCombo" Width="160"/>
+                                <TextBox x:Name="EncoderAddLabelBox" Width="60" Margin="4,0,0,0"
+                                         Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"
+                                         BorderBrush="#444" MaxLength="7" ToolTip="Label (max 7 Zeichen)"/>
+                                <Button Content="+" Width="24" Height="22" Margin="4,0,0,0"
+                                        Background="#1E3A1E" Foreground="#6CBF6C" FontWeight="Bold"
+                                        BorderThickness="0" Cursor="Hand" Click="OnEncoderFunctionAdd"
+                                        ToolTip="Funktion hinzufügen"/>
+                                <Button Content="−" Width="24" Height="22" Margin="4,0,0,0"
+                                        Background="#3C0F0F" Foreground="#FF6666" FontWeight="Bold"
+                                        BorderThickness="0" Cursor="Hand" Click="OnEncoderFunctionRemove"
+                                        ToolTip="Ausgewählte Funktion entfernen"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Master-Button-Mapping: Aktionstyp + dynamische Felder -->
+                        <StackPanel x:Name="MasterButtonMappingPanel" Visibility="Collapsed">
+                            <TextBlock Text="Aktionstyp:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                            <ComboBox x:Name="MasterActionTypeCombo"
+                                      SelectionChanged="OnMasterActionTypeChanged"/>
+
+                            <!-- VmParameter -->
+                            <StackPanel x:Name="MasterVmParamPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="VM-Parameter:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox x:Name="MasterVmParamBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                         ToolTip="z.B. Strip[0].Mute, Bus[2].EQ.on"/>
+                            </StackPanel>
+
+                            <!-- LaunchProgram -->
+                            <StackPanel x:Name="MasterLaunchPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="Programmpfad:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="MasterProgramPathBox" Grid.Column="0" Background="#222" Foreground="#DDD"
+                                             FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                             ToolTip="Pfad zum Programm (z.B. notepad.exe)"/>
+                                    <Button Grid.Column="1" Content="..." Width="28" Height="22" Margin="4,0,0,0"
+                                            Background="#2D2D30" Foreground="#DDD" BorderThickness="0" Cursor="Hand"
+                                            Click="OnMasterBrowseProgram" ToolTip="Programm auswählen"/>
+                                </Grid>
+                                <TextBlock Text="Argumente:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <TextBox x:Name="MasterProgramArgsBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                         ToolTip="Optionale Programmargumente"/>
+                            </StackPanel>
+
+                            <!-- SendKeys -->
+                            <StackPanel x:Name="MasterSendKeysPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="Tastenkombination:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox x:Name="MasterKeyCombinationBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                         ToolTip="z.B. Ctrl+Shift+M, Alt+F4, F5"/>
+                            </StackPanel>
+
+                            <!-- SendText -->
+                            <StackPanel x:Name="MasterSendTextPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="Text:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox x:Name="MasterTextBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                         TextWrapping="Wrap" AcceptsReturn="True" Height="50"
+                                         ToolTip="Text der in die Zwischenablage kopiert und eingefügt wird"/>
+                            </StackPanel>
+
+                            <!-- Speichern / Entfernen Buttons -->
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Content="Speichern" Padding="8,3" Cursor="Hand"
+                                        Background="#1E3A1E" Foreground="#6CBF6C" FontFamily="Consolas" FontSize="10"
+                                        BorderThickness="0" Click="OnMasterActionSave"
+                                        ToolTip="Aktion speichern"/>
+                                <Button Content="Entfernen" Padding="8,3" Margin="6,0,0,0" Cursor="Hand"
+                                        Background="#3C0F0F" Foreground="#FF6666" FontFamily="Consolas" FontSize="10"
+                                        BorderThickness="0" Click="OnMasterActionClear"
+                                        ToolTip="Aktion entfernen"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

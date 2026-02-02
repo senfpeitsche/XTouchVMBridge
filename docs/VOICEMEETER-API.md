@@ -17,8 +17,8 @@ VoicemeeterRemote.SetParameterFloat("Strip[0].Gain", -6.0f);
 VoicemeeterRemote.SetParameterStringA("Strip[0].Label", "MyMic");
 ```
 
-Definiert in: `AudioManager.Voicemeeter/Native/VoicemeeterRemote.cs`
-Gekapselt in: `AudioManager.Voicemeeter/Services/VoicemeeterService.cs` (`IVoicemeeterService`)
+Definiert in: `XTouchVMBridge.Voicemeeter/Native/VoicemeeterRemote.cs`
+Gekapselt in: `XTouchVMBridge.Voicemeeter/Services/VoicemeeterService.cs` (`IVoicemeeterService`)
 
 ---
 
