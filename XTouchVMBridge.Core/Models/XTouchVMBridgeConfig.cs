@@ -20,9 +20,6 @@ public class XTouchVMBridgeConfig
     /// <summary>Ob die XTouch-Integration aktiviert ist.</summary>
     public bool EnableXTouch { get; set; } = true;
 
-    /// <summary>Ob die Fantom-MIDI-Integration aktiviert ist.</summary>
-    public bool EnableFantom { get; set; } = true;
-
     /// <summary>
     /// Control-Mappings pro VM-Kanal (Key = Kanal-Index 0–15).
     /// Definiert welcher Voicemeeter-Parameter auf welches X-Touch-Control gemappt ist.

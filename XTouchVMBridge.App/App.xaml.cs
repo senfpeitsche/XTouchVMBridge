@@ -4,7 +4,6 @@ using XTouchVMBridge.App.Services;
 using XTouchVMBridge.App.Views;
 using XTouchVMBridge.Core.Interfaces;
 using XTouchVMBridge.Core.Models;
-using XTouchVMBridge.Midi.Fantom;
 using XTouchVMBridge.Midi.XTouch;
 using XTouchVMBridge.Voicemeeter.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -56,7 +55,6 @@ public partial class App : Application
                     services.AddSingleton<IMidiDevice, XTouchDevice>();
                     services.AddSingleton<IVoicemeeterService, VoicemeeterService>();
                     services.AddSingleton<IScreenLockDetector, ScreenLockDetector>();
-                    services.AddSingleton<FantomMidiHandler>();
                     services.AddSingleton<ScreenLockMidiFilter>();
 
                     // Background Services
@@ -93,10 +91,6 @@ public partial class App : Application
 
             // Master-Button-Aktionen initialisieren (registriert sich auf MasterButtonChanged)
             _host.Services.GetRequiredService<MasterButtonActionService>();
-
-            // Fantom prüfen
-            var fantom = _host.Services.GetRequiredService<FantomMidiHandler>();
-            fantom.TryConnect();
 
             // Tray Icon starten
             var trayIcon = _host.Services.GetRequiredService<TrayIconService>();

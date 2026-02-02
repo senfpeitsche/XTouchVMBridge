@@ -21,7 +21,7 @@
         │ XTouchDevice │   │ VoicemeeterBridge │   │ Enums, Models    │
         │ MackieProto  │   │ VoicemeeterSvc    │   │ Interfaces       │
         │ MidiDecoder  │   │ ConfigService     │   │ Hardware Controls│
-        │ FantomHandler│   │ Native P/Invoke   │   │ Events           │
+        │               │   │ Native P/Invoke   │   │ Events           │
         └──────────────┘   └──────────────────┘   └──────────────────┘
 ```
 
@@ -46,7 +46,6 @@ In `App.xaml.cs` werden alle Services registriert:
 services.AddSingleton<IMidiDevice, XTouchDevice>();    // Core-Interface → Midi-Implementierung
 services.AddSingleton<IVoicemeeterService, VoicemeeterService>();
 services.AddSingleton<IScreenLockDetector, ScreenLockDetector>();
-services.AddSingleton<FantomMidiHandler>();
 services.AddHostedService<AudioDeviceMonitorService>(); // Hintergrund-Thread + X-Touch Reconnect
 services.AddHostedService<VoicemeeterBridge>();          // 100ms Polling-Loop
 services.AddSingleton<MasterButtonActionService>();      // Master-Button → Programm/Keys/Text

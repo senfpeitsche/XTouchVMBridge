@@ -23,7 +23,6 @@ zu den entsprechenden C#-Implementierungen.
 | `audiomanager.pyw` (main) | `App/App.xaml.cs` (OnStartup) | App |
 | `audiomanager.pyw` (TrayIcon) | `App/Services/TrayIconService.cs` | App |
 | `audiomanager.pyw` (AudioDeviceMonitor) | `App/Services/AudioDeviceMonitorService.cs` | App |
-| `audiomanager.pyw` (FantomMidiHandler) | `Midi/Fantom/FantomMidiHandler.cs` | Midi |
 | `audiomanager.pyw` (LogWindow) | `App/Views/LogWindow.xaml` + `.xaml.cs` | App |
 | `audiomanager.pyw` (Notificator) | Noch nicht portiert (via Toast-Notification-Paket machbar) | — |
 | `islocked.py` | `App/Services/ScreenLockDetector.cs` | App |

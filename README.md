@@ -1,7 +1,7 @@
 # XTouchVMBridge (C#)
 
 Windows-Anwendung zur Steuerung von Voicemeeter Potato via Behringer X-Touch (Full / Extender).
-System-Tray-App mit Audio-Device-Monitoring, Roland Fantom MIDI-Filterung und Screen-Lock-Schutz.
+System-Tray-App mit Audio-Device-Monitoring und Screen-Lock-Schutz.
 
 Portiert vom originalen Python-Projekt in ein C# .NET 8 Projekt.
 
@@ -11,7 +11,6 @@ Portiert vom originalen Python-Projekt in ein C# .NET 8 Projekt.
 - Windows 10/11
 - Voicemeeter Potato (installiert, `VoicemeeterRemote64.dll` muss im Systempfad sein)
 - Behringer X-Touch oder X-Touch Extender (USB, im Mackie Control Modus)
-- Optional: Roland Fantom-06 + LoopMIDI ("FANTOM filterd" Port)
 
 ## Build & Start
 
@@ -43,8 +42,7 @@ XTouchVMBridgeCSharp/
 │   └── Models/                        # XTouchChannel, XTouchVMBridgeConfig, ...
 │
 ├── XTouchVMBridge.Midi/                 # MIDI-Kommunikation (NAudio)
-│   ├── XTouch/                        # XTouchDevice, MackieProtocol, MidiMessageDecoder
-│   └── Fantom/                        # FantomMidiHandler
+│   └── XTouch/                        # XTouchDevice, MackieProtocol, MidiMessageDecoder
 │
 ├── XTouchVMBridge.Voicemeeter/          # Voicemeeter-Integration
 │   ├── Native/                        # VoicemeeterRemote P/Invoke
@@ -69,7 +67,6 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 {
   "voicemeeterApiType": "potato",
   "enableXTouch": true,
-  "enableFantom": true,
   "segmentDisplayCycleButton": 113,
   "channels": {
     "0": { "name": "WaveMIC", "type": "Hardware Input 1", "color": "green" },
@@ -107,7 +104,6 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 - **Shortcut-Modi**: Desktop / VR Audio-Routing, umschaltbar per Encoder 3
 - **Audio-Device-Monitor**: Erkennt USB-Geräteänderungen, startet Voicemeeter neu
 - **Screen-Lock-Schutz**: Blockiert X-Touch-Eingabe bei gesperrtem Bildschirm
-- **Fantom MIDI-Filter**: Leitet Note On/Off und CC vom Fantom-06 an LoopMIDI weiter
 - **MIDI Debug Monitor**: Echtzeit-Anzeige aller MIDI-Nachrichten (Tray-Menu)
 - **X-Touch Panel**: Interaktive visuelle Darstellung der X-Touch Oberfläche (Tray-Menu).
   Zeigt alle Controls in Echtzeit, Klick auf ein Control zeigt MIDI-Details und zugeordnete Funktion.
@@ -215,3 +211,17 @@ Der Cycle-Button kann in der Config angepasst werden:
 
 `0` = Cycle-Funktion deaktiviert. Das Display kommuniziert über Behringer-eigene SysEx-Nachrichten
 (`F0 00 20 32 dd 37 ...`) mit automatischer Device-ID-Erkennung (X-Touch=0x14, Ext=0x15).
+
+## Credits & Danksagung
+
+Dieses Projekt ist eine vollständige Neuentwicklung in C# / .NET 8, basierend auf dem originalen
+Python-Projekt **audiomanager** von [TheRedNet](https://github.com/TheRedNet):
+
+- **Original-Repository**: [github.com/TheRedNet/audiomanager](https://github.com/TheRedNet/audiomanager)
+- **Original-Sprache**: Python (XTouchVM.py, XTouchLib.py, audiomanager.pyw)
+- **Portierung**: C# / WPF / .NET 8 mit Claude Code (Anthropic)
+
+Die Kernidee — Voicemeeter Potato über das Behringer X-Touch im Mackie Control Modus zu steuern —
+stammt aus dem Python-Original. Die C#-Portierung erweitert das Konzept um eine modulare Architektur
+mit Dependency Injection, umfangreiche Unit-Tests, eine grafische Oberfläche (WPF) mit interaktivem
+X-Touch Panel, MIDI Debug Monitor und konfigurierbaren Master-Button-Aktionen.

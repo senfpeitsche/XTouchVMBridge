@@ -82,13 +82,12 @@ public class ConfigurationService : IConfigurationService
             VoicemeeterApiType = "potato",
             DeviceMonitorIntervalMs = 5000,
             EnableXTouch = true,
-            EnableFantom = true,
             Channels = new Dictionary<int, ChannelConfig>
             {
                 // Input Strips (0–7)
                 [0] = new() { Name = "WaveMIC", Type = "Hardware Input 1", Color = XTouchColor.Green },
                 [1] = new() { Name = "RiftMIC", Type = "Hardware Input 2", Color = XTouchColor.Green },
-                [2] = new() { Name = "Fantom",  Type = "Hardware Input 3", Color = XTouchColor.Blue },
+                [2] = new() { Name = "HW In 3", Type = "Hardware Input 3", Color = XTouchColor.Blue },
                 [3] = new() { Name = "V Mic",   Type = "Virtual Input 1",  Color = XTouchColor.Yellow },
                 [4] = new() { Name = "Discord", Type = "Virtual Input 2",  Color = XTouchColor.Magenta },
                 [5] = new() { Name = "System",  Type = "Virtual Input 3",  Color = XTouchColor.Cyan },
