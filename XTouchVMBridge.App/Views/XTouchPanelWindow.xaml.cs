@@ -7,6 +7,7 @@ using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Hardware;
 using XTouchVMBridge.Core.Interfaces;
 using XTouchVMBridge.Core.Models;
+using XTouchVMBridge.App.Services;
 using XTouchVMBridge.Voicemeeter.Services;
 using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
@@ -32,6 +33,7 @@ public partial class XTouchPanelWindow : Window
     private readonly IConfigurationService? _configService;
     private readonly VoicemeeterBridge? _bridge;
     private readonly IVoicemeeterService? _vm;
+    private readonly MasterButtonActionService? _masterButtonActionService;
     private readonly DispatcherTimer _refreshTimer;
 
     // ─── UI-Referenzen: 8 Kanalstreifen ──────────────────────────────
@@ -67,11 +69,14 @@ public partial class XTouchPanelWindow : Window
     private string _activeDetailType = ""; // "Fader", "LevelMeter", "Encoder", "Button", "Master", ""
     private int _activeDetailChannel = -1;
 
-    public XTouchPanelWindow() : this(null, null, null, null, null) { }
+    // ─── Fader-Drag State (Strg+Klick → Fader per Maus steuern) ──
+    private int _draggingFaderChannel = -1; // -1 = kein Fader wird gerade per Maus gesteuert
+
+    public XTouchPanelWindow() : this(null, null, null, null, null, null) { }
 
     public XTouchPanelWindow(IMidiDevice? device, XTouchVMBridgeConfig? config,
         IConfigurationService? configService = null, VoicemeeterBridge? bridge = null,
-        IVoicemeeterService? vm = null)
+        IVoicemeeterService? vm = null, MasterButtonActionService? masterButtonActionService = null)
     {
         InitializeComponent();
         _device = device;
@@ -79,6 +84,7 @@ public partial class XTouchPanelWindow : Window
         _configService = configService;
         _bridge = bridge;
         _vm = vm;
+        _masterButtonActionService = masterButtonActionService;
 
         BuildChannelStrips();
         BuildMainFader();
@@ -236,7 +242,11 @@ public partial class XTouchPanelWindow : Window
             IsEnabled = false,
             Cursor = System.Windows.Input.Cursors.Hand
         };
-        fader.MouseLeftButtonDown += (_, _) => ShowFaderDetail(ch);
+        fader.PreviewMouseLeftButtonDown += (_, e) => OnFaderMouseDown(ch, e);
+        fader.PreviewMouseLeftButtonUp += (_, _) => OnFaderMouseUp(ch);
+        fader.PreviewMouseMove += (_, e) => OnFaderMouseMove(ch, e);
+        fader.LostMouseCapture += (_, _) => OnFaderMouseUp(ch);
+        fader.ValueChanged += (_, e) => OnFaderValueChanged(ch, e.NewValue);
         faderContainer.Children.Add(fader);
 
         var dbLabel = new TextBlock
@@ -357,7 +367,7 @@ public partial class XTouchPanelWindow : Window
         {
             int noteNum = notes[i];
             var btn = CreateMasterButton(names[i], $"EncoderAssign_{names[i]}", Color.FromRgb(35, 35, 35), Color.FromRgb(80, 80, 80));
-            btn.Click += (_, _) => ShowMasterButtonDetail("Encoder Assign", names[Array.IndexOf(notes, noteNum)], noteNum,
+            btn.Click += (_, _) => OnMasterButtonClick("Encoder Assign", names[Array.IndexOf(notes, noteNum)], noteNum,
                 "Wählt den Parameter für alle 8 Encoder.\nDrehen der Encoder ändert den gewählten Parameter pro Kanal.");
             EncoderAssignPanel.Children.Add(btn);
         }
@@ -376,7 +386,7 @@ public partial class XTouchPanelWindow : Window
         foreach (var (name, note, desc) in items)
         {
             var btn = CreateMasterButton(name, $"Display_{name}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
-            btn.Click += (_, _) => ShowMasterButtonDetail("Display Mode", name, note, desc);
+            btn.Click += (_, _) => OnMasterButtonClick("Display Mode", name, note, desc);
             DisplayModePanel.Children.Add(btn);
         }
     }
@@ -390,7 +400,7 @@ public partial class XTouchPanelWindow : Window
         {
             int idx = i;
             var btn = CreateMasterButton(names[i], $"GlobalView_{names[i]}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
-            btn.Click += (_, _) => ShowMasterButtonDetail("Global View", names[idx], notes[idx],
+            btn.Click += (_, _) => OnMasterButtonClick("Global View", names[idx], notes[idx],
                 $"Globale Ansicht: {names[idx]}.\nFiltert die Kanalstreifen nach Typ.");
             GlobalViewPanel.Children.Add(btn);
         }
@@ -405,7 +415,7 @@ public partial class XTouchPanelWindow : Window
             string label = $"F{i + 1}";
             int noteNum = 54 + i; // F1=54..F8=61
             var btn = CreateMasterButton(label, $"Function_{label}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
-            btn.Click += (_, _) => ShowMasterButtonDetail("Function", label, noteNum,
+            btn.Click += (_, _) => OnMasterButtonClick("Function", label, noteNum,
                 $"Funktion {idx + 1} — benutzerdefinierbar.\nZuweisung hängt von der DAW/Anwendung ab.");
             FunctionPanel.Children.Add(btn);
         }
@@ -418,7 +428,7 @@ public partial class XTouchPanelWindow : Window
         foreach (var (name, note) in items)
         {
             var btn = CreateMasterButton(name, $"Modify_{name}", Color.FromRgb(30, 30, 45), Color.FromRgb(60, 60, 100));
-            btn.Click += (_, _) => ShowMasterButtonDetail("Modify", name, note,
+            btn.Click += (_, _) => OnMasterButtonClick("Modify", name, note,
                 $"Modifier-Taste '{name}'.\nKombiniert mit anderen Tasten für erweiterte Funktionen.");
             ModifyPanel.Children.Add(btn);
         }
@@ -435,7 +445,7 @@ public partial class XTouchPanelWindow : Window
         foreach (var (name, note) in items)
         {
             var btn = CreateMasterButton(name, $"Auto_{name}", Color.FromRgb(30, 40, 30), Color.FromRgb(60, 90, 60));
-            btn.Click += (_, _) => ShowMasterButtonDetail("Automation", name, note,
+            btn.Click += (_, _) => OnMasterButtonClick("Automation", name, note,
                 $"Automation-Modus '{name}'.\nSteuert den Automation-Modus der DAW.");
             AutomationPanel.Children.Add(btn);
         }
@@ -448,7 +458,7 @@ public partial class XTouchPanelWindow : Window
         foreach (var (name, note) in items)
         {
             var btn = CreateMasterButton(name, $"Util_{name}", Color.FromRgb(40, 35, 25), Color.FromRgb(90, 80, 50));
-            btn.Click += (_, _) => ShowMasterButtonDetail("Utility", name, note,
+            btn.Click += (_, _) => OnMasterButtonClick("Utility", name, note,
                 $"Utility-Taste '{name}'.\nWird von der DAW zugewiesen.");
             UtilityPanel.Children.Add(btn);
         }
@@ -466,7 +476,7 @@ public partial class XTouchPanelWindow : Window
         foreach (var (name, note) in topItems)
         {
             var btn = CreateMasterButton(name, $"Transport_{name}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
-            btn.Click += (_, _) => ShowMasterButtonDetail("Transport", name, note,
+            btn.Click += (_, _) => OnMasterButtonClick("Transport", name, note,
                 $"Transport-Taste '{name}'.\nSteuert die DAW-Transport-Funktionen.");
             TransportTopPanel.Children.Add(btn);
         }
@@ -495,7 +505,7 @@ public partial class XTouchPanelWindow : Window
                 Cursor = System.Windows.Input.Cursors.Hand
             };
             btn.Template = CreateRoundedButtonTemplate(4);
-            btn.Click += (_, _) => ShowMasterButtonDetail("Transport", name, note,
+            btn.Click += (_, _) => OnMasterButtonClick("Transport", name, note,
                 $"Transport: {name} ({symbol})\nMIDI: Note On #{note}");
             _masterButtons[$"Transport_{name}"] = btn;
             TransportButtonPanel.Children.Add(btn);
@@ -525,13 +535,13 @@ public partial class XTouchPanelWindow : Window
         // Channel: ◄ ►
         var chLeft = CreateMasterButton("◄", "Channel_Left", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         chLeft.FontSize = 14; chLeft.Width = 36;
-        chLeft.Click += (_, _) => ShowMasterButtonDetail("Channel", "Channel Left", 48,
+        chLeft.Click += (_, _) => OnMasterButtonClick("Channel", "Channel Left", 48,
             "Verschiebt die 8 Kanalstreifen um 1 Kanal nach links.");
         ChannelNavPanel.Children.Add(chLeft);
 
         var chRight = CreateMasterButton("►", "Channel_Right", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         chRight.FontSize = 14; chRight.Width = 36;
-        chRight.Click += (_, _) => ShowMasterButtonDetail("Channel", "Channel Right", 49,
+        chRight.Click += (_, _) => OnMasterButtonClick("Channel", "Channel Right", 49,
             "Verschiebt die 8 Kanalstreifen um 1 Kanal nach rechts.");
         ChannelNavPanel.Children.Add(chRight);
     }
@@ -576,8 +586,140 @@ public partial class XTouchPanelWindow : Window
             Tag = new ButtonTag(ch, type, activeColor, inactiveColor)
         };
         btn.Template = CreateRoundedButtonTemplate(3);
-        btn.Click += (_, _) => ShowButtonDetail(ch, type);
+        btn.Click += (_, _) => OnHwButtonClick(ch, type);
         return btn;
+    }
+
+    /// <summary>
+    /// Wird von allen Hardware-Buttons (REC, SOLO, MUTE, SELECT) als Click-Handler verwendet.
+    /// Bei gedrückter Strg-Taste wird der zugewiesene VM-Parameter direkt getoggelt,
+    /// ansonsten wird das Detail-Panel angezeigt.
+    /// </summary>
+    private void OnHwButtonClick(int ch, XTouchButtonType type)
+    {
+        if (System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
+        {
+            ExecuteHwButtonAction(ch, type);
+            return;
+        }
+
+        ShowButtonDetail(ch, type);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  Fader per Maus steuern (Strg+Klick)
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Bei Strg+Klick auf einen Fader: Per Maus steuerbar machen.
+    /// Ohne Strg: Detail-Panel anzeigen.
+    /// Verwendet PreviewMouseLeftButtonDown (Tunneling), damit es auch bei IsEnabled=false feuert.
+    /// </summary>
+    private void OnFaderMouseDown(int ch, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
+        {
+            _draggingFaderChannel = ch;
+            var slider = _faderSliders[ch];
+
+            // Mausposition → Slider-Wert setzen
+            SetFaderFromMousePosition(slider, ch, e.GetPosition(slider));
+
+            slider.CaptureMouse();
+            e.Handled = true;
+            return;
+        }
+
+        ShowFaderDetail(ch);
+    }
+
+    /// <summary>
+    /// Maus bewegen während Fader per Strg+Drag gesteuert wird.
+    /// </summary>
+    private void OnFaderMouseMove(int ch, System.Windows.Input.MouseEventArgs e)
+    {
+        if (_draggingFaderChannel != ch) return;
+        if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed)
+        {
+            OnFaderMouseUp(ch);
+            return;
+        }
+
+        var slider = _faderSliders[ch];
+        SetFaderFromMousePosition(slider, ch, e.GetPosition(slider));
+    }
+
+    /// <summary>
+    /// Maus loslassen: Fader-Drag beenden.
+    /// </summary>
+    private void OnFaderMouseUp(int ch)
+    {
+        if (_draggingFaderChannel != ch) return;
+        _draggingFaderChannel = -1;
+        _faderSliders[ch].ReleaseMouseCapture();
+    }
+
+    /// <summary>
+    /// Berechnet aus der Mausposition den Slider-Wert und sendet ihn an Voicemeeter.
+    /// </summary>
+    private void SetFaderFromMousePosition(Slider slider, int ch, System.Windows.Point mousePos)
+    {
+        double ratio = 1.0 - Math.Clamp(mousePos.Y / slider.ActualHeight, 0.0, 1.0);
+        double value = slider.Minimum + ratio * (slider.Maximum - slider.Minimum);
+        int position = (int)Math.Clamp(value, slider.Minimum, slider.Maximum);
+
+        // Slider visuell aktualisieren
+        slider.Value = position;
+
+        // dB-Wert berechnen und an Voicemeeter senden
+        if (_config == null || _vm == null) return;
+
+        int vmCh = ResolveVmChannel(ch);
+        if (!_config.Mappings.TryGetValue(vmCh, out var mapping) || mapping.Fader == null) return;
+
+        double db = FaderControl.PositionToDb(position);
+        db = Math.Clamp(db, mapping.Fader.Min, mapping.Fader.Max);
+        _vm.SetParameter(mapping.Fader.Parameter, (float)db);
+
+        _faderDbLabels[ch].Text = db <= -65 ? "-∞ dB" : $"{db:F1} dB";
+    }
+
+    /// <summary>
+    /// Fader-Wert hat sich geändert → an Voicemeeter senden.
+    /// Wird nur verarbeitet wenn der Fader gerade per Maus gesteuert wird.
+    /// </summary>
+    private void OnFaderValueChanged(int ch, double newValue)
+    {
+        if (_draggingFaderChannel != ch) return;
+        if (_config == null || _vm == null) return;
+
+        int vmCh = ResolveVmChannel(ch);
+        if (!_config.Mappings.TryGetValue(vmCh, out var mapping) || mapping.Fader == null) return;
+
+        double db = FaderControl.PositionToDb((int)newValue);
+        db = Math.Clamp(db, mapping.Fader.Min, mapping.Fader.Max);
+        _vm.SetParameter(mapping.Fader.Parameter, (float)db);
+
+        _faderDbLabels[ch].Text = db <= -65 ? "-∞ dB" : $"{db:F1} dB";
+    }
+
+    /// <summary>
+    /// Führt die zugewiesene Aktion eines Hardware-Buttons aus (VM-Parameter toggeln).
+    /// </summary>
+    private void ExecuteHwButtonAction(int ch, XTouchButtonType type)
+    {
+        if (_config == null || _vm == null) return;
+
+        int vmCh = ResolveVmChannel(ch);
+        if (!_config.Mappings.TryGetValue(vmCh, out var mapping)) return;
+
+        string btnKey = type.ToString();
+        if (!mapping.Buttons.TryGetValue(btnKey, out var btnMap) || btnMap == null) return;
+
+        // Bool-Parameter toggeln
+        float currentValue = _vm.GetParameter(btnMap.Parameter);
+        float newValue = currentValue > 0.5f ? 0f : 1f;
+        _vm.SetParameter(btnMap.Parameter, newValue);
     }
 
     private record ButtonTag(int Channel, XTouchButtonType Type, Color ActiveColor, Color InactiveColor);
@@ -692,10 +834,13 @@ public partial class XTouchPanelWindow : Window
                 };
             }
 
-            // Fader
-            _faderSliders[ch].Value = xtCh.Fader.Position;
-            double db = FaderControl.PositionToDb(xtCh.Fader.Position);
-            _faderDbLabels[ch].Text = db <= -65 ? "-∞ dB" : $"{db:F1} dB";
+            // Fader (nicht überschreiben wenn gerade per Maus gesteuert)
+            if (_draggingFaderChannel != ch)
+            {
+                _faderSliders[ch].Value = xtCh.Fader.Position;
+                double db = FaderControl.PositionToDb(xtCh.Fader.Position);
+                _faderDbLabels[ch].Text = db <= -65 ? "-∞ dB" : $"{db:F1} dB";
+            }
 
             // Touch-Indikator
             _touchIndicators[ch].Fill = new SolidColorBrush(
@@ -988,6 +1133,22 @@ public partial class XTouchPanelWindow : Window
     //  Klick → Detail-Panel: Master Section Buttons
     // ═══════════════════════════════════════════════════════════════════
 
+    /// <summary>
+    /// Wird von allen Master-Buttons als Click-Handler verwendet.
+    /// Bei gedrückter Strg-Taste wird die zugewiesene Aktion direkt ausgeführt,
+    /// ansonsten wird das Detail-Panel angezeigt.
+    /// </summary>
+    private void OnMasterButtonClick(string section, string name, int noteNumber, string description)
+    {
+        if (System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
+        {
+            _masterButtonActionService?.ExecuteAction(noteNumber);
+            return;
+        }
+
+        ShowMasterButtonDetail(section, name, noteNumber, description);
+    }
+
     private void ShowMasterButtonDetail(string section, string name, int noteNumber, string description)
     {
         _activeDetailType = "Master"; _activeDetailChannel = -1;
@@ -1013,20 +1174,16 @@ public partial class XTouchPanelWindow : Window
 
     /// <summary>
     /// Ermittelt den VM-Kanal-Index für einen X-Touch-Kanal.
-    /// Verwendet die aktuelle Display-Anzeige (Config-Name) zur Zuordnung,
-    /// da die Panel-Ansicht die gleichen Kanäle wie die Bridge zeigt.
+    /// Verwendet das aktuelle Channel-Mapping der Bridge (identisch mit der Hardware-Zuordnung).
     /// </summary>
     private int ResolveVmChannel(int xtChannel)
     {
-        // Versuche aus dem Display-Namen den Config-Kanal zu ermitteln
-        var displayName = _device?.Channels[xtChannel].Display.TopRow.TrimEnd();
-        if (displayName != null && _config != null)
+        // Primär: Bridge-Mapping verwenden (identisch mit Hardware)
+        if (_bridge != null)
         {
-            foreach (var (vmCh, chConfig) in _config.Channels)
-            {
-                if (chConfig.Name == displayName)
-                    return vmCh;
-            }
+            var mapping = _bridge.CurrentChannelMapping;
+            if (xtChannel >= 0 && xtChannel < mapping.Length)
+                return mapping[xtChannel];
         }
 
         // Fallback: X-Touch-Kanal = VM-Kanal

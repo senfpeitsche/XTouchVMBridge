@@ -47,16 +47,25 @@ public class MasterButtonActionService : IDisposable
         // Nur bei Tastendruck (nicht beim Loslassen)
         if (!e.IsPressed) return;
 
-        if (!_config.MasterButtonActions.TryGetValue(e.NoteNumber, out var actionConfig))
+        ExecuteAction(e.NoteNumber);
+    }
+
+    /// <summary>
+    /// Führt die konfigurierte Aktion für eine Master-Button-Note aus.
+    /// Kann sowohl vom MIDI-Event als auch von der UI (Strg+Klick) aufgerufen werden.
+    /// </summary>
+    public void ExecuteAction(int noteNumber)
+    {
+        if (!_config.MasterButtonActions.TryGetValue(noteNumber, out var actionConfig))
         {
-            _logger.LogDebug("Keine Aktion für Master-Button Note {Note} konfiguriert.", e.NoteNumber);
+            _logger.LogDebug("Keine Aktion für Master-Button Note {Note} konfiguriert.", noteNumber);
             return;
         }
 
         if (actionConfig.ActionType == MasterButtonActionType.None)
             return;
 
-        _logger.LogDebug("Master-Button Note {Note}: Führe Aktion {Action} aus.", e.NoteNumber, actionConfig.ActionType);
+        _logger.LogDebug("Master-Button Note {Note}: Führe Aktion {Action} aus.", noteNumber, actionConfig.ActionType);
 
         try
         {
@@ -79,7 +88,7 @@ public class MasterButtonActionService : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Fehler bei Master-Button-Aktion Note {Note} ({Action}).",
-                e.NoteNumber, actionConfig.ActionType);
+                noteNumber, actionConfig.ActionType);
         }
     }
 

@@ -37,7 +37,11 @@ public class VoicemeeterBridge : BackgroundService
     private List<ChannelViewConfig> ChannelViews => _config.ChannelViews;
 
     private int _currentViewIndex;
-    private int[] CurrentChannelMapping => ChannelViews[_currentViewIndex].Channels;
+
+    /// <summary>
+    /// Gibt das aktuelle Kanal-Mapping zurück: Index = X-Touch-Kanal (0..7), Wert = VM-Kanal (0..15).
+    /// </summary>
+    public int[] CurrentChannelMapping => ChannelViews[_currentViewIndex].Channels;
 
     /// <summary>Index der aktuell aktiven Channel View.</summary>
     public int CurrentViewIndex => _currentViewIndex;

@@ -23,6 +23,7 @@ public class TrayIconService : IDisposable
     private readonly XTouchVMBridgeConfig _config;
     private readonly IConfigurationService _configService;
     private readonly VoicemeeterBridge _bridge;
+    private readonly MasterButtonActionService _masterButtonActionService;
     private TaskbarIcon? _trayIcon;
     private LogWindow? _logWindow;
     private MidiDebugWindow? _midiDebugWindow;
@@ -35,7 +36,8 @@ public class TrayIconService : IDisposable
         IMidiDevice midiDevice,
         XTouchVMBridgeConfig config,
         IConfigurationService configService,
-        VoicemeeterBridge bridge)
+        VoicemeeterBridge bridge,
+        MasterButtonActionService masterButtonActionService)
     {
         _logger = logger;
         _vm = vm;
@@ -43,6 +45,7 @@ public class TrayIconService : IDisposable
         _config = config;
         _configService = configService;
         _bridge = bridge;
+        _masterButtonActionService = masterButtonActionService;
     }
 
     /// <summary>
@@ -239,7 +242,7 @@ public class TrayIconService : IDisposable
             return;
         }
 
-        _xtouchPanelWindow = new XTouchPanelWindow(_midiDevice, _config, _configService, _bridge, _vm);
+        _xtouchPanelWindow = new XTouchPanelWindow(_midiDevice, _config, _configService, _bridge, _vm, _masterButtonActionService);
         _xtouchPanelWindow.Closed += (_, _) => _xtouchPanelWindow = null;
         _xtouchPanelWindow.Show();
 
