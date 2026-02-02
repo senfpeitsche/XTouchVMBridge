@@ -270,10 +270,10 @@ public class TrayIconService : IDisposable
 
         using var font = new Font("Segoe UI", 22, System.Drawing.FontStyle.Bold);
         using var brush = new SolidBrush(Color.FromArgb(0, 180, 255));
-        var size = g.MeasureString("AM", font);
+        var size = g.MeasureString("XV", font);
         float x = (64 - size.Width) / 2;
         float y = (64 - size.Height) / 2;
-        g.DrawString("AM", font, brush, x, y);
+        g.DrawString("XV", font, brush, x, y);
 
         IntPtr hIcon = bmp.GetHicon();
         return Icon.FromHandle(hIcon);
