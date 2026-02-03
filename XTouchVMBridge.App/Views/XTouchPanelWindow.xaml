@@ -1,8 +1,8 @@
 <Window x:Class="XTouchVMBridge.App.Views.XTouchPanelWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="X-Touch — Live Panel" Width="1440" Height="1000"
-        Background="#111" WindowStartupLocation="CenterScreen" MinWidth="1200" MinHeight="850">
+        Title="X-Touch — Live Panel" Width="1520" Height="1000"
+        Background="#111" WindowStartupLocation="CenterScreen" MinWidth="1280" MinHeight="850">
 
     <Window.Resources>
         <!-- Globale Stile -->
@@ -295,15 +295,16 @@
 
             <!-- Master Section (rechts) -->
             <Border Grid.Column="1" BorderBrush="#444" BorderThickness="1" CornerRadius="6"
-                    Background="#181818" Margin="4,0,0,0" Padding="8" Width="340">
+                    Background="#181818" Margin="4,0,0,0" Padding="6" Width="420">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel x:Name="MasterSectionPanel">
 
                         <!-- Titel -->
                         <TextBlock Text="UNIVERSAL CONTROL SURFACE" Foreground="#569CD6"
                                    FontFamily="Consolas" FontSize="10" FontWeight="Bold"
-                                   HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                                   HorizontalAlignment="Center" Margin="0,0,0,4"/>
 
-                        <!-- ENCODER ASSIGN -->
+                        <!-- ENCODER ASSIGN (6 buttons in row) -->
                         <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
                                 Background="#1A1A1A" Padding="4" Margin="0,2">
                             <StackPanel>
@@ -312,79 +313,83 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- DISPLAY + SEGMENT -->
+                        <!-- DISPLAY SECTION -->
                         <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
                                 Background="#1A1A1A" Padding="4" Margin="0,2">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
 
-                                    <!-- DISPLAY Buttons (Name/Value) -->
-                                    <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                                        <TextBlock Text="DISPLAY" Style="{StaticResource SectionHeader}"/>
-                                        <StackPanel x:Name="DisplayModePanel"/>
-                                    </StackPanel>
+                                <!-- DISPLAY Button -->
+                                <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                    <TextBlock Text="DISPLAY" Style="{StaticResource SectionHeader}"/>
+                                    <StackPanel x:Name="DisplayModePanel"/>
+                                </StackPanel>
 
-                                    <!-- Assignment 2-digit display -->
-                                    <StackPanel Grid.Column="1" Margin="0,0,6,0">
-                                        <TextBlock Text="ASSIGN" Style="{StaticResource SectionHeader}"/>
-                                        <Border Background="#0A0A0A" CornerRadius="2" Padding="4,2">
-                                            <TextBlock x:Name="AssignmentDisplay" Text="00"
-                                                       Foreground="#00FF00" FontFamily="Consolas"
-                                                       FontSize="16" FontWeight="Bold"
-                                                       HorizontalAlignment="Center"/>
-                                        </Border>
-                                    </StackPanel>
+                                <!-- Assignment 2-digit display (green) -->
+                                <StackPanel Grid.Column="1" Margin="4,0">
+                                    <TextBlock Text="ASSIGN" Style="{StaticResource SectionHeader}"/>
+                                    <Border Background="#0A0A0A" CornerRadius="2" Padding="6,4" Height="32">
+                                        <TextBlock x:Name="AssignmentDisplay" Text="00"
+                                                   Foreground="#00FF00" FontFamily="Consolas"
+                                                   FontSize="18" FontWeight="Bold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </StackPanel>
 
-                                    <!-- 7-Segment Time Display -->
-                                    <StackPanel Grid.Column="2">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="HRS" Style="{StaticResource SectionHeader}" Margin="0"/>
-                                            <TextBlock Grid.Column="1" Text="MIN" Style="{StaticResource SectionHeader}" Margin="0"/>
-                                            <TextBlock Grid.Column="2" Text="SEC" Style="{StaticResource SectionHeader}" Margin="0"/>
-                                            <TextBlock Grid.Column="3" Text="FR" Style="{StaticResource SectionHeader}" Margin="0"/>
-                                            <TextBlock Grid.Column="4" Text="SF" Style="{StaticResource SectionHeader}" Margin="0"/>
-                                        </Grid>
-                                        <Border Background="#0A0A0A" CornerRadius="3" Padding="6,4">
-                                            <TextBlock x:Name="SegmentDisplay" Text="00:00:00:00:00"
-                                                       Foreground="#FF4444" FontFamily="Consolas"
-                                                       FontSize="18" FontWeight="Bold"
-                                                       HorizontalAlignment="Center"/>
-                                        </Border>
-                                        <Grid Margin="0,2,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="BARS" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
-                                            <TextBlock Grid.Column="1" Text="BEATS" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
-                                            <TextBlock Grid.Column="2" Text="SUB" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
-                                            <TextBlock Grid.Column="3" Text="TICKS" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
-                                            <TextBlock Grid.Column="4" Text="" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
-                                        </Grid>
-                                    </StackPanel>
-                                </Grid>
+                                <!-- SOLO indicator -->
+                                <StackPanel Grid.Column="2" Margin="4,0">
+                                    <TextBlock Text="SOLO" Style="{StaticResource SectionHeader}"/>
+                                    <Border Background="#0A0A0A" CornerRadius="2" Padding="4" Height="32">
+                                        <Ellipse x:Name="SoloIndicator" Width="12" Height="12"
+                                                 Fill="#333" Stroke="#555" StrokeThickness="1"/>
+                                    </Border>
+                                </StackPanel>
 
-                                <!-- SMPTE/BEATS mode buttons -->
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0" x:Name="TimecodeModePanelXaml"/>
-                            </StackPanel>
+                                <!-- 7-Segment Time Display (red) -->
+                                <StackPanel Grid.Column="3" Margin="4,0,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="HRS" Style="{StaticResource SectionHeader}" Margin="0"/>
+                                        <TextBlock Grid.Column="1" Text="MIN" Style="{StaticResource SectionHeader}" Margin="0"/>
+                                        <TextBlock Grid.Column="2" Text="SEC" Style="{StaticResource SectionHeader}" Margin="0"/>
+                                        <TextBlock Grid.Column="3" Text="FRAMES" Style="{StaticResource SectionHeader}" Margin="0"/>
+                                    </Grid>
+                                    <Border Background="#0A0A0A" CornerRadius="3" Padding="4,4" Height="32">
+                                        <TextBlock x:Name="SegmentDisplay" Text="00:00:00:00"
+                                                   Foreground="#FF4444" FontFamily="Consolas"
+                                                   FontSize="16" FontWeight="Bold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <Grid Margin="0,1,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="BARS" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="BEATS" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="SUB" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="TICKS" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Grid>
                         </Border>
 
-                        <!-- GLOBAL VIEW + FLIP -->
+                        <!-- SMPTE/BEATS mode buttons -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2" x:Name="TimecodeModePanelXaml"/>
+
+                        <!-- GLOBAL VIEW (2 rows of 8) + FLIP on left -->
                         <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
                                 Background="#1A1A1A" Padding="4" Margin="0,2">
                             <Grid>
@@ -393,55 +398,48 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Flip Button -->
-                                <StackPanel Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center">
-                                    <TextBlock Text="FLIP" Style="{StaticResource SectionHeader}"/>
+                                <!-- Global View label + Flip Button -->
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                    <TextBlock Text="Global View" Foreground="#888" FontFamily="Consolas"
+                                               FontSize="8" Margin="0,0,0,2"/>
                                     <Button x:Name="FlipButtonXaml" Content="Flip" Style="{StaticResource MasterButton}"
-                                            Width="40" Height="28" Background="#2D2535" Foreground="#DDD"
-                                            ToolTip="FLIP — Note 50"/>
+                                            Width="44" Height="32" Background="#2D2535" Foreground="#DDD"
+                                            ToolTip="FLIP — Note 50" Margin="0,0,0,4"/>
                                 </StackPanel>
 
-                                <!-- Global View Buttons -->
+                                <!-- Global View Buttons (8x2 grid) -->
                                 <StackPanel Grid.Column="1">
                                     <TextBlock Text="GLOBAL VIEW" Style="{StaticResource SectionHeader}"/>
+                                    <!-- Row 1: Bus1-8 -->
                                     <WrapPanel HorizontalAlignment="Center" x:Name="GlobalViewPanel"/>
+                                    <!-- Row 2: F1-F8 -->
+                                    <WrapPanel HorizontalAlignment="Center" x:Name="FunctionPanel" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
 
-                        <!-- FUNCTION -->
+                        <!-- MODIFY / AUTOMATION / UTILITY (3 columns) -->
                         <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
                                 Background="#1A1A1A" Padding="4" Margin="0,2">
-                            <StackPanel>
-                                <TextBlock Text="FUNCTION" Style="{StaticResource SectionHeader}"/>
-                                <WrapPanel HorizontalAlignment="Center" x:Name="FunctionPanel"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- MODIFY / AUTOMATION / UTILITY -->
-                        <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
-                                Background="#1A1A1A" Padding="4" Margin="0,2">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="MODIFY" Style="{StaticResource SectionHeader}"/>
-                                        <StackPanel x:Name="ModifyPanel"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="AUTOMATION" Style="{StaticResource SectionHeader}"/>
-                                        <StackPanel x:Name="AutomationPanel"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="UTILITY" Style="{StaticResource SectionHeader}"/>
-                                        <StackPanel x:Name="UtilityPanel"/>
-                                    </StackPanel>
-                                </Grid>
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="MODIFY" Style="{StaticResource SectionHeader}"/>
+                                    <WrapPanel x:Name="ModifyPanel" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="AUTOMATION" Style="{StaticResource SectionHeader}"/>
+                                    <WrapPanel x:Name="AutomationPanel" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="UTILITY" Style="{StaticResource SectionHeader}"/>
+                                    <WrapPanel x:Name="UtilityPanel" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
 
                         <!-- TRANSPORT -->
@@ -454,27 +452,28 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- FADER BANK / CHANNEL + CURSOR NAV -->
+                        <!-- FADER BANK / CHANNEL + NAVIGATION + JOG -->
                         <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
                                 Background="#1A1A1A" Padding="4" Margin="0,2">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Fader Bank / Channel Buttons -->
                                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="FADER BANK" Style="{StaticResource SectionHeader}"/>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" x:Name="FaderBankPanel"/>
-                                    <TextBlock Text="CHANNEL" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/>
+                                    <TextBlock Text="CHANNEL" Style="{StaticResource SectionHeader}" Margin="0,6,0,2"/>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" x:Name="ChannelNavPanel"/>
                                 </StackPanel>
 
                                 <!-- Cursor Navigation (D-Pad style) -->
                                 <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <TextBlock Text="NAVIGATION" Style="{StaticResource SectionHeader}"/>
-                                    <Grid HorizontalAlignment="Center">
+                                    <Grid HorizontalAlignment="Center" Margin="0,2,0,0">
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
@@ -485,74 +484,66 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <!-- Up -->
                                         <Button x:Name="NavUpButton" Grid.Row="0" Grid.Column="1" Content="▲"
-                                                Style="{StaticResource MasterButton}" Width="28" Height="24"
+                                                Style="{StaticResource MasterButton}" Width="30" Height="26"
                                                 ToolTip="Up — Note 96"/>
-                                        <!-- Left -->
                                         <Button x:Name="NavLeftButton" Grid.Row="1" Grid.Column="0" Content="◄"
-                                                Style="{StaticResource MasterButton}" Width="28" Height="24"
+                                                Style="{StaticResource MasterButton}" Width="30" Height="26"
                                                 ToolTip="Left — Note 98"/>
-                                        <!-- Select/Zoom -->
                                         <Button x:Name="NavSelectButton" Grid.Row="1" Grid.Column="1" Content="●"
-                                                Style="{StaticResource MasterButton}" Width="28" Height="24"
+                                                Style="{StaticResource MasterButton}" Width="30" Height="26"
                                                 Background="#2A4A2A" ToolTip="Select/Zoom — Note 100"/>
-                                        <!-- Right -->
                                         <Button x:Name="NavRightButton" Grid.Row="1" Grid.Column="2" Content="►"
-                                                Style="{StaticResource MasterButton}" Width="28" Height="24"
+                                                Style="{StaticResource MasterButton}" Width="30" Height="26"
                                                 ToolTip="Right — Note 99"/>
-                                        <!-- Down -->
                                         <Button x:Name="NavDownButton" Grid.Row="2" Grid.Column="1" Content="▼"
-                                                Style="{StaticResource MasterButton}" Width="28" Height="24"
+                                                Style="{StaticResource MasterButton}" Width="30" Height="26"
                                                 ToolTip="Down — Note 97"/>
                                     </Grid>
                                 </StackPanel>
-                            </Grid>
-                        </Border>
 
-                        <!-- JOG WHEEL + SCRUB -->
-                        <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
-                                Background="#1A1A1A" Padding="4" Margin="0,2">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-
-                                <!-- Scrub Button -->
-                                <StackPanel Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center">
-                                    <TextBlock Text="SCRUB" Style="{StaticResource SectionHeader}"/>
-                                    <Button x:Name="ScrubButton" Content="Scrub" Style="{StaticResource MasterButton}"
-                                            Width="44" Height="28" Background="#352D25" Foreground="#DDD"
-                                            ToolTip="SCRUB — Note 101"/>
-                                </StackPanel>
-
-                                <!-- Jog Wheel -->
-                                <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <TextBlock Text="JOG WHEEL" Style="{StaticResource SectionHeader}"/>
-                                    <Button x:Name="JogWheelButton" Width="80" Height="80" Cursor="Hand"
-                                            ToolTip="Jog Wheel — CC 60">
-                                        <Button.Template>
-                                            <ControlTemplate TargetType="Button">
-                                                <Grid>
-                                                    <Ellipse Fill="#1E1E1E" Stroke="#555" StrokeThickness="3"/>
-                                                    <Ellipse Fill="#222" Width="50" Height="50" Stroke="#444" StrokeThickness="1"/>
-                                                    <Ellipse Fill="#333" Width="24" Height="24"/>
-                                                    <TextBlock Text="JOG" Foreground="#888" FontFamily="Consolas"
-                                                               FontSize="8" FontWeight="Bold"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                </Grid>
-                                            </ControlTemplate>
-                                        </Button.Template>
-                                    </Button>
+                                <!-- Jog Wheel + Scrub -->
+                                <StackPanel Grid.Column="2" Margin="8,0,0,0">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock Text="SCRUB" Style="{StaticResource SectionHeader}" Margin="0,0,8,0"/>
+                                        <TextBlock Text="JOG" Style="{StaticResource SectionHeader}"/>
+                                    </StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <!-- Scrub Button -->
+                                        <Button x:Name="ScrubButton" Grid.Column="0" Content="Scrub"
+                                                Style="{StaticResource MasterButton}"
+                                                Width="40" Height="32" Background="#352D25" Foreground="#DDD"
+                                                ToolTip="SCRUB — Note 101" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                        <!-- Jog Wheel -->
+                                        <Button x:Name="JogWheelButton" Grid.Column="1" Width="70" Height="70" Cursor="Hand"
+                                                ToolTip="Jog Wheel — CC 60">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Grid>
+                                                        <Ellipse Fill="#1E1E1E" Stroke="#555" StrokeThickness="3"/>
+                                                        <Ellipse Fill="#222" Width="44" Height="44" Stroke="#444" StrokeThickness="1"/>
+                                                        <Ellipse Fill="#333" Width="20" Height="20"/>
+                                                        <TextBlock Text="JOG" Foreground="#888" FontFamily="Consolas"
+                                                                   FontSize="7" FontWeight="Bold"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                    </Grid>
                                     <TextBlock x:Name="JogWheelLabel" Text="CC 60" Foreground="#666"
-                                               FontFamily="Consolas" FontSize="8"
+                                               FontFamily="Consolas" FontSize="7"
                                                HorizontalAlignment="Center" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
 
                     </StackPanel>
+                </ScrollViewer>
             </Border>
         </Grid>
 
