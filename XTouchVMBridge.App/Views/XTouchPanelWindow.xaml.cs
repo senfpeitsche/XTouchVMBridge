@@ -54,6 +54,7 @@ public partial class XTouchPanelWindow : Window
     // ─── UI-Referenzen: Main Fader ───────────────────────────────────
     private Slider? _mainFaderSlider;
     private TextBlock? _mainFaderDbLabel;
+    private Button? _flipButton;
 
     // ─── UI-Referenzen: Master Section Buttons ───────────────────────
     private readonly Dictionary<string, Button> _masterButtons = new();
@@ -317,6 +318,29 @@ public partial class XTouchPanelWindow : Window
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 0, 0, 8)
         });
+
+        // FLIP Button (at same height as SEL buttons on channel strips)
+        _flipButton = new Button
+        {
+            Content = "FLIP",
+            Width = 56, Height = 24,
+            Margin = new Thickness(0, 2, 0, 8),
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(221, 221, 221)),
+            Background = new SolidColorBrush(Color.FromRgb(45, 35, 55)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(80, 60, 100)),
+            BorderThickness = new Thickness(1),
+            Cursor = System.Windows.Input.Cursors.Hand,
+            ToolTip = "FLIP — Note 50\nVertauscht Fader/Encoder-Funktionen"
+        };
+        _flipButton.Template = CreateRoundedButtonTemplate(3);
+        _flipButton.Click += (_, _) => OnMasterButtonClick("Control", "FLIP", 50,
+            "FLIP-Taste vertauscht die Funktionen von Fader und Encoder.\n" +
+            "Wenn aktiv: Encoder steuert Lautstärke, Fader steuert Pan/Send/etc.");
+        _masterButtons["Flip"] = _flipButton;
+        stack.Children.Add(_flipButton);
 
         _mainFaderSlider = new Slider
         {
