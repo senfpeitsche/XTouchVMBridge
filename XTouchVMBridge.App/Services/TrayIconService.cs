@@ -221,32 +221,50 @@ public class TrayIconService : IDisposable
 
     private void ShowMidiDebugWindow()
     {
-        if (_midiDebugWindow != null && _midiDebugWindow.IsVisible)
+        try
         {
-            _midiDebugWindow.Activate();
-            return;
+            if (_midiDebugWindow != null && _midiDebugWindow.IsVisible)
+            {
+                _midiDebugWindow.Activate();
+                return;
+            }
+
+            _midiDebugWindow = new MidiDebugWindow(_midiDevice);
+            _midiDebugWindow.Closed += (_, _) => _midiDebugWindow = null;
+            _midiDebugWindow.Show();
+
+            _logger.LogInformation("MIDI Debug Monitor geöffnet.");
         }
-
-        _midiDebugWindow = new MidiDebugWindow(_midiDevice);
-        _midiDebugWindow.Closed += (_, _) => _midiDebugWindow = null;
-        _midiDebugWindow.Show();
-
-        _logger.LogInformation("MIDI Debug Monitor geöffnet.");
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Öffnen des MIDI Debug Monitors.");
+            System.Windows.MessageBox.Show($"Fehler: {ex.Message}", "MIDI Debug Monitor",
+                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+        }
     }
 
     private void ShowXTouchPanel()
     {
-        if (_xtouchPanelWindow != null && _xtouchPanelWindow.IsVisible)
+        try
         {
-            _xtouchPanelWindow.Activate();
-            return;
+            if (_xtouchPanelWindow != null && _xtouchPanelWindow.IsVisible)
+            {
+                _xtouchPanelWindow.Activate();
+                return;
+            }
+
+            _xtouchPanelWindow = new XTouchPanelWindow(_midiDevice, _config, _configService, _bridge, _vm, _masterButtonActionService);
+            _xtouchPanelWindow.Closed += (_, _) => _xtouchPanelWindow = null;
+            _xtouchPanelWindow.Show();
+
+            _logger.LogInformation("X-Touch Panel geöffnet.");
         }
-
-        _xtouchPanelWindow = new XTouchPanelWindow(_midiDevice, _config, _configService, _bridge, _vm, _masterButtonActionService);
-        _xtouchPanelWindow.Closed += (_, _) => _xtouchPanelWindow = null;
-        _xtouchPanelWindow.Show();
-
-        _logger.LogInformation("X-Touch Panel geöffnet.");
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Öffnen des X-Touch Panels.");
+            System.Windows.MessageBox.Show($"Fehler: {ex.Message}", "X-Touch Panel",
+                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+        }
     }
 
     private void RestartApplication()

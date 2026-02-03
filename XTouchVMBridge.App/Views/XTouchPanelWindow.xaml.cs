@@ -54,7 +54,6 @@ public partial class XTouchPanelWindow : Window
     // ─── UI-Referenzen: Main Fader ───────────────────────────────────
     private Slider? _mainFaderSlider;
     private TextBlock? _mainFaderDbLabel;
-    private Button? _flipButton;
 
     // ─── UI-Referenzen: Master Section Buttons ───────────────────────
     private readonly Dictionary<string, Button> _masterButtons = new();
@@ -319,29 +318,6 @@ public partial class XTouchPanelWindow : Window
             Margin = new Thickness(0, 0, 0, 8)
         });
 
-        // FLIP Button (at same height as SEL buttons on channel strips)
-        _flipButton = new Button
-        {
-            Content = "FLIP",
-            Width = 56, Height = 24,
-            Margin = new Thickness(0, 2, 0, 8),
-            FontFamily = new FontFamily("Consolas"),
-            FontSize = 10,
-            FontWeight = FontWeights.Bold,
-            Foreground = new SolidColorBrush(Color.FromRgb(221, 221, 221)),
-            Background = new SolidColorBrush(Color.FromRgb(45, 35, 55)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(80, 60, 100)),
-            BorderThickness = new Thickness(1),
-            Cursor = System.Windows.Input.Cursors.Hand,
-            ToolTip = "FLIP — Note 50\nVertauscht Fader/Encoder-Funktionen"
-        };
-        _flipButton.Template = CreateRoundedButtonTemplate(3);
-        _flipButton.Click += (_, _) => OnMasterButtonClick("Control", "FLIP", 50,
-            "FLIP-Taste vertauscht die Funktionen von Fader und Encoder.\n" +
-            "Wenn aktiv: Encoder steuert Lautstärke, Fader steuert Pan/Send/etc.");
-        _masterButtons["Flip"] = _flipButton;
-        stack.Children.Add(_flipButton);
-
         _mainFaderSlider = new Slider
         {
             Orientation = Orientation.Vertical,
@@ -383,6 +359,7 @@ public partial class XTouchPanelWindow : Window
     {
         BuildEncoderAssignButtons();
         BuildDisplayModeButtons();
+        BuildFlipButton();
         BuildGlobalViewButtons();
         BuildFunctionButtons();
         BuildModifyButtons();
@@ -390,6 +367,8 @@ public partial class XTouchPanelWindow : Window
         BuildUtilityButtons();
         BuildTransportButtons();
         BuildFaderBankChannelButtons();
+        BuildNavigationButtons();
+        BuildScrubButton();
         SetupJogWheel();
     }
 
@@ -408,22 +387,43 @@ public partial class XTouchPanelWindow : Window
         }
     }
 
-    // ── Display Mode: NAME/VALUE, SMPTE/BEATS
+    // ── Display Mode: NAME/VALUE buttons + SMPTE/BEATS timecode mode
     private void BuildDisplayModeButtons()
     {
-        var items = new (string Name, int Note, string Desc)[]
+        // NAME/VALUE buttons in DisplayModePanel
+        var displayItems = new (string Name, int Note, string Desc)[]
         {
             ("NAME", 52, "Zeigt Kanalnamen im Display"),
-            ("VALUE", 53, "Zeigt Parameterwert im Display"),
-            ("SMPTE", 113, "Timecode: SMPTE-Format (HH:MM:SS:FF)"),
-            ("BEATS", 114, "Timecode: Bars/Beats-Format")
+            ("VALUE", 53, "Zeigt Parameterwert im Display")
         };
-        foreach (var (name, note, desc) in items)
+        foreach (var (name, note, desc) in displayItems)
         {
             var btn = CreateMasterButton(name, $"Display_{name}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
             btn.Click += (_, _) => OnMasterButtonClick("Display Mode", name, note, desc);
             DisplayModePanel.Children.Add(btn);
         }
+
+        // SMPTE/BEATS timecode mode buttons in TimecodeModePanelXaml
+        var timecodeItems = new (string Name, int Note, string Desc)[]
+        {
+            ("SMPTE", 113, "Timecode: SMPTE-Format (HH:MM:SS:FF)"),
+            ("BEATS", 114, "Timecode: Bars/Beats-Format")
+        };
+        foreach (var (name, note, desc) in timecodeItems)
+        {
+            var btn = CreateMasterButton(name, $"Timecode_{name}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
+            btn.Click += (_, _) => OnMasterButtonClick("Timecode Mode", name, note, desc);
+            TimecodeModePanelXaml.Children.Add(btn);
+        }
+    }
+
+    // ── Flip Button (from XAML)
+    private void BuildFlipButton()
+    {
+        FlipButtonXaml.Click += (_, _) => OnMasterButtonClick("Control", "FLIP", 50,
+            "FLIP-Taste vertauscht die Funktionen von Fader und Encoder.\n" +
+            "Wenn aktiv: Encoder steuert Lautstärke, Fader steuert Pan/Send/etc.");
+        _masterButtons["Flip"] = FlipButtonXaml;
     }
 
     // ── Global View: MIDI TRACKS, INPUTS, AUDIO TRACKS, AUDIO INST, AUX, BUSES, OUTPUTS, USER
@@ -581,6 +581,33 @@ public partial class XTouchPanelWindow : Window
         ChannelNavPanel.Children.Add(chRight);
     }
 
+    // ── Navigation Buttons (Cursor D-Pad)
+    private void BuildNavigationButtons()
+    {
+        var navItems = new (Button Btn, string Name, int Note, string Desc)[]
+        {
+            (NavUpButton, "Up", 96, "Cursor hoch — Navigation in Listen/Menüs"),
+            (NavDownButton, "Down", 97, "Cursor runter — Navigation in Listen/Menüs"),
+            (NavLeftButton, "Left", 98, "Cursor links — Navigation / Zoom out"),
+            (NavRightButton, "Right", 99, "Cursor rechts — Navigation / Zoom in"),
+            (NavSelectButton, "Select", 100, "Zoom/Select — Auswahl bestätigen / Zoom toggle")
+        };
+        foreach (var (btn, name, note, desc) in navItems)
+        {
+            btn.Click += (_, _) => OnMasterButtonClick("Navigation", name, note, desc);
+            _masterButtons[$"Nav_{name}"] = btn;
+        }
+    }
+
+    // ── Scrub Button
+    private void BuildScrubButton()
+    {
+        ScrubButton.Click += (_, _) => OnMasterButtonClick("Control", "SCRUB", 101,
+            "SCRUB-Taste aktiviert den Scrub-Modus für das Jog Wheel.\n" +
+            "Im Scrub-Modus: Frame-genaue Audio-Wiedergabe beim Drehen.");
+        _masterButtons["Scrub"] = ScrubButton;
+    }
+
     // ── Jog Wheel
     private void SetupJogWheel()
     {
@@ -591,12 +618,12 @@ public partial class XTouchPanelWindow : Window
             DetailText.Text =
                 "Funktion:       Scrub / Shuttle / Navigation\n" +
                 "                Dreht durch Timeline-Positionen, Marker etc.\n\n" +
-                "MIDI:           CC 88\n" +
+                "MIDI:           CC 60\n" +
                 "                CW (rechts):  value = 1\n" +
                 "                CCW (links):  value = 65\n" +
                 "                Schnelles Drehen: höhere Werte (1..15 / 65..79)\n\n" +
                 "Scrub-Button:   Note On #101 (toggle)\n\n" +
-                "Hersteller-Doku: Jog Wheel CC 88 (CW: 65, CCW: 1)";
+                "Hersteller-Doku: Jog Wheel CC 60";
         };
     }
 

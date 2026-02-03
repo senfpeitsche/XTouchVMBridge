@@ -316,34 +316,97 @@
                         <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
                                 Background="#1A1A1A" Padding="4" Margin="0,2">
                             <StackPanel>
-                                <TextBlock Text="DISPLAY / ASSIGNMENT" Style="{StaticResource SectionHeader}"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <!-- Name/Value + SMPTE/Beats -->
+
+                                    <!-- DISPLAY Buttons (Name/Value) -->
                                     <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                                        <WrapPanel x:Name="DisplayModePanel"/>
+                                        <TextBlock Text="DISPLAY" Style="{StaticResource SectionHeader}"/>
+                                        <StackPanel x:Name="DisplayModePanel"/>
                                     </StackPanel>
-                                    <!-- 7-Segment Display -->
-                                    <Border Grid.Column="1" Background="#0A0A0A" CornerRadius="3" Padding="6,4">
-                                        <TextBlock x:Name="SegmentDisplay" Text="00 00 00 00 00"
-                                                   Foreground="#FF4444" FontFamily="Consolas"
-                                                   FontSize="16" FontWeight="Bold"
-                                                   HorizontalAlignment="Center"/>
-                                    </Border>
+
+                                    <!-- Assignment 2-digit display -->
+                                    <StackPanel Grid.Column="1" Margin="0,0,6,0">
+                                        <TextBlock Text="ASSIGN" Style="{StaticResource SectionHeader}"/>
+                                        <Border Background="#0A0A0A" CornerRadius="2" Padding="4,2">
+                                            <TextBlock x:Name="AssignmentDisplay" Text="00"
+                                                       Foreground="#00FF00" FontFamily="Consolas"
+                                                       FontSize="16" FontWeight="Bold"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- 7-Segment Time Display -->
+                                    <StackPanel Grid.Column="2">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="HRS" Style="{StaticResource SectionHeader}" Margin="0"/>
+                                            <TextBlock Grid.Column="1" Text="MIN" Style="{StaticResource SectionHeader}" Margin="0"/>
+                                            <TextBlock Grid.Column="2" Text="SEC" Style="{StaticResource SectionHeader}" Margin="0"/>
+                                            <TextBlock Grid.Column="3" Text="FR" Style="{StaticResource SectionHeader}" Margin="0"/>
+                                            <TextBlock Grid.Column="4" Text="SF" Style="{StaticResource SectionHeader}" Margin="0"/>
+                                        </Grid>
+                                        <Border Background="#0A0A0A" CornerRadius="3" Padding="6,4">
+                                            <TextBlock x:Name="SegmentDisplay" Text="00:00:00:00:00"
+                                                       Foreground="#FF4444" FontFamily="Consolas"
+                                                       FontSize="18" FontWeight="Bold"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                        <Grid Margin="0,2,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="BARS" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="BEATS" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="SUB" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="3" Text="TICKS" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="4" Text="" Foreground="#555" FontFamily="Consolas" FontSize="6" HorizontalAlignment="Center"/>
+                                        </Grid>
+                                    </StackPanel>
                                 </Grid>
+
+                                <!-- SMPTE/BEATS mode buttons -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0" x:Name="TimecodeModePanelXaml"/>
                             </StackPanel>
                         </Border>
 
-                        <!-- GLOBAL VIEW -->
+                        <!-- GLOBAL VIEW + FLIP -->
                         <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
                                 Background="#1A1A1A" Padding="4" Margin="0,2">
-                            <StackPanel>
-                                <TextBlock Text="GLOBAL VIEW" Style="{StaticResource SectionHeader}"/>
-                                <WrapPanel HorizontalAlignment="Center" x:Name="GlobalViewPanel"/>
-                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Flip Button -->
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    <TextBlock Text="FLIP" Style="{StaticResource SectionHeader}"/>
+                                    <Button x:Name="FlipButtonXaml" Content="Flip" Style="{StaticResource MasterButton}"
+                                            Width="40" Height="28" Background="#2D2535" Foreground="#DDD"
+                                            ToolTip="FLIP — Note 50"/>
+                                </StackPanel>
+
+                                <!-- Global View Buttons -->
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="GLOBAL VIEW" Style="{StaticResource SectionHeader}"/>
+                                    <WrapPanel HorizontalAlignment="Center" x:Name="GlobalViewPanel"/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
 
                         <!-- FUNCTION -->
@@ -391,7 +454,7 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- FADER BANK / CHANNEL + JOG WHEEL -->
+                        <!-- FADER BANK / CHANNEL + CURSOR NAV -->
                         <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
                                 Background="#1A1A1A" Padding="4" Margin="0,2">
                             <Grid>
@@ -408,27 +471,83 @@
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" x:Name="ChannelNavPanel"/>
                                 </StackPanel>
 
+                                <!-- Cursor Navigation (D-Pad style) -->
+                                <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="NAVIGATION" Style="{StaticResource SectionHeader}"/>
+                                    <Grid HorizontalAlignment="Center">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <!-- Up -->
+                                        <Button x:Name="NavUpButton" Grid.Row="0" Grid.Column="1" Content="▲"
+                                                Style="{StaticResource MasterButton}" Width="28" Height="24"
+                                                ToolTip="Up — Note 96"/>
+                                        <!-- Left -->
+                                        <Button x:Name="NavLeftButton" Grid.Row="1" Grid.Column="0" Content="◄"
+                                                Style="{StaticResource MasterButton}" Width="28" Height="24"
+                                                ToolTip="Left — Note 98"/>
+                                        <!-- Select/Zoom -->
+                                        <Button x:Name="NavSelectButton" Grid.Row="1" Grid.Column="1" Content="●"
+                                                Style="{StaticResource MasterButton}" Width="28" Height="24"
+                                                Background="#2A4A2A" ToolTip="Select/Zoom — Note 100"/>
+                                        <!-- Right -->
+                                        <Button x:Name="NavRightButton" Grid.Row="1" Grid.Column="2" Content="►"
+                                                Style="{StaticResource MasterButton}" Width="28" Height="24"
+                                                ToolTip="Right — Note 99"/>
+                                        <!-- Down -->
+                                        <Button x:Name="NavDownButton" Grid.Row="2" Grid.Column="1" Content="▼"
+                                                Style="{StaticResource MasterButton}" Width="28" Height="24"
+                                                ToolTip="Down — Note 97"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- JOG WHEEL + SCRUB -->
+                        <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
+                                Background="#1A1A1A" Padding="4" Margin="0,2">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Scrub Button -->
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    <TextBlock Text="SCRUB" Style="{StaticResource SectionHeader}"/>
+                                    <Button x:Name="ScrubButton" Content="Scrub" Style="{StaticResource MasterButton}"
+                                            Width="44" Height="28" Background="#352D25" Foreground="#DDD"
+                                            ToolTip="SCRUB — Note 101"/>
+                                </StackPanel>
+
                                 <!-- Jog Wheel -->
                                 <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <TextBlock Text="JOG / SCRUB" Style="{StaticResource SectionHeader}"/>
-                                    <Button x:Name="JogWheelButton" Width="100" Height="100" Cursor="Hand"
-                                            ToolTip="Jog Wheel — CC 88">
+                                    <TextBlock Text="JOG WHEEL" Style="{StaticResource SectionHeader}"/>
+                                    <Button x:Name="JogWheelButton" Width="80" Height="80" Cursor="Hand"
+                                            ToolTip="Jog Wheel — CC 60">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
                                                 <Grid>
                                                     <Ellipse Fill="#1E1E1E" Stroke="#555" StrokeThickness="3"/>
-                                                    <Ellipse Fill="#222" Width="60" Height="60" Stroke="#444" StrokeThickness="1"/>
-                                                    <Ellipse Fill="#333" Width="30" Height="30"/>
+                                                    <Ellipse Fill="#222" Width="50" Height="50" Stroke="#444" StrokeThickness="1"/>
+                                                    <Ellipse Fill="#333" Width="24" Height="24"/>
                                                     <TextBlock Text="JOG" Foreground="#888" FontFamily="Consolas"
-                                                               FontSize="9" FontWeight="Bold"
+                                                               FontSize="8" FontWeight="Bold"
                                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                 </Grid>
                                             </ControlTemplate>
                                         </Button.Template>
                                     </Button>
-                                    <TextBlock x:Name="JogWheelLabel" Text="CC 88" Foreground="#666"
+                                    <TextBlock x:Name="JogWheelLabel" Text="CC 60" Foreground="#666"
                                                FontFamily="Consolas" FontSize="8"
-                                               HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Grid>
                         </Border>

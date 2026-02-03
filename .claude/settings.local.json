@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "WebFetch(domain:mtcrm365stor2.blob.core.windows.net)",
+      "Bash(taskkill:*)"
     ]
   }
 }
