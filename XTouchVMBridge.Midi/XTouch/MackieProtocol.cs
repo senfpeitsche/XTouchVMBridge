@@ -8,8 +8,11 @@ public static class MackieProtocol
 {
     // ─── SysEx Framing ──────────────────────────────────────────────
 
-    /// <summary>SysEx-Prefix für Mackie X-Touch Extended.</summary>
-    public static readonly byte[] SysExPrefix = { 0xF0, 0x00, 0x00, 0x66, 0x15 };
+    /// <summary>SysEx-Prefix für Mackie Control Unit (MCU Main).</summary>
+    public static readonly byte[] SysExPrefix = { 0xF0, 0x00, 0x00, 0x66, 0x14 };
+
+    /// <summary>SysEx-Prefix für Mackie Control Unit Extended (MCU Ext).</summary>
+    public static readonly byte[] SysExPrefixExtended = { 0xF0, 0x00, 0x00, 0x66, 0x15 };
 
     /// <summary>SysEx-Suffix.</summary>
     public const byte SysExEnd = 0xF7;
@@ -95,11 +98,73 @@ public static class MackieProtocol
     /// <summary>SysEx-Kommando für Segment-Display.</summary>
     public const byte CmdSegmentDisplay = 0x37;
 
+    /// <summary>SysEx-Kommando für LCD-Display (Behringer X-Touch spezifisch).</summary>
+    public const byte CmdLcdDisplay = 0x4C;
+
     /// <summary>Anzahl der 7-Segment-Digits.</summary>
     public const int SegmentDigitCount = 12;
 
+    /// <summary>Basis-CC für 7-Segment-Display (Mackie Control Protocol).</summary>
+    public const int CcSegmentDisplayBase = 64;
+
     /// <summary>
-    /// 7-Segment-Font: Mappt Zeichen auf Segment-Bitmuster.
+    /// Mackie Control 7-Segment Display.
+    /// Das X-Touch im MCU-Modus zeigt ASCII-Zeichen direkt an.
+    /// CC-Wert = ASCII-Code des Zeichens (0-127).
+    /// Bit 6 (0x40) = Dezimalpunkt aktiv.
+    /// </summary>
+    public static byte CharToSegmentCcValue(char c, bool dot = false)
+    {
+        // Direkt ASCII-Code verwenden, auf 0-63 begrenzen (Bit 6 für Dot reserviert)
+        byte value = (byte)(c & 0x3F);
+
+        // Bit 6 = Dezimalpunkt
+        if (dot)
+            value |= 0x40;
+
+        return value;
+    }
+
+    /// <summary>
+    /// Konvertiert einen String in CC-Werte für das 7-Segment-Display.
+    /// Punkte im String werden als Dot-Bit auf dem vorherigen Zeichen gesetzt.
+    /// Gibt Array von 12 CC-Werten zurück (für CC 64-75).
+    /// </summary>
+    public static byte[] TextToSegmentCcValues(string text)
+    {
+        var values = new byte[SegmentDigitCount];
+        var chars = new char[SegmentDigitCount];
+        var dots = new bool[SegmentDigitCount];
+
+        // Initialisiere mit Leerzeichen
+        for (int i = 0; i < SegmentDigitCount; i++)
+            chars[i] = ' ';
+
+        int digitIdx = 0;
+        for (int i = 0; i < text.Length && digitIdx < SegmentDigitCount; i++)
+        {
+            char c = text[i];
+
+            // Punkt/Doppelpunkt als Dot auf vorheriges Digit
+            if ((c == '.' || c == ':') && digitIdx > 0)
+            {
+                dots[digitIdx - 1] = true;
+                continue;
+            }
+
+            chars[digitIdx] = c;
+            digitIdx++;
+        }
+
+        // Konvertiere zu CC-Werten
+        for (int i = 0; i < SegmentDigitCount; i++)
+            values[i] = CharToSegmentCcValue(chars[i], dots[i]);
+
+        return values;
+    }
+
+    /// <summary>
+    /// 7-Segment-Font: Mappt Zeichen auf Segment-Bitmuster (für Behringer SysEx).
     /// Bit 0=a(oben), 1=b(rechts oben), 2=c(rechts unten), 3=d(unten),
     /// 4=e(links unten), 5=f(links oben), 6=g(mitte).
     /// </summary>
@@ -118,7 +183,7 @@ public static class MackieProtocol
     };
 
     /// <summary>
-    /// Baut eine SysEx-Nachricht für das 7-Segment-Display.
+    /// Baut eine SysEx-Nachricht für das 7-Segment-Display (Behringer-Format, nicht für X-Touch im MCU-Modus).
     /// </summary>
     /// <param name="segments">12 Segment-Bytes (links nach rechts).</param>
     /// <param name="dots1">Dot-Bits für Display 1–7.</param>
@@ -145,7 +210,7 @@ public static class MackieProtocol
     }
 
     /// <summary>
-    /// Konvertiert einen String in 7-Segment-Bytes + Dot-Bytes.
+    /// Konvertiert einen String in 7-Segment-Bytes + Dot-Bytes (Behringer SysEx-Format).
     /// Punkte im String werden als Dot auf dem vorherigen Digit gesetzt.
     /// </summary>
     public static (byte[] segments, byte dots1, byte dots2) TextToSegments(string text)
@@ -182,6 +247,75 @@ public static class MackieProtocol
         }
 
         return (segments, dots1, dots2);
+    }
+
+    // ─── LCD Display (Behringer X-Touch spezifisch) ─────────────────
+
+    /// <summary>
+    /// Baut eine SysEx-Nachricht für ein einzelnes LCD-Display (Behringer X-Touch Format).
+    /// Format: F0 00 20 32 dd 4C nn cc c1..c14 F7
+    /// </summary>
+    /// <param name="lcdNumber">LCD Nummer 0-7</param>
+    /// <param name="topRow">Text für obere Zeile (max 7 Zeichen)</param>
+    /// <param name="bottomRow">Text für untere Zeile (max 7 Zeichen)</param>
+    /// <param name="color">Hintergrundfarbe (0-7: black, red, green, yellow, blue, magenta, cyan, white)</param>
+    /// <param name="invertTop">Obere Hälfte invertieren</param>
+    /// <param name="invertBottom">Untere Hälfte invertieren</param>
+    /// <param name="deviceId">Device-ID (0x14=X-Touch, 0x15=Ext)</param>
+    public static byte[] BuildLcdMessage(int lcdNumber, string topRow, string bottomRow,
+        byte color = 7, bool invertTop = false, bool invertBottom = false,
+        byte deviceId = DeviceIdXTouchExt)
+    {
+        // F0 00 20 32 dd 4C nn cc c1..c14 F7 = 4 + 1 + 1 + 1 + 1 + 14 + 1 = 23 bytes
+        var data = new byte[23];
+
+        // Behringer SysEx Header
+        BehringerSysExBase.CopyTo(data, 0);  // F0 00 20 32
+        data[4] = deviceId;                   // dd
+        data[5] = CmdLcdDisplay;              // 4C
+        data[6] = (byte)lcdNumber;            // nn
+
+        // Color + Invert flags
+        byte colorByte = (byte)(color & 0x07);
+        if (invertTop) colorByte |= 0x10;
+        if (invertBottom) colorByte |= 0x20;
+        data[7] = colorByte;                  // cc
+
+        // Pad strings to 7 characters
+        string top = topRow.Length >= 7 ? topRow[..7] : topRow.PadRight(7);
+        string bottom = bottomRow.Length >= 7 ? bottomRow[..7] : bottomRow.PadRight(7);
+
+        // c1..c7: upper half
+        for (int i = 0; i < 7; i++)
+        {
+            char c = top[i];
+            data[8 + i] = (byte)(c is >= ' ' and <= '~' ? c : ' ');
+        }
+
+        // c8..c14: lower half
+        for (int i = 0; i < 7; i++)
+        {
+            char c = bottom[i];
+            data[15 + i] = (byte)(c is >= ' ' and <= '~' ? c : ' ');
+        }
+
+        data[22] = SysExEnd;  // F7
+        return data;
+    }
+
+    /// <summary>
+    /// LCD-Farben für X-Touch Display.
+    /// </summary>
+    public static class LcdColor
+    {
+        public const byte Black = 0;
+        public const byte Red = 1;
+        public const byte Green = 2;
+        public const byte Yellow = 3;
+        public const byte Blue = 4;
+        public const byte Magenta = 5;
+        public const byte Cyan = 6;
+        public const byte White = 7;
     }
 
     // ─── Level Meter ────────────────────────────────────────────────

@@ -3,6 +3,7 @@ using System.Windows;
 using XTouchVMBridge.Core.Events;
 using XTouchVMBridge.Core.Interfaces;
 using XTouchVMBridge.Core.Models;
+using XTouchVMBridge.Voicemeeter.Services;
 using Microsoft.Extensions.Logging;
 using WindowsInput;
 using WindowsInput.Native;
@@ -13,26 +14,34 @@ namespace XTouchVMBridge.App.Services;
 /// <summary>
 /// Service für die Ausführung von Master-Button-Aktionen.
 /// Registriert sich auf das MasterButtonChanged-Event und führt
-/// konfigurierte Aktionen aus (Programm starten, Tasten senden, Text senden).
+/// konfigurierte Aktionen aus (Programm starten, Tasten senden, Text senden, Channel View wechseln).
 /// </summary>
 public class MasterButtonActionService : IDisposable
 {
     private readonly ILogger<MasterButtonActionService> _logger;
     private readonly IMidiDevice _midiDevice;
     private readonly IVoicemeeterService _vm;
+    private readonly VoicemeeterBridge _bridge;
     private readonly XTouchVMBridgeConfig _config;
     private readonly InputSimulator _inputSimulator;
     private bool _disposed;
+
+    /// <summary>
+    /// MIDI Note für den Flip-Button (fest zugewiesen für Channel View Cycling).
+    /// </summary>
+    public const int FlipButtonNote = 50;
 
     public MasterButtonActionService(
         ILogger<MasterButtonActionService> logger,
         IMidiDevice midiDevice,
         IVoicemeeterService vm,
+        VoicemeeterBridge bridge,
         XTouchVMBridgeConfig config)
     {
         _logger = logger;
         _midiDevice = midiDevice;
         _vm = vm;
+        _bridge = bridge;
         _config = config;
         _inputSimulator = new InputSimulator();
 
@@ -46,6 +55,13 @@ public class MasterButtonActionService : IDisposable
     {
         // Nur bei Tastendruck (nicht beim Loslassen)
         if (!e.IsPressed) return;
+
+        // Flip-Button ist fest für Channel View Cycling reserviert
+        if (e.NoteNumber == FlipButtonNote)
+        {
+            CycleChannelView();
+            return;
+        }
 
         ExecuteAction(e.NoteNumber);
     }
@@ -83,6 +99,9 @@ public class MasterButtonActionService : IDisposable
                     break;
                 case MasterButtonActionType.VmParameter:
                     ExecuteVmParameter(actionConfig);
+                    break;
+                case MasterButtonActionType.CycleChannelView:
+                    CycleChannelView();
                     break;
             }
 
@@ -180,6 +199,31 @@ public class MasterButtonActionService : IDisposable
         float currentValue = _vm.GetParameter(config.VmParameter);
         float newValue = currentValue > 0.5f ? 0f : 1f;
         _vm.SetParameter(config.VmParameter, newValue);
+    }
+
+    /// <summary>
+    /// Wechselt zur nächsten Channel-Ansicht (View).
+    /// Wird vom Flip-Button ausgelöst.
+    /// </summary>
+    private void CycleChannelView()
+    {
+        _bridge.SwitchView(1); // +1 = nächste Ansicht
+
+        // Flip-LED kurz aufleuchten lassen als Feedback
+        _midiDevice.SetMasterButtonLed(FlipButtonNote, Core.Enums.LedState.On);
+
+        // LED nach kurzer Zeit wieder aus (oder je nach View-Status)
+        Task.Delay(200).ContinueWith(_ =>
+        {
+            // LED bleibt an wenn nicht in der ersten View
+            var state = _bridge.CurrentViewIndex > 0
+                ? Core.Enums.LedState.On
+                : Core.Enums.LedState.Off;
+            _midiDevice.SetMasterButtonLed(FlipButtonNote, state);
+        });
+
+        _logger.LogInformation("Channel View gewechselt zu: {View} ({Index}/{Total})",
+            _bridge.CurrentViewName, _bridge.CurrentViewIndex + 1, _bridge.ViewCount);
     }
 
     /// <summary>

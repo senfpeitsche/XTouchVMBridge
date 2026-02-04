@@ -3,7 +3,11 @@
     "allow": [
       "Bash(dotnet build:*)",
       "WebFetch(domain:mtcrm365stor2.blob.core.windows.net)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(python test_lcd.py:*)",
+      "Bash(powershell -Command:*)"
     ]
   }
 }

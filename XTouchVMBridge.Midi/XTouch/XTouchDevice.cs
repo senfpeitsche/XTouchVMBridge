@@ -67,6 +67,12 @@ public class XTouchDevice : IMidiDevice
 
     public Task ConnectAsync(CancellationToken cancellationToken = default)
     {
+        // Erst bestehende Verbindung trennen
+        if (_isConnected || _midiIn != null || _midiOut != null)
+        {
+            Disconnect();
+        }
+
         var (inputIndex, outputIndex) = FindDevice();
         if (inputIndex < 0 || outputIndex < 0)
         {
@@ -90,6 +96,13 @@ public class XTouchDevice : IMidiDevice
                 MidiIn.DeviceInfo(inputIndex).ProductName,
                 MidiOut.DeviceInfo(outputIndex).ProductName);
             ConnectionStateChanged?.Invoke(this, true);
+        }
+        catch (NAudio.MmException ex) when (ex.Result == NAudio.MmResult.AlreadyAllocated)
+        {
+            _logger.LogError("X-Touch MIDI-Gerät ist bereits von einer anderen Anwendung geöffnet. " +
+                "Bitte schließe andere MIDI-Anwendungen (DAWs, MIDI-Monitore) und starte neu.");
+            _isConnected = false;
+            ConnectionStateChanged?.Invoke(this, false);
         }
         catch (Exception ex)
         {
@@ -130,8 +143,13 @@ public class XTouchDevice : IMidiDevice
 
     public void SetFader(int channel, int position)
     {
-        ValidateChannel(channel);
-        _channels[channel].Fader.Position = position;
+        // Channels 0-7 are strip faders, channel 8 is the main fader
+        if (channel < 0 || channel > MackieProtocol.ChannelCount)
+            throw new ArgumentOutOfRangeException(nameof(channel), $"Channel must be 0-{MackieProtocol.ChannelCount}.");
+
+        // Update internal state for strip faders only
+        if (channel < MackieProtocol.ChannelCount)
+            _channels[channel].Fader.Position = position;
 
         // Pitchwheel: Status 0xE0+channel, LSB, MSB (14-bit signed → unsigned)
         int unsigned14 = position + 8192;
@@ -199,7 +217,6 @@ public class XTouchDevice : IMidiDevice
     public void SetDisplayText(int channel, int row, string text)
     {
         ValidateChannel(channel);
-        int offset = MackieProtocol.GetDisplayOffset(channel, row);
         string padded = text.Length >= MackieProtocol.CharsPerChannel
             ? text[..MackieProtocol.CharsPerChannel]
             : text.PadRight(MackieProtocol.CharsPerChannel);
@@ -209,7 +226,10 @@ public class XTouchDevice : IMidiDevice
         else
             _channels[channel].Display.BottomRow = padded;
 
-        SendSysEx(MackieProtocol.BuildDisplayTextMessage(offset, padded));
+        // Mackie Control Format: Offset = channel*7 + row*56
+        int offset = MackieProtocol.GetDisplayOffset(channel, row);
+        var sysex = MackieProtocol.BuildDisplayTextMessage(offset, padded);
+        SendSysEx(sysex);
     }
 
     public void SetDisplayColor(int channel, XTouchColor color)
@@ -217,12 +237,8 @@ public class XTouchDevice : IMidiDevice
         ValidateChannel(channel);
         _channels[channel].Display.Color = color;
 
-        // Farben werden immer als Block für alle 8 Kanäle gesendet
-        var colors = new byte[MackieProtocol.ChannelCount];
-        for (int i = 0; i < MackieProtocol.ChannelCount; i++)
-            colors[i] = (byte)_channels[i].Display.Color;
-
-        SendSysEx(MackieProtocol.BuildDisplayColorMessage(colors));
+        // Sende alle Farben neu (Mackie Protocol erwartet alle 8 auf einmal)
+        SendAllDisplayColors();
     }
 
     public void SetAllDisplayColors(XTouchColor[] colors)
@@ -230,21 +246,37 @@ public class XTouchDevice : IMidiDevice
         if (colors.Length != MackieProtocol.ChannelCount)
             throw new ArgumentException($"Genau {MackieProtocol.ChannelCount} Farben erwartet.");
 
-        var raw = new byte[MackieProtocol.ChannelCount];
         for (int i = 0; i < MackieProtocol.ChannelCount; i++)
-        {
             _channels[i].Display.Color = colors[i];
-            raw[i] = (byte)colors[i];
-        }
 
-        SendSysEx(MackieProtocol.BuildDisplayColorMessage(raw));
+        SendAllDisplayColors();
+    }
+
+    /// <summary>
+    /// Sendet alle Display-Farben (Mackie Control Extended Protocol).
+    /// </summary>
+    private void SendAllDisplayColors()
+    {
+        byte[] colors = new byte[MackieProtocol.ChannelCount];
+        for (int i = 0; i < MackieProtocol.ChannelCount; i++)
+            colors[i] = (byte)_channels[i].Display.Color;
+
+        var sysex = MackieProtocol.BuildDisplayColorMessage(colors);
+        SendSysEx(sysex);
     }
 
     public void SetSegmentDisplay(string text)
     {
-        var (segments, dots1, dots2) = MackieProtocol.TextToSegments(text);
-        byte deviceId = GetBehringerDeviceId();
-        SendSysEx(MackieProtocol.BuildSegmentDisplayMessage(segments, dots1, dots2, deviceId));
+        // Mackie Control Protocol: CC 64-75 für 12 Digits
+        // CC 64 = rechtestes Digit, CC 75 = linkestes Digit (rechts nach links!)
+        var ccValues = MackieProtocol.TextToSegmentCcValues(text);
+
+        for (int i = 0; i < MackieProtocol.SegmentDigitCount; i++)
+        {
+            // Reihenfolge umkehren: ccValues[0] -> CC 75, ccValues[11] -> CC 64
+            int cc = MackieProtocol.CcSegmentDisplayBase + (MackieProtocol.SegmentDigitCount - 1 - i);
+            SendShortMessage(0xB0, (byte)cc, ccValues[i]);
+        }
     }
 
     /// <summary>
@@ -308,11 +340,17 @@ public class XTouchDevice : IMidiDevice
 
     private void HandleFader(int channel, byte lsb, byte msb)
     {
-        if (channel >= MackieProtocol.ChannelCount) return;
+        // Channels 0-7 are strip faders, channel 8 is the main fader
+        if (channel > MackieProtocol.ChannelCount) return;
 
         int position = ((msb << 7) | lsb) - 8192;
-        _channels[channel].Fader.Position = position;
         double db = FaderControl.PositionToDb(position);
+
+        // Update internal state for strip faders (0-7)
+        if (channel < MackieProtocol.ChannelCount)
+        {
+            _channels[channel].Fader.Position = position;
+        }
 
         FaderChanged?.Invoke(this, new FaderEventArgs(channel, position, db));
     }
@@ -435,14 +473,48 @@ public class XTouchDevice : IMidiDevice
 
     private void SendInitialization()
     {
-        // Initial: Alle Displays löschen, Farben zurücksetzen
-        var emptyText = new string(' ', MackieProtocol.TotalDisplayChars);
-        SendSysEx(MackieProtocol.BuildDisplayTextMessage(0, emptyText));
+        // Mackie Control Protocol Initialisierung (wie Python-Original)
 
-        var defaultColors = new byte[MackieProtocol.ChannelCount];
-        SendSysEx(MackieProtocol.BuildDisplayColorMessage(defaultColors));
+        // 0. Handshake senden (wichtig für X-Touch!)
+        var handshake = new byte[] { 0xF0, 0x00, 0x00, 0x66, 0x14, 0x13, 0x00, 0xF7 };
+        SendSysEx(handshake);
 
-        _logger.LogDebug("X-Touch Extender initialisiert.");
+        // 1. Faders auf Mittelposition
+        for (int ch = 0; ch < MackieProtocol.ChannelCount; ch++)
+        {
+            SetFader(ch, 4384 - 8192); // ca. Mitte
+        }
+
+        // 2. Encoder-Ringe löschen
+        for (int ch = 0; ch < MackieProtocol.ChannelCount; ch++)
+        {
+            SendShortMessage(0xB0, (byte)(MackieProtocol.CcEncoderRingBase + ch), 0);
+        }
+
+        // 3. Alle Button-LEDs aus
+        for (int note = 0; note < 32; note++)
+        {
+            SendShortMessage(0x90, (byte)note, 0);
+        }
+
+        // 4. Display-Farben auf Weiß (alle 8 Kanäle)
+        byte[] colors = new byte[MackieProtocol.ChannelCount];
+        for (int i = 0; i < MackieProtocol.ChannelCount; i++)
+        {
+            colors[i] = (byte)XTouchColor.White;
+            _channels[i].Display.Color = XTouchColor.White;
+            _channels[i].Display.TopRow = "       ";
+            _channels[i].Display.BottomRow = "       ";
+        }
+        var colorSysex = MackieProtocol.BuildDisplayColorMessage(colors);
+        SendSysEx(colorSysex);
+
+        // 5. Display-Text löschen (kompletter 112-Zeichen Buffer, beide Zeilen)
+        string emptyDisplay = new(' ', MackieProtocol.TotalDisplayChars);
+        var textSysex = MackieProtocol.BuildDisplayTextMessage(0, emptyDisplay);
+        SendSysEx(textSysex);
+
+        _logger.LogDebug("X-Touch initialisiert (Mackie Control Protocol 0x14).");
     }
 
     // ─── Geräte-Erkennung ───────────────────────────────────────────

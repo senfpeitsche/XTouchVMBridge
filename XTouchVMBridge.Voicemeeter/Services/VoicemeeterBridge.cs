@@ -70,15 +70,6 @@ public class VoicemeeterBridge : BackgroundService
     private readonly double[] _levelCache = new double[VoicemeeterState.TotalChannels];
     private bool _needsFullRefresh = true;
 
-    // ─── Shortcut System ────────────────────────────────────────────
-
-    private int _shortcutModeIndex;
-    private readonly List<ShortcutMode> _shortcutModes = new()
-    {
-        new("DESKTOP", "Desktop-Audio-Routing"),
-        new("VR",      "VR-Audio-Routing")
-    };
-
     public VoicemeeterBridge(
         ILogger<VoicemeeterBridge> logger,
         IMidiDevice xtouch,
@@ -105,14 +96,8 @@ public class VoicemeeterBridge : BackgroundService
     /// </summary>
     private void RegisterEncoderFunctions()
     {
-        // Encoder 0: bleibt für Ansichtswechsel (keine Funktionen)
-        // Encoder 2: bleibt für Shortcut-Modus (keine Funktionen)
-
         for (int xtCh = 0; xtCh < Math.Min(8, _xtouch.ChannelCount); xtCh++)
         {
-            // Kanäle 0 und 2 bleiben für Navigation/Shortcuts
-            if (xtCh == 0 || xtCh == 2) continue;
-
             int vmCh = ChannelViews[0].Channels[xtCh]; // Home-View Kanal
 
             if (!_config.Mappings.TryGetValue(vmCh, out var mapping))
@@ -275,7 +260,32 @@ public class VoicemeeterBridge : BackgroundService
             }
         }
 
+        // Sync Main Fader (channel 8)
+        SyncMainFader();
+
         UpdateDisplays();
+    }
+
+    private void SyncMainFader()
+    {
+        var currentView = ChannelViews[_currentViewIndex];
+        if (!currentView.MainFaderChannel.HasValue) return;
+
+        int vmCh = currentView.MainFaderChannel.Value;
+        var mapping = GetMapping(vmCh);
+
+        double db;
+        if (mapping?.Fader != null)
+        {
+            db = _vm.GetParameter(mapping.Fader.Parameter);
+        }
+        else
+        {
+            db = _vmState.Gains[vmCh];
+        }
+
+        // Send to X-Touch main fader (channel 8)
+        _xtouch.SetFaderDb(8, db);
     }
 
     private void UpdateDisplays()
@@ -340,6 +350,16 @@ public class VoicemeeterBridge : BackgroundService
 
     private void OnFaderChanged(object? sender, FaderEventArgs e)
     {
+        // Main Fader (channel 8 in Mackie protocol)
+        if (e.Channel == 8)
+        {
+            HandleMainFader(e);
+            return;
+        }
+
+        // Strip faders (channels 0-7)
+        if (e.Channel >= CurrentChannelMapping.Length) return;
+
         int vmCh = CurrentChannelMapping[e.Channel];
         var mapping = GetMapping(vmCh);
 
@@ -363,6 +383,29 @@ public class VoicemeeterBridge : BackgroundService
             () => _xtouch.SetDisplayText(e.Channel, 1, ChannelViews[_currentViewIndex].Name),
             TimeSpan.FromSeconds(2),
             $"fader_display_{e.Channel}");
+    }
+
+    private void HandleMainFader(FaderEventArgs e)
+    {
+        var currentView = ChannelViews[_currentViewIndex];
+        if (!currentView.MainFaderChannel.HasValue) return;
+
+        int vmCh = currentView.MainFaderChannel.Value;
+        var mapping = GetMapping(vmCh);
+
+        if (mapping?.Fader != null)
+        {
+            double db = Math.Clamp(e.Db, mapping.Fader.Min, mapping.Fader.Max);
+            _vm.SetParameter(mapping.Fader.Parameter, (float)db);
+        }
+        else
+        {
+            // Fallback: Standard-Gain
+            double db = Math.Max(e.Db, -60.0);
+            _vm.SetGain(vmCh, db);
+        }
+
+        _logger.LogDebug("Main Fader -> VM Channel {VmCh}: {Db:F1} dB", vmCh, e.Db);
     }
 
     private void OnButtonChanged(object? sender, ButtonEventArgs e)
@@ -408,18 +451,6 @@ public class VoicemeeterBridge : BackgroundService
                     TimeSpan.FromSeconds(2),
                     $"encoder_display_{e.Channel}");
             }
-            return;
-        }
-
-        // Fallback: Speziallogik ohne Funktionsliste
-        switch (e.Channel)
-        {
-            case 0:
-                // Kanal 0 Encoder: Ansicht wechseln
-                _currentViewIndex = (_currentViewIndex + e.Ticks + ChannelViews.Count) % ChannelViews.Count;
-                _needsFullRefresh = true;
-                _logger.LogDebug("Ansicht gewechselt zu: {View}", ChannelViews[_currentViewIndex].Name);
-                break;
         }
     }
 
@@ -455,24 +486,6 @@ public class VoicemeeterBridge : BackgroundService
                     TimeSpan.FromSeconds(3.5),
                     $"encoder_name_{e.Channel}");
             }
-            return;
-        }
-
-        // Fallback: Speziallogik ohne Funktionsliste
-        switch (e.Channel)
-        {
-            case 0:
-                // Encoder 0 Press: zurück zur Home-Ansicht
-                _currentViewIndex = 0;
-                _needsFullRefresh = true;
-                break;
-
-            case 2:
-                // Encoder 2 Press: Shortcut-Modus wechseln
-                _shortcutModeIndex = (_shortcutModeIndex + 1) % _shortcutModes.Count;
-                var mode = _shortcutModes[_shortcutModeIndex];
-                _logger.LogInformation("Shortcut-Modus: {Mode}", mode.Name);
-                break;
         }
     }
 
@@ -520,11 +533,6 @@ public class VoicemeeterBridge : BackgroundService
     // ─── Helpers ────────────────────────────────────────────────────
 
     private int MidiDevice_ChannelCount() => Math.Min(_xtouch.ChannelCount, CurrentChannelMapping.Length);
-
-    // ─── Inner Types ────────────────────────────────────────────────
-
-    /// <summary>Definiert einen Shortcut-Modus.</summary>
-    private record ShortcutMode(string Name, string Description);
 }
 
 /// <summary>

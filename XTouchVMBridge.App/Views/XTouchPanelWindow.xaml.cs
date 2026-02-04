@@ -417,12 +417,22 @@ public partial class XTouchPanelWindow : Window
         }
     }
 
-    // ── Flip Button (from XAML)
+    // ── Flip Button (from XAML) - fest zugewiesen für Channel View Cycling
     private void BuildFlipButton()
     {
-        FlipButtonXaml.Click += (_, _) => OnMasterButtonClick("Control", "FLIP", 50,
-            "FLIP-Taste vertauscht die Funktionen von Fader und Encoder.\n" +
-            "Wenn aktiv: Encoder steuert Lautstärke, Fader steuert Pan/Send/etc.");
+        FlipButtonXaml.ToolTip = "FLIP: Wechselt durch die Channel-Ansichten (Views).\n" +
+            "Fest zugewiesen - kann nicht geändert werden.";
+        FlipButtonXaml.Click += (_, _) =>
+        {
+            System.Windows.MessageBox.Show(
+                "FLIP-Button ist fest für Channel View Cycling reserviert.\n\n" +
+                "Drücken Sie FLIP am X-Touch, um durch die verschiedenen\n" +
+                "Kanal-Zuweisungen (Views) zu wechseln.\n\n" +
+                "Die LED leuchtet, wenn Sie nicht in der ersten Ansicht sind.",
+                "FLIP - Channel View Cycling",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+        };
         _masterButtons["Flip"] = FlipButtonXaml;
     }
 
@@ -550,35 +560,35 @@ public partial class XTouchPanelWindow : Window
     // ── Fader Bank / Channel Navigation
     private void BuildFaderBankChannelButtons()
     {
-        // Fader Bank: ◄ ► → Channel View wechseln
+        // Fader Bank: ◄ ► → jetzt normale zuweisbare Buttons (nicht mehr für View-Wechsel)
         var fbLeft = CreateMasterButton("◄", "FaderBank_Left", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         fbLeft.FontSize = 14; fbLeft.Width = 36;
-        fbLeft.Click += (_, _) =>
-        {
-            _bridge?.SwitchView(-1);
-        };
+        fbLeft.Click += (_, _) => OnMasterButtonClick("Fader Bank", "Bank Left", 46,
+            "Fader Bank Links — Frei zuweisbar.\n(Channel View Cycling erfolgt über FLIP-Button)");
         FaderBankPanel.Children.Add(fbLeft);
+        _masterButtons["FaderBank_Left"] = fbLeft;
 
         var fbRight = CreateMasterButton("►", "FaderBank_Right", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         fbRight.FontSize = 14; fbRight.Width = 36;
-        fbRight.Click += (_, _) =>
-        {
-            _bridge?.SwitchView(+1);
-        };
+        fbRight.Click += (_, _) => OnMasterButtonClick("Fader Bank", "Bank Right", 47,
+            "Fader Bank Rechts — Frei zuweisbar.\n(Channel View Cycling erfolgt über FLIP-Button)");
         FaderBankPanel.Children.Add(fbRight);
+        _masterButtons["FaderBank_Right"] = fbRight;
 
-        // Channel: ◄ ►
+        // Channel: ◄ ► → auch normale zuweisbare Buttons
         var chLeft = CreateMasterButton("◄", "Channel_Left", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         chLeft.FontSize = 14; chLeft.Width = 36;
         chLeft.Click += (_, _) => OnMasterButtonClick("Channel", "Channel Left", 48,
-            "Verschiebt die 8 Kanalstreifen um 1 Kanal nach links.");
+            "Channel Links — Frei zuweisbar.");
         ChannelNavPanel.Children.Add(chLeft);
+        _masterButtons["Channel_Left"] = chLeft;
 
         var chRight = CreateMasterButton("►", "Channel_Right", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         chRight.FontSize = 14; chRight.Width = 36;
         chRight.Click += (_, _) => OnMasterButtonClick("Channel", "Channel Right", 49,
-            "Verschiebt die 8 Kanalstreifen um 1 Kanal nach rechts.");
+            "Channel Rechts — Frei zuweisbar.");
         ChannelNavPanel.Children.Add(chRight);
+        _masterButtons["Channel_Right"] = chRight;
     }
 
     // ── Navigation Buttons (Cursor D-Pad)

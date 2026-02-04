@@ -18,7 +18,10 @@ public enum MasterButtonActionType
     SendKeys,
 
     /// <summary>Einen Text in die Zwischenablage kopieren und einfügen.</summary>
-    SendText
+    SendText,
+
+    /// <summary>Durch die Channel-Ansichten (Views) cyclen.</summary>
+    CycleChannelView
 }
 
 /// <summary>
