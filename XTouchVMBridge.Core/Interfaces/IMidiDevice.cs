@@ -22,6 +22,9 @@ public interface IMidiDevice : IDisposable
     /// <summary>Name des aktuell verbundenen oder gewählten Geräts (null = Auto).</summary>
     string? SelectedDeviceName { get; set; }
 
+    /// <summary>Ob der Main Fader gerade berührt wird.</summary>
+    bool IsMainFaderTouched { get; }
+
     // ─── Events (Input vom Gerät) ───────────────────────────────────
 
     /// <summary>Fader wurde bewegt.</summary>

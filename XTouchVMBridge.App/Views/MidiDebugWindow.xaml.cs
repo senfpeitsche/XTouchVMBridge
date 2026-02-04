@@ -81,11 +81,16 @@ public partial class MidiDebugWindow : Window
     private void OnRawMidiReceived(object? sender, MidiMessageEventArgs e)
     {
         if (e.Data.Length < 3) return;
-        if (CaptureIncoming?.IsChecked != true) return;
 
-        int rawMsg = e.Data[0] | (e.Data[1] << 8) | (e.Data[2] << 16);
-        var decoded = MidiMessageDecoder.DecodeIncoming(rawMsg);
-        AddMessage(MidiDebugEntry.FromDecoded(decoded));
+        // UI-Zugriff muss auf dem Dispatcher-Thread erfolgen
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (CaptureIncoming?.IsChecked != true) return;
+
+            int rawMsg = e.Data[0] | (e.Data[1] << 8) | (e.Data[2] << 16);
+            var decoded = MidiMessageDecoder.DecodeIncoming(rawMsg);
+            AddMessage(MidiDebugEntry.FromDecoded(decoded));
+        });
     }
 
     private void OnFaderChanged(object? sender, FaderEventArgs e)

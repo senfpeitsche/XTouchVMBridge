@@ -10,7 +10,7 @@ namespace XTouchVMBridge.Midi.XTouch;
 /// - Buttons:        Note On #0..103  (push: vel 127, release: vel 0)
 /// - Button LEDs:    Note On #0..103  (vel 0..63: off, vel 64: flash, vel 65..127: on)
 /// - Fader:          CC 70..77(78)    (receive and transmit)
-/// - Fader Touch:    Note On #110..117(118) (touch: vel 127, release: vel 0)
+/// - Fader Touch:    Note On #104..111(112) (touch: vel 127, release: vel 0)
 /// - Encoder:        CC 80..87        (absolute: 0..127, relative: inc=65, dec=1)
 /// - Encoder Rings:  CC 80..87        (value 0..127)
 /// - Jog Wheel:      CC 88            (CW: 65, CCW: 1)
@@ -156,12 +156,13 @@ public static class MidiMessageDecoder
     {
         bool isPressed = velocity > 0;
 
-        // Fader Touch: Note 110..117
-        if (note is >= 110 and <= 118)
+        // Fader Touch: Note 104..111 (Extender), Main=112
+        if (note is >= 104 and <= 112)
         {
-            int ch = note - 110;
+            int ch = note - 104;
+            string channelName = ch == 8 ? "Main" : $"Kanal {ch + 1}";
             return new DecodedMidiMessage(ts, MidiDirection.In, "Fader Touch",
-                $"Kanal {ch + 1}", isPressed ? "Berührt" : "Losgelassen",
+                channelName, isPressed ? "Berührt" : "Losgelassen",
                 isPressed ? "→ FaderTouched" : "→ FaderTouched (release)", hex);
         }
 
@@ -326,9 +327,9 @@ public static class MidiMessageDecoder
             };
             controlId = typeIndex < 4 ? $"Kanal {ch + 1} {buttonName}" : $"Note #{note}";
         }
-        else if (note is >= 110 and <= 118)
+        else if (note is >= 104 and <= 112)
         {
-            controlId = $"Fader Touch {note - 110 + 1}";
+            controlId = note == 112 ? "Fader Touch Main" : $"Fader Touch {note - 104 + 1}";
         }
         else
         {

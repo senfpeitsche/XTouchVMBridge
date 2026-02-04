@@ -74,6 +74,17 @@ public class VoicemeeterBridge : BackgroundService
     private readonly double[] _levelCache = new double[VoicemeeterState.TotalChannels];
     private bool _needsFullRefresh = true;
 
+    // ─── Doppel-Touch-Erkennung für Fader (0 dB Reset) ─────────────
+    private readonly DateTime[] _lastFaderTouchTime = new DateTime[9]; // 0-7 = Channel, 8 = Main
+    private const int DoubleTapThresholdMs = 400;
+
+    // ─── Display-Schutz: dB-Wert wird temporär angezeigt ───────────
+    private readonly DateTime[] _displayDbUntil = new DateTime[8]; // Zeitpunkt bis wann dB angezeigt wird
+
+    // ─── Fader-Schutz: Verhindert Zurücksetzen nach Bewegung ───────
+    private readonly DateTime[] _faderProtectUntil = new DateTime[9]; // 0-7 = Channel, 8 = Main
+    private const int FaderProtectMs = 500; // 500ms Schutz nach Fader-Bewegung
+
     public VoicemeeterBridge(
         ILogger<VoicemeeterBridge> logger,
         IMidiDevice xtouch,
@@ -227,23 +238,44 @@ public class VoicemeeterBridge : BackgroundService
     {
         _vmState = _vm.GetCurrentState();
 
+        var now = DateTime.UtcNow;
+
+        // Prüfen ob IRGENDEIN Fader berührt oder geschützt ist
+        bool anyFaderActive = false;
+        for (int i = 0; i < MidiDevice_ChannelCount(); i++)
+        {
+            if (_xtouch.Channels[i].Fader.IsTouched ||
+                (i < _faderProtectUntil.Length && _faderProtectUntil[i] > now))
+            {
+                anyFaderActive = true;
+                break;
+            }
+        }
+        // Auch Main Fader prüfen
+        if (_xtouch.IsMainFaderTouched || _faderProtectUntil[8] > now)
+            anyFaderActive = true;
+
         for (int xtCh = 0; xtCh < MidiDevice_ChannelCount(); xtCh++)
         {
             int vmCh = CurrentChannelMapping[xtCh];
             var mapping = GetMapping(vmCh);
 
-            // Fader-Position synchronisieren (aus Mapping oder Fallback)
-            if (!_xtouch.Channels[xtCh].Fader.IsTouched)
+            // Fader-Position synchronisieren - aber NUR wenn KEIN Fader aktiv ist
+            // Das verhindert MIDI-Kollisionen die den Fader zurücksetzen
+            if (!anyFaderActive)
             {
+                double dbToSet;
                 if (mapping?.Fader != null)
                 {
-                    float gain = _vm.GetParameter(mapping.Fader.Parameter);
-                    _xtouch.SetFaderDb(xtCh, gain);
+                    dbToSet = _vm.GetParameter(mapping.Fader.Parameter);
                 }
                 else
                 {
-                    _xtouch.SetFaderDb(xtCh, _vmState.Gains[vmCh]);
+                    // Fallback: Gain direkt aus Voicemeeter lesen (nicht aus gecachtem State!)
+                    string prefix = vmCh < 8 ? $"Strip[{vmCh}]" : $"Bus[{vmCh - 8}]";
+                    dbToSet = _vm.GetParameter($"{prefix}.Gain");
                 }
+                _xtouch.SetFaderDb(xtCh, dbToSet);
             }
 
             // Button-LEDs synchronisieren (alle 4 Buttons)
@@ -266,14 +298,21 @@ public class VoicemeeterBridge : BackgroundService
             SyncEncoderRing(xtCh, vmCh);
         }
 
-        // Sync Main Fader (channel 8)
-        SyncMainFader();
+        // Sync Main Fader (channel 8) - aber NUR wenn KEIN Fader aktiv ist
+        if (!anyFaderActive)
+        {
+            SyncMainFader();
+        }
 
         UpdateDisplays();
     }
 
     private void SyncMainFader()
     {
+        // Don't sync if main fader is being touched or recently moved
+        if (_xtouch.IsMainFaderTouched) return;
+        if (_faderProtectUntil[8] > DateTime.UtcNow) return;
+
         var currentView = ChannelViews[_currentViewIndex];
         if (!currentView.MainFaderChannel.HasValue) return;
 
@@ -287,7 +326,9 @@ public class VoicemeeterBridge : BackgroundService
         }
         else
         {
-            db = _vmState.Gains[vmCh];
+            // Fallback: Gain direkt aus Voicemeeter lesen
+            string prefix = vmCh < 8 ? $"Strip[{vmCh}]" : $"Bus[{vmCh - 8}]";
+            db = _vm.GetParameter($"{prefix}.Gain");
         }
 
         // Send to X-Touch main fader (channel 8)
@@ -297,6 +338,7 @@ public class VoicemeeterBridge : BackgroundService
     private void UpdateDisplays()
     {
         var colors = new XTouchColor[8];
+        var now = DateTime.UtcNow;
 
         for (int xtCh = 0; xtCh < MidiDevice_ChannelCount(); xtCh++)
         {
@@ -315,8 +357,14 @@ public class VoicemeeterBridge : BackgroundService
             else
                 colors[xtCh] = XTouchColor.White;
 
-            // Untere Zeile: Ansichtsname oder dB-Wert
-            _xtouch.SetDisplayText(xtCh, 1, ChannelViews[_currentViewIndex].Name);
+            // Untere Zeile: Ansichtsname, aber NUR wenn kein dB-Wert angezeigt wird
+            // und der Fader nicht berührt wird
+            bool showingDb = xtCh < _displayDbUntil.Length && _displayDbUntil[xtCh] > now;
+            bool isTouched = _xtouch.Channels[xtCh].Fader.IsTouched;
+            if (!showingDb && !isTouched)
+            {
+                _xtouch.SetDisplayText(xtCh, 1, ChannelViews[_currentViewIndex].Name);
+            }
         }
 
         _xtouch.SetAllDisplayColors(colors);
@@ -359,12 +407,17 @@ public class VoicemeeterBridge : BackgroundService
         // Main Fader (channel 8 in Mackie protocol)
         if (e.Channel == 8)
         {
+            // Nur verarbeiten wenn Main Fader berührt wird (verhindert MIDI-Feedback-Loop)
+            if (!_xtouch.IsMainFaderTouched) return;
             HandleMainFader(e);
             return;
         }
 
         // Strip faders (channels 0-7)
         if (e.Channel >= CurrentChannelMapping.Length) return;
+
+        // Nur verarbeiten wenn Fader berührt wird (verhindert MIDI-Feedback-Loop)
+        if (!_xtouch.Channels[e.Channel].Fader.IsTouched) return;
 
         int vmCh = CurrentChannelMapping[e.Channel];
         var mapping = GetMapping(vmCh);
@@ -381,14 +434,21 @@ public class VoicemeeterBridge : BackgroundService
             _vm.SetGain(vmCh, db);
         }
 
-        // dB-Wert temporär anzeigen
+        // dB-Wert temporär anzeigen (wird durch _displayDbUntil geschützt)
         string dbText = e.Db <= -60 ? " -inf " : $"{e.Db:F1}dB";
         _xtouch.SetDisplayText(e.Channel, 1, dbText);
 
-        _scheduler.AddTask(
-            () => _xtouch.SetDisplayText(e.Channel, 1, ChannelViews[_currentViewIndex].Name),
-            TimeSpan.FromSeconds(2),
-            $"fader_display_{e.Channel}");
+        // Fader-Schutz: Verhindert dass der Sync-Loop den Fader zurücksetzt
+        if (e.Channel < _faderProtectUntil.Length)
+        {
+            _faderProtectUntil[e.Channel] = DateTime.UtcNow + TimeSpan.FromMilliseconds(FaderProtectMs);
+        }
+
+        // Display-Schutz für 3 Sekunden nach letzter Fader-Bewegung
+        if (e.Channel < _displayDbUntil.Length)
+        {
+            _displayDbUntil[e.Channel] = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        }
     }
 
     private void HandleMainFader(FaderEventArgs e)
@@ -410,6 +470,9 @@ public class VoicemeeterBridge : BackgroundService
             double db = Math.Max(e.Db, -60.0);
             _vm.SetGain(vmCh, db);
         }
+
+        // Fader-Schutz für Main Fader (Index 8)
+        _faderProtectUntil[8] = DateTime.UtcNow + TimeSpan.FromMilliseconds(FaderProtectMs);
 
         _logger.LogDebug("Main Fader -> VM Channel {VmCh}: {Db:F1} dB", vmCh, e.Db);
     }
@@ -533,9 +596,31 @@ public class VoicemeeterBridge : BackgroundService
 
     private void OnFaderTouched(object? sender, FaderTouchEventArgs e)
     {
+
         if (e.IsTouched)
         {
-            // Bei Touch: aktuellen dB-Wert anzeigen
+            var now = DateTime.Now;
+            int channel = e.Channel; // 0-7 für Channel, 8 für Main
+
+            // Doppel-Touch-Erkennung: Fader auf 0 dB setzen
+            if (channel < _lastFaderTouchTime.Length)
+            {
+                var timeSinceLastTouch = (now - _lastFaderTouchTime[channel]).TotalMilliseconds;
+
+                if (timeSinceLastTouch < DoubleTapThresholdMs && timeSinceLastTouch > 50) // Min 50ms um Prellen zu vermeiden
+                {
+                    _logger.LogDebug("Doppel-Touch auf Fader {Channel} erkannt (Zeit: {Ms}ms)", channel, timeSinceLastTouch);
+                    SetFaderTo0dB(channel);
+                    _lastFaderTouchTime[channel] = DateTime.MinValue; // Reset
+                    return;
+                }
+
+                _lastFaderTouchTime[channel] = now;
+            }
+
+            // Bei Touch: aktuellen dB-Wert anzeigen (nur für Channel-Fader 0-7)
+            if (e.Channel >= CurrentChannelMapping.Length) return;
+
             int vmCh = CurrentChannelMapping[e.Channel];
             var mapping = GetMapping(vmCh);
 
@@ -554,9 +639,112 @@ public class VoicemeeterBridge : BackgroundService
         }
         else
         {
-            // Bei Release: Ansichtsname wiederherstellen
-            _xtouch.SetDisplayText(e.Channel, 1, ChannelViews[_currentViewIndex].Name);
+            // Bei Release: Sofort den aktuellen Wert aus Voicemeeter an X-Touch senden
+            // Das hält den Motor-Fader auf der korrekten Position
+            if (e.Channel < 8 && e.Channel < CurrentChannelMapping.Length)
+            {
+                int vmCh = CurrentChannelMapping[e.Channel];
+                var mapping = GetMapping(vmCh);
+
+                double currentDb;
+                if (mapping?.Fader != null)
+                {
+                    currentDb = _vm.GetParameter(mapping.Fader.Parameter);
+                }
+                else
+                {
+                    string prefix = vmCh < 8 ? $"Strip[{vmCh}]" : $"Bus[{vmCh - 8}]";
+                    currentDb = _vm.GetParameter($"{prefix}.Gain");
+                }
+
+                _xtouch.SetFaderDb(e.Channel, currentDb);
+            }
+            else if (e.Channel == 8)
+            {
+                // Main Fader Release
+                var currentView = ChannelViews[_currentViewIndex];
+                if (currentView.MainFaderChannel.HasValue)
+                {
+                    int vmCh = currentView.MainFaderChannel.Value;
+                    var mapping = GetMapping(vmCh);
+
+                    double currentDb;
+                    if (mapping?.Fader != null)
+                    {
+                        currentDb = _vm.GetParameter(mapping.Fader.Parameter);
+                    }
+                    else
+                    {
+                        string prefix = vmCh < 8 ? $"Strip[{vmCh}]" : $"Bus[{vmCh - 8}]";
+                        currentDb = _vm.GetParameter($"{prefix}.Gain");
+                    }
+
+                    _xtouch.SetFaderDb(8, currentDb);
+                }
+            }
+
+            // dB-Wert noch 3 Sekunden anzeigen lassen (nur für Channel-Fader 0-7)
+            if (e.Channel < _displayDbUntil.Length)
+            {
+                _displayDbUntil[e.Channel] = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+            }
         }
+    }
+
+    /// <summary>
+    /// Setzt einen Fader auf 0 dB.
+    /// </summary>
+    /// <param name="channel">0-7 für Channel-Fader, 8 für Main Fader</param>
+    private void SetFaderTo0dB(int channel)
+    {
+        int vmCh;
+        ControlMappingConfig? mapping;
+
+        if (channel == 8)
+        {
+            // Main Fader
+            var currentView = ChannelViews[_currentViewIndex];
+            if (!currentView.MainFaderChannel.HasValue) return;
+            vmCh = currentView.MainFaderChannel.Value;
+            mapping = GetMapping(vmCh);
+        }
+        else
+        {
+            // Channel Fader 0-7
+            if (channel >= CurrentChannelMapping.Length) return;
+            vmCh = CurrentChannelMapping[channel];
+            mapping = GetMapping(vmCh);
+        }
+
+        if (mapping?.Fader != null)
+        {
+            // 0 dB setzen (innerhalb der konfigurierten Grenzen)
+            double db = Math.Clamp(0.0, mapping.Fader.Min, mapping.Fader.Max);
+            _vm.SetParameter(mapping.Fader.Parameter, (float)db);
+        }
+        else
+        {
+            // Fallback: Standard-Gain auf 0 dB
+            _vm.SetGain(vmCh, 0.0);
+        }
+
+        // Fader-Position auf X-Touch aktualisieren
+        _xtouch.SetFaderDb(channel, 0.0);
+
+        // Fader-Schutz setzen
+        if (channel < _faderProtectUntil.Length)
+        {
+            _faderProtectUntil[channel] = DateTime.UtcNow + TimeSpan.FromMilliseconds(FaderProtectMs);
+        }
+
+        // Display aktualisieren (nur für Channel-Fader 0-7)
+        if (channel < _displayDbUntil.Length)
+        {
+            _xtouch.SetDisplayText(channel, 1, " 0.0dB");
+            _displayDbUntil[channel] = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        }
+
+        _logger.LogDebug("Fader {Channel} auf 0 dB gesetzt (Doppel-Touch)", channel);
     }
 
     // ─── Helpers ────────────────────────────────────────────────────

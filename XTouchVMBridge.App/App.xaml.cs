@@ -39,6 +39,15 @@ public partial class App : Application
 
         try
         {
+            // WICHTIG: DLL-Suchpfad für VoicemeeterRemote64.dll setzen BEVOR
+            // irgendwelche Services gestartet werden (DllImport wird beim ersten
+            // Zugriff auf die Klasse ausgelöst).
+            var vmDllPath = XTouchVMBridge.Voicemeeter.Native.VoicemeeterRemote.EnsureDllSearchPath();
+            if (vmDllPath != null)
+                Log.Information("Voicemeeter DLL-Pfad gesetzt: {Path}", vmDllPath);
+            else
+                Log.Warning("Voicemeeter-Installation nicht gefunden. Prüfe ob Voicemeeter installiert ist.");
+
             _host = Host.CreateDefaultBuilder()
                 .UseSerilog()
                 .ConfigureServices((context, services) =>
@@ -76,7 +85,7 @@ public partial class App : Application
             // Services starten
             await _host.StartAsync();
 
-            // Voicemeeter verbinden
+            // Voicemeeter verbinden (DLL-Suchpfad wurde oben bereits gesetzt)
             var vm = _host.Services.GetRequiredService<IVoicemeeterService>();
             vm.Connect();
 

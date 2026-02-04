@@ -54,6 +54,7 @@ public partial class XTouchPanelWindow : Window
     // ─── UI-Referenzen: Main Fader ───────────────────────────────────
     private Slider? _mainFaderSlider;
     private TextBlock? _mainFaderDbLabel;
+    private bool _draggingMainFader;
 
     // ─── UI-Referenzen: Master Section Buttons ───────────────────────
     private readonly Dictionary<string, Button> _masterButtons = new();
@@ -71,6 +72,11 @@ public partial class XTouchPanelWindow : Window
 
     // ─── Fader-Drag State (Strg+Klick → Fader per Maus steuern) ──
     private int _draggingFaderChannel = -1; // -1 = kein Fader wird gerade per Maus gesteuert
+
+    // ─── Doppelklick-Erkennung für Fader (0 dB Reset) ──
+    private DateTime _lastFaderClickTime = DateTime.MinValue;
+    private int _lastFaderClickChannel = -1;
+    private const int DoubleTapThresholdMs = 400;
 
     public XTouchPanelWindow() : this(null, null, null, null, null, null) { }
 
@@ -318,16 +324,61 @@ public partial class XTouchPanelWindow : Window
             Margin = new Thickness(0, 0, 0, 8)
         });
 
+        // Flip Button oberhalb des Main Faders
+        var flipButton = new Button
+        {
+            Content = "FLIP",
+            Height = 28, Width = 50,
+            Margin = new Thickness(0, 0, 0, 8),
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 9, FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(220, 220, 220)),
+            Background = new SolidColorBrush(Color.FromRgb(45, 37, 53)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(80, 70, 90)),
+            BorderThickness = new Thickness(1),
+            Cursor = System.Windows.Input.Cursors.Hand,
+            ToolTip = "FLIP: Wechselt durch die Channel-Ansichten (Views).\n" +
+                      "Fest zugewiesen - kann nicht geändert werden."
+        };
+        flipButton.Template = CreateRoundedButtonTemplate(3);
+        flipButton.Click += (_, _) =>
+        {
+            System.Windows.MessageBox.Show(
+                "FLIP-Button ist fest für Channel View Cycling reserviert.\n\n" +
+                "Drücken Sie FLIP am X-Touch, um durch die verschiedenen\n" +
+                "Kanal-Zuweisungen (Views) zu wechseln.\n\n" +
+                "Die LED leuchtet, wenn Sie nicht in der ersten Ansicht sind.",
+                "FLIP - Channel View Cycling",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+        };
+        stack.Children.Add(flipButton);
+        _masterButtons["Flip"] = flipButton;
+
+        // Main Fader mit Maus-Overlay für Strg+Klick
+        var faderHost = new Grid { Width = 32, Height = 200 };
         _mainFaderSlider = new Slider
         {
             Orientation = Orientation.Vertical,
             Height = 200, Width = 32,
             Minimum = -8192, Maximum = 8188, Value = 0,
             IsEnabled = false,
+            IsHitTestVisible = false
+        };
+        faderHost.Children.Add(_mainFaderSlider);
+
+        // Transparentes Overlay fängt Maus-Events ab
+        var faderOverlay = new System.Windows.Controls.Border
+        {
+            Background = Brushes.Transparent,
             Cursor = System.Windows.Input.Cursors.Hand
         };
-        _mainFaderSlider.MouseLeftButtonDown += (_, _) => ShowMainFaderDetail();
-        stack.Children.Add(_mainFaderSlider);
+        faderOverlay.MouseLeftButtonDown += OnMainFaderMouseDown;
+        faderOverlay.MouseLeftButtonUp += OnMainFaderMouseUp;
+        faderOverlay.MouseMove += OnMainFaderMouseMove;
+        faderOverlay.LostMouseCapture += (_, _) => _draggingMainFader = false;
+        faderHost.Children.Add(faderOverlay);
+        stack.Children.Add(faderHost);
 
         _mainFaderDbLabel = new TextBlock
         {
@@ -352,6 +403,115 @@ public partial class XTouchPanelWindow : Window
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    //  Main Fader per Maus steuern (Strg+Klick / Doppelklick)
+    // ═══════════════════════════════════════════════════════════════════
+
+    private DateTime _lastMainFaderClickTime = DateTime.MinValue;
+
+    private void OnMainFaderMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        var now = DateTime.Now;
+
+        // Doppelklick-Erkennung: Main Fader auf 0 dB setzen
+        if ((now - _lastMainFaderClickTime).TotalMilliseconds < DoubleTapThresholdMs)
+        {
+            SetMainFaderTo0dB();
+            _lastMainFaderClickTime = DateTime.MinValue; // Reset
+            e.Handled = true;
+            return;
+        }
+
+        _lastMainFaderClickTime = now;
+
+        if (System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
+        {
+            _draggingMainFader = true;
+            SetMainFaderFromMousePosition(e.GetPosition(_mainFaderSlider));
+
+            if (e.Source is UIElement overlay)
+                overlay.CaptureMouse();
+
+            e.Handled = true;
+            return;
+        }
+
+        ShowMainFaderDetail();
+    }
+
+    /// <summary>
+    /// Setzt den Main Fader auf 0 dB.
+    /// </summary>
+    private void SetMainFaderTo0dB()
+    {
+        if (_config == null || _vm == null || _bridge == null || _mainFaderSlider == null) return;
+
+        var currentView = _config.ChannelViews.ElementAtOrDefault(_bridge.CurrentViewIndex);
+        if (currentView?.MainFaderChannel == null) return;
+
+        int vmCh = currentView.MainFaderChannel.Value;
+        if (!_config.Mappings.TryGetValue(vmCh, out var mapping) || mapping.Fader == null) return;
+
+        // 0 dB setzen (innerhalb der konfigurierten Grenzen)
+        double db = Math.Clamp(0.0, mapping.Fader.Min, mapping.Fader.Max);
+        _vm.SetParameter(mapping.Fader.Parameter, (float)db);
+
+        // UI aktualisieren
+        int position = FaderControl.DbToPosition(db);
+        _mainFaderSlider.Value = position;
+        if (_mainFaderDbLabel != null)
+            _mainFaderDbLabel.Text = "0.0 dB";
+    }
+
+    private void OnMainFaderMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_draggingMainFader) return;
+        if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed)
+        {
+            OnMainFaderMouseUp(sender, null!);
+            return;
+        }
+
+        SetMainFaderFromMousePosition(e.GetPosition(_mainFaderSlider));
+    }
+
+    private void OnMainFaderMouseUp(object sender, System.Windows.Input.MouseButtonEventArgs? e)
+    {
+        if (!_draggingMainFader) return;
+        _draggingMainFader = false;
+
+        if (sender is UIElement overlay)
+            overlay.ReleaseMouseCapture();
+    }
+
+    private void SetMainFaderFromMousePosition(System.Windows.Point mousePos)
+    {
+        if (_mainFaderSlider == null) return;
+
+        double ratio = 1.0 - Math.Clamp(mousePos.Y / _mainFaderSlider.ActualHeight, 0.0, 1.0);
+        double value = _mainFaderSlider.Minimum + ratio * (_mainFaderSlider.Maximum - _mainFaderSlider.Minimum);
+        int position = (int)Math.Clamp(value, _mainFaderSlider.Minimum, _mainFaderSlider.Maximum);
+
+        _mainFaderSlider.Value = position;
+
+        // dB-Wert berechnen und an Voicemeeter senden
+        if (_config == null || _vm == null || _bridge == null) return;
+
+        // Main Fader VM-Kanal aus aktueller View ermitteln
+        var currentView = _config.ChannelViews.ElementAtOrDefault(_bridge.CurrentViewIndex);
+        if (currentView?.MainFaderChannel == null) return;
+
+        int vmCh = currentView.MainFaderChannel.Value;
+        if (!_config.Mappings.TryGetValue(vmCh, out var mapping) || mapping.Fader == null) return;
+
+        double db = FaderControl.PositionToDb(position);
+        db = Math.Clamp(db, mapping.Fader.Min, mapping.Fader.Max);
+        _vm.SetParameter(mapping.Fader.Parameter, (float)db);
+
+        if (_mainFaderDbLabel != null)
+            _mainFaderDbLabel.Text = db <= -65 ? "-∞ dB" : $"{db:F1} dB";
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     //  Master Section: Alle Panels
     // ═══════════════════════════════════════════════════════════════════
 
@@ -359,7 +519,6 @@ public partial class XTouchPanelWindow : Window
     {
         BuildEncoderAssignButtons();
         BuildDisplayModeButtons();
-        BuildFlipButton();
         BuildGlobalViewButtons();
         BuildFunctionButtons();
         BuildModifyButtons();
@@ -415,25 +574,6 @@ public partial class XTouchPanelWindow : Window
             btn.Click += (_, _) => OnMasterButtonClick("Timecode Mode", name, note, desc);
             TimecodeModePanelXaml.Children.Add(btn);
         }
-    }
-
-    // ── Flip Button (from XAML) - fest zugewiesen für Channel View Cycling
-    private void BuildFlipButton()
-    {
-        FlipButtonXaml.ToolTip = "FLIP: Wechselt durch die Channel-Ansichten (Views).\n" +
-            "Fest zugewiesen - kann nicht geändert werden.";
-        FlipButtonXaml.Click += (_, _) =>
-        {
-            System.Windows.MessageBox.Show(
-                "FLIP-Button ist fest für Channel View Cycling reserviert.\n\n" +
-                "Drücken Sie FLIP am X-Touch, um durch die verschiedenen\n" +
-                "Kanal-Zuweisungen (Views) zu wechseln.\n\n" +
-                "Die LED leuchtet, wenn Sie nicht in der ersten Ansicht sind.",
-                "FLIP - Channel View Cycling",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
-        };
-        _masterButtons["Flip"] = FlipButtonXaml;
     }
 
     // ── Global View: MIDI TRACKS, INPUTS, AUDIO TRACKS, AUDIO INST, AUX, BUSES, OUTPUTS, USER
@@ -684,11 +824,26 @@ public partial class XTouchPanelWindow : Window
 
     /// <summary>
     /// Bei Strg+Klick auf einen Fader: Per Maus steuerbar machen.
+    /// Bei Doppelklick: Fader auf 0 dB setzen.
     /// Ohne Strg: Detail-Panel anzeigen.
-    /// Verwendet PreviewMouseLeftButtonDown (Tunneling), damit es auch bei IsEnabled=false feuert.
     /// </summary>
     private void OnFaderMouseDown(int ch, System.Windows.Input.MouseButtonEventArgs e)
     {
+        var now = DateTime.Now;
+
+        // Doppelklick-Erkennung: Fader auf 0 dB setzen
+        if (_lastFaderClickChannel == ch &&
+            (now - _lastFaderClickTime).TotalMilliseconds < DoubleTapThresholdMs)
+        {
+            SetFaderTo0dB(ch);
+            _lastFaderClickChannel = -1; // Reset um Triple-Klick zu verhindern
+            e.Handled = true;
+            return;
+        }
+
+        _lastFaderClickTime = now;
+        _lastFaderClickChannel = ch;
+
         if (System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
         {
             _draggingFaderChannel = ch;
@@ -706,6 +861,26 @@ public partial class XTouchPanelWindow : Window
         }
 
         ShowFaderDetail(ch);
+    }
+
+    /// <summary>
+    /// Setzt einen Channel-Fader auf 0 dB.
+    /// </summary>
+    private void SetFaderTo0dB(int ch)
+    {
+        if (_config == null || _vm == null) return;
+
+        int vmCh = ResolveVmChannel(ch);
+        if (!_config.Mappings.TryGetValue(vmCh, out var mapping) || mapping.Fader == null) return;
+
+        // 0 dB setzen (innerhalb der konfigurierten Grenzen)
+        double db = Math.Clamp(0.0, mapping.Fader.Min, mapping.Fader.Max);
+        _vm.SetParameter(mapping.Fader.Parameter, (float)db);
+
+        // UI aktualisieren
+        int position = FaderControl.DbToPosition(db);
+        _faderSliders[ch].Value = position;
+        _faderDbLabels[ch].Text = "0.0 dB";
     }
 
     /// <summary>
@@ -939,10 +1114,19 @@ public partial class XTouchPanelWindow : Window
             UpdateButtonVisual(_selectButtons[ch], xtCh.GetButton(XTouchButtonType.Select).LedState);
         }
 
-        // View-Button Text synchronisieren
+        // View-Button Text synchronisieren + Flip-Button LED
         if (_bridge != null)
         {
             ViewSwitchButton.Content = $"⚙ {_bridge.CurrentViewName}";
+
+            // Flip-Button: leuchtet wenn nicht in View 0
+            if (_masterButtons.TryGetValue("Flip", out var flipBtn))
+            {
+                bool isActive = _bridge.CurrentViewIndex > 0;
+                flipBtn.Background = new SolidColorBrush(isActive
+                    ? Color.FromRgb(120, 80, 160)   // aktiv: heller Violett
+                    : Color.FromRgb(45, 37, 53));   // inaktiv: dunkel
+            }
         }
 
         // 7-Segment-Display: Uhrzeit anzeigen

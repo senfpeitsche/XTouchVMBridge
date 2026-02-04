@@ -389,33 +389,16 @@
                         <!-- SMPTE/BEATS mode buttons -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2" x:Name="TimecodeModePanelXaml"/>
 
-                        <!-- GLOBAL VIEW (2 rows of 8) + FLIP on left -->
+                        <!-- GLOBAL VIEW (2 rows of 8) -->
                         <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
                                 Background="#1A1A1A" Padding="4" Margin="0,2">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-
-                                <!-- Global View label + Flip Button -->
-                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                                    <TextBlock Text="Global View" Foreground="#888" FontFamily="Consolas"
-                                               FontSize="8" Margin="0,0,0,2"/>
-                                    <Button x:Name="FlipButtonXaml" Content="Flip" Style="{StaticResource MasterButton}"
-                                            Width="44" Height="32" Background="#2D2535" Foreground="#DDD"
-                                            ToolTip="FLIP — Note 50" Margin="0,0,0,4"/>
-                                </StackPanel>
-
-                                <!-- Global View Buttons (8x2 grid) -->
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="GLOBAL VIEW" Style="{StaticResource SectionHeader}"/>
-                                    <!-- Row 1: Bus1-8 -->
-                                    <WrapPanel HorizontalAlignment="Center" x:Name="GlobalViewPanel"/>
-                                    <!-- Row 2: F1-F8 -->
-                                    <WrapPanel HorizontalAlignment="Center" x:Name="FunctionPanel" Margin="0,2,0,0"/>
-                                </StackPanel>
-                            </Grid>
+                            <StackPanel>
+                                <TextBlock Text="GLOBAL VIEW" Style="{StaticResource SectionHeader}"/>
+                                <!-- Row 1: Bus1-8 -->
+                                <WrapPanel HorizontalAlignment="Center" x:Name="GlobalViewPanel"/>
+                                <!-- Row 2: F1-F8 -->
+                                <WrapPanel HorizontalAlignment="Center" x:Name="FunctionPanel" Margin="0,2,0,0"/>
+                            </StackPanel>
                         </Border>
 
                         <!-- MODIFY / AUTOMATION / UTILITY (3 columns) -->

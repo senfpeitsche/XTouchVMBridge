@@ -51,7 +51,7 @@ public static class MackieProtocol
     /// <summary>MIDI Notes für Encoder-Press (32–39).</summary>
     public const int NoteEncoderPressBase = 32;
 
-    /// <summary>MIDI Notes für Fader-Touch (104–111).</summary>
+    /// <summary>MIDI Notes für Fader-Touch (104–111 für Extender, Main=112).</summary>
     public const int NoteFaderTouchBase = 104;
 
     // ─── Control Change Mappings ────────────────────────────────────

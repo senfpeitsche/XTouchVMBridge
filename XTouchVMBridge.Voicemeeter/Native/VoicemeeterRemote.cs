@@ -8,9 +8,12 @@ namespace XTouchVMBridge.Voicemeeter.Native;
 ///
 /// Die DLL wird aus dem Voicemeeter-Installationsverzeichnis geladen.
 /// <see cref="EnsureDllSearchPath"/> muss einmalig aufgerufen werden,
-/// bevor andere Methoden verwendet werden (passiert in VoicemeeterService.Connect).
+/// bevor andere Methoden verwendet werden.
+/// Der Aufruf erfolgt in <c>App.OnStartup</c> noch vor dem Host-Start,
+/// damit die DLL bereits verfügbar ist wenn HostedServices (z.B. VoicemeeterBridge)
+/// zum ersten Mal auf die API zugreifen.
 /// </summary>
-internal static class VoicemeeterRemote
+public static class VoicemeeterRemote
 {
     private const string DllName = "VoicemeeterRemote64";
 
@@ -29,7 +32,7 @@ internal static class VoicemeeterRemote
     /// Muss einmalig vor dem ersten API-Aufruf aufgerufen werden.
     /// </summary>
     /// <returns>Den gefundenen Pfad oder null wenn nicht gefunden.</returns>
-    internal static string? EnsureDllSearchPath()
+    public static string? EnsureDllSearchPath()
     {
         if (_dllSearchPathSet) return null;
 

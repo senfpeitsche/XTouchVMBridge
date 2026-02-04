@@ -28,6 +28,7 @@ public class XTouchDevice : IMidiDevice
     private bool _isConnected;
     private bool _disposed;
     private string? _selectedDeviceName;
+    private bool _mainFaderTouched;
 
     // ─── Events ─────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ public class XTouchDevice : IMidiDevice
     public bool IsConnected => _isConnected;
     public int ChannelCount => MackieProtocol.ChannelCount;
     public IReadOnlyList<XTouchChannel> Channels => _channels;
+    public bool IsMainFaderTouched => _mainFaderTouched;
 
     /// <summary>
     /// Name des gewählten Geräts. Null = automatische Erkennung (erstes X-Touch Gerät).
@@ -390,7 +392,7 @@ public class XTouchDevice : IMidiDevice
             return;
         }
 
-        // Fader Touch (Notes 104–111)
+        // Fader Touch (Notes 110–117 für Channel 0-7, Note 118 für Main Fader)
         if (note is >= MackieProtocol.NoteFaderTouchBase and < MackieProtocol.NoteFaderTouchBase + MackieProtocol.ChannelCount)
         {
             int ch = note - MackieProtocol.NoteFaderTouchBase;
@@ -399,7 +401,19 @@ public class XTouchDevice : IMidiDevice
             _channels[ch].Fader.IsTouched = isPressed;
             var timePressed = GetTimePressed(note, isPressed);
 
+            _logger.LogDebug("Fader Touch: Note={Note}, Channel={Ch}, Pressed={Pressed}", note, ch, isPressed);
             FaderTouched?.Invoke(this, new FaderTouchEventArgs(ch, isPressed, timePressed));
+            return;
+        }
+
+        // Main Fader Touch (Note 118)
+        if (note == MackieProtocol.NoteFaderTouchBase + MackieProtocol.ChannelCount)
+        {
+            if (isPressed) _noteTimers[note] = DateTime.UtcNow;
+            _mainFaderTouched = isPressed;
+            var timePressed = GetTimePressed(note, isPressed);
+
+            FaderTouched?.Invoke(this, new FaderTouchEventArgs(8, isPressed, timePressed));
             return;
         }
 

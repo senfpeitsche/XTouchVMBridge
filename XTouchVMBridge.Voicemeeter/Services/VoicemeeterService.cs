@@ -12,6 +12,11 @@ namespace XTouchVMBridge.Voicemeeter.Services;
 /// Potato-Layout:
 ///   Strips 0–7: Input-Kanäle
 ///   Bus 0–7: Output-Busse (logisch als Kanal 8–15)
+///
+/// Hinweis: Der DLL-Suchpfad für VoicemeeterRemote64.dll wird in
+/// <c>App.OnStartup</c> gesetzt, bevor die HostedServices starten.
+/// <see cref="Connect"/> ruft <see cref="VoicemeeterRemote.EnsureDllSearchPath"/>
+/// nur noch als Fallback auf.
 /// </summary>
 public class VoicemeeterService : IVoicemeeterService
 {
@@ -30,16 +35,12 @@ public class VoicemeeterService : IVoicemeeterService
 
     public void Connect()
     {
-        // DLL-Suchpfad setzen, damit VoicemeeterRemote64.dll gefunden wird
+        // DLL-Suchpfad wird bereits in App.OnStartup gesetzt (vor Host-Start).
+        // Dieser Aufruf dient als Fallback, falls Connect() ohne App-Kontext aufgerufen wird.
         var dllPath = VoicemeeterRemote.EnsureDllSearchPath();
         if (dllPath != null)
         {
             _logger.LogInformation("Voicemeeter DLL-Pfad gesetzt: {Path}", dllPath);
-        }
-        else
-        {
-            _logger.LogWarning("Voicemeeter-Installationsverzeichnis nicht gefunden. " +
-                "DLL muss im Systempfad oder Anwendungsverzeichnis liegen.");
         }
 
         int result = VoicemeeterRemote.Login();
