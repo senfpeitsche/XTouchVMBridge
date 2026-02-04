@@ -81,9 +81,11 @@ Drehen ändert den Wert der aktiven Funktion.
 EncoderControl
 ├── Functions: List<EncoderFunction>    // z.B. [HIGH, MID, LOW, PAN, GAIN]
 ├── ActiveFunctionIndex: int            // aktuell aktive Funktion
+├── RingMode: XTouchEncoderRingMode     // Anzeigemodus (Dot/Pan/Wrap/Spread)
 ├── CycleFunction()                     // Drücken → nächste Funktion
 ├── ApplyTicks(int ticks)               // Drehen → Wert der aktiven Funktion ändern
-└── SyncRingToActiveFunction()          // Ring-Position an Wert anpassen
+├── SyncRingToActiveFunction()          // Ring-Position an Wert anpassen
+└── CalculateCcValue() → byte           // CC-Wert für X-Touch LED-Ring
 
 EncoderFunction
 ├── Name: string                        // "HIGH", "MID", "LOW", etc.
@@ -91,11 +93,25 @@ EncoderFunction
 ├── MinValue / MaxValue / StepSize      // Wertebereich + Schrittweite
 ├── CurrentValue: double                // aktueller Wert
 ├── ApplyTicks(int ticks) → double      // Wert ändern (mit Clamping)
-├── ToRingPosition() → int             // Wert → Ring (0-15)
-└── FormatValue() → string             // "3.5dB" (InvariantCulture)
+├── ToRingPosition() → int              // Wert → Ring-Position (0-10)
+└── FormatValue() → string              // "3.5dB" (InvariantCulture)
 ```
 
 Jede Funktion merkt sich ihren eigenen Wert — beim Umschalten bleibt der Zustand erhalten.
+
+### Encoder-Display-Verhalten
+
+Bei Drücken oder Drehen des Encoders:
+- **Obere Display-Zeile**: Zeigt den Parameter-Namen (z.B. "HIGH", "MID", "PAN")
+- **Untere Display-Zeile**: Zeigt den aktuellen Wert (z.B. "0.0dB", "-3.5dB")
+- **Nach 5 Sekunden**: Automatisches Zurückschalten auf Kanalname (oben) und View-Name (unten)
+
+### Encoder LED-Ring Synchronisation
+
+Die Encoder-Ringe werden automatisch bei jedem Parameter-Update (`UpdateParameters()`) synchronisiert:
+- Liest den aktuellen Wert aus Voicemeeter
+- Berechnet die Ring-Position basierend auf Min/Max
+- Sendet den korrekten CC-Wert an das X-Touch
 
 ---
 
@@ -277,8 +293,89 @@ public enum XTouchEncoderRingMode : byte
 }
 ```
 
-Der CC-Wert wird in `EncoderControl.CalculateCcValue()` berechnet:
-`value = mode * 16 + position [+ 64 wenn LED]`.
+### X-Touch Encoder LED-Ring Mapping (empirisch ermittelt)
+
+Der X-Touch hat 13 LEDs pro Encoder-Ring: L6 L5 L4 L3 L2 L1 [M] R1 R2 R3 R4 R5 R6
+
+Die CC-Werte (CC 48-55) werden wie folgt interpretiert:
+
+| Modus | CC-Bereich | Nutzbare Werte | Beschreibung |
+|-------|------------|----------------|--------------|
+| Dot (0) | 1-11 | 11 Positionen | Einzelne LED (L5..M..R5) |
+| Pan (1) | 17-27 | 11 Positionen | Von Mitte füllend (für EQ: -12dB..0..+12dB) |
+| Wrap (2) | 33-43 | 11 Positionen | Von links füllend (für Gain: 0..100%) |
+| Spread (3) | 49-54 | 6 Positionen | Symmetrisch von Mitte |
+
+**+64 auf jeden Wert**: Schaltet L6 und R6 (äußere LEDs) zusätzlich ein.
+
+#### Vollständige CC-Wert → LED Zuordnung (ohne +64)
+
+**Mode 0 (Dot) - Einzelne LED:**
+| Wert | LEDs |
+|------|------|
+| 0 | - (aus) |
+| 1 | L5 |
+| 2 | L4 |
+| 3 | L3 |
+| 4 | L2 |
+| 5 | L1 |
+| 6 | M |
+| 7 | R1 |
+| 8 | R2 |
+| 9 | R3 |
+| 10 | R4 |
+| 11 | R5 |
+
+**Mode 1 (Pan) - Von Mitte füllend:**
+| Wert | LEDs |
+|------|------|
+| 17 | L5 L4 L3 L2 L1 M |
+| 18 | L4 L3 L2 L1 M |
+| 19 | L3 L2 L1 M |
+| 20 | L2 L1 M |
+| 21 | L1 M |
+| 22 | M |
+| 23 | M R1 |
+| 24 | M R1 R2 |
+| 25 | M R1 R2 R3 |
+| 26 | M R1 R2 R3 R4 |
+| 27 | M R1 R2 R3 R4 R5 |
+
+**Mode 2 (Wrap) - Von links füllend:**
+| Wert | LEDs |
+|------|------|
+| 33 | L5 |
+| 34 | L5 L4 |
+| 35 | L5 L4 L3 |
+| 36 | L5 L4 L3 L2 |
+| 37 | L5 L4 L3 L2 L1 |
+| 38 | L5 L4 L3 L2 L1 M |
+| 39 | L5 L4 L3 L2 L1 M R1 |
+| 40 | L5 L4 L3 L2 L1 M R1 R2 |
+| 41 | L5 L4 L3 L2 L1 M R1 R2 R3 |
+| 42 | L5 L4 L3 L2 L1 M R1 R2 R3 R4 |
+| 43 | L5 L4 L3 L2 L1 M R1 R2 R3 R4 R5 |
+
+**Mode 3 (Spread) - Symmetrisch von Mitte:**
+| Wert | LEDs |
+|------|------|
+| 49 | M |
+| 50 | L1 M R1 |
+| 51 | L2 L1 M R1 R2 |
+| 52 | L3 L2 L1 M R1 R2 R3 |
+| 53 | L4 L3 L2 L1 M R1 R2 R3 R4 |
+| 54 | L5 L4 L3 L2 L1 M R1 R2 R3 R4 R5 |
+
+**Mit +64 (L6 und R6 zusätzlich an):**
+Alle obigen Werte + 64 schalten zusätzlich die äußeren LEDs L6 und R6 ein.
+Beispiel: Wert 86 (= 22 + 64) = L6 M R6
+
+Die Berechnung in `EncoderControl.CalculateCcValue()`:
+```csharp
+case XTouchEncoderRingMode.Pan:
+    baseValue = Math.Clamp(_ringPosition, 0, 10) + 17;  // Position 0-10 → Wert 17-27
+    break;
+```
 
 ---
 
@@ -456,6 +553,9 @@ case MasterButtonActionType.HttpRequest:
 
 | Sektion | Notes | Beispiele |
 |---|---|---|
+| Fader Bank | 46-47 | BANK LEFT=46, BANK RIGHT=47 (frei zuweisbar) |
+| Channel | 48-49 | CHANNEL LEFT=48, CHANNEL RIGHT=49 |
+| Flip | 50 | **Hardcoded: Channel View Cycling** |
 | Encoder Assign | 40-45 | TRACK=40, SEND=41, PAN=42, PLUG-IN=43, EQ=44, INST=45 |
 | NAME/VALUE | 52-53 | NAME=52, VALUE=53 |
 | Function Keys | 54-61 | F1=54, F2=55, ..., F8=61 |
@@ -463,11 +563,40 @@ case MasterButtonActionType.HttpRequest:
 | Transport | 91-95 | REW=91, FF=92, STOP=93, PLAY=94, REC=95 |
 | SMPTE/BEATS | 113-114 | SMPTE=113, BEATS=114 |
 
+### Flip-Button für Channel View Cycling
+
+Der **Flip-Button (Note 50)** ist fest für das Durchschalten der Channel Views reserviert:
+- Drücken wechselt zur nächsten View (Home → Outputs → Inputs → ...)
+- Die LED blinkt kurz zur Bestätigung
+- Bei View-Wechsel werden die Encoder-Funktionen für die neuen Kanäle neu registriert
+
+Die Fader Bank Left/Right Buttons (Notes 46-47) sind dadurch für andere Aktionen frei zuweisbar.
+
 ---
 
 ## 7-Segment-Display (SegmentDisplayService)
 
 Der `SegmentDisplayService` ist ein `BackgroundService` der das 12-stellige 7-Segment-Display ansteuert.
+
+### X-Touch 7-Segment Protokoll
+
+Das X-Touch im MCU-Modus verwendet **Mackie Control CC-Nachrichten** für das 7-Segment-Display:
+
+| CC | Digit-Position |
+|----|----------------|
+| 64 | Rechtestes Digit (12) |
+| 65-74 | Digits 11-2 |
+| 75 | Linkestes Digit (1) |
+
+**CC-Wert-Format:**
+- Bits 0-5: ASCII-Zeichen (nur untere 6 Bits)
+- Bit 6 (0x40): Dezimalpunkt aktiv
+
+Beispiel: `'5'` (ASCII 0x35) → CC-Wert 0x35 & 0x3F = 0x35
+Beispiel mit Punkt: `'5.'` → CC-Wert 0x35 | 0x40 = 0x75
+
+Die Reihenfolge ist **rechts nach links** — das erste Zeichen im String geht an CC 75 (links),
+das letzte an CC 64 (rechts).
 
 ### Neuen Anzeige-Modus hinzufügen
 
@@ -543,6 +672,78 @@ Dort dokumentiert:
 - Empfohlene X-Touch-Zuordnungen und Implementierungsprioritat
 - Schritt-fur-Schritt-Anleitungen zur Erweiterung (EncoderFunction, Button-Mapping)
 - X-Touch Kapazitat vs. genutzte Parameter (freie REC/SELECT-Buttons)
+
+---
+
+## X-Touch MIDI-Protokoll (empirisch ermittelt)
+
+Das X-Touch im **MCU-Modus** (Mackie Control Universal) verwendet folgende Protokolle:
+
+### SysEx-Prefix
+
+```
+Mackie Control Main:     F0 00 00 66 14 ...
+Mackie Control Extended: F0 00 00 66 15 ...
+```
+
+Das X-Touch (nicht Extender) verwendet Device-ID **0x14** (MCU Main).
+
+### Handshake (wichtig für Initialisierung)
+
+Beim Verbinden muss ein Handshake gesendet werden:
+```
+F0 00 00 66 14 13 00 F7
+```
+
+Ohne diesen Handshake reagieren LCDs und andere Displays möglicherweise nicht.
+
+### LCD-Displays (8 × 2 Zeilen à 7 Zeichen)
+
+**Mackie Control Format (funktioniert zuverlässig):**
+```
+F0 00 00 66 14 12 [offset] [ASCII-Daten...] F7
+```
+- Offset 0-55: Obere Zeile (8 Kanäle × 7 Zeichen)
+- Offset 56-111: Untere Zeile
+
+**Display-Farben:**
+```
+F0 00 00 66 14 72 [c0] [c1] [c2] [c3] [c4] [c5] [c6] [c7] F7
+```
+- Farben 0-7: Black, Red, Green, Yellow, Blue, Magenta, Cyan, White
+
+### Encoder LED-Ringe (CC 48-55)
+
+Siehe Abschnitt "X-Touch Encoder LED-Ring Mapping" oben.
+
+### 7-Segment-Display (CC 64-75)
+
+Siehe Abschnitt "X-Touch 7-Segment Protokoll" oben.
+
+### Level Meter (Channel Aftertouch)
+
+```
+D0 [channel << 4 | level]
+```
+- Channel: 0-7 (obere 4 Bits)
+- Level: 0-13 (untere 4 Bits)
+
+### Fader (Pitchbend)
+
+```
+E[channel] [LSB] [MSB]
+```
+- 14-Bit Wert, signiert: -8192 bis +8191
+- Channel 0-7: Strip-Fader, Channel 8: Main Fader
+
+### Test-Skripte
+
+Im Projektverzeichnis befinden sich Python-Testskripte zur Protokoll-Analyse:
+- `test_lcd.py` - LCD-Display Tests
+- `test_segment.py` - 7-Segment-Display Tests
+- `test_encoder_ring.py` - Encoder LED-Ring Tests
+
+Diese Skripte erfordern `mido` und helfen beim Debugging von MIDI-Kommunikation.
 
 ---
 

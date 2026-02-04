@@ -59,14 +59,14 @@ public class EncoderFunction
     }
 
     /// <summary>
-    /// Berechnet die Encoder-Ring-Position (0–15) für den aktuellen Wert.
-    /// Mappt den Wertebereich linear auf 0–15.
+    /// Berechnet die Encoder-Ring-Position (0–10) für den aktuellen Wert.
+    /// Mappt den Wertebereich linear auf 0–10 (entspricht den 11 nutzbaren LEDs L5..M..R5).
     /// </summary>
     public int ToRingPosition()
     {
-        if (Math.Abs(MaxValue - MinValue) < 0.001) return 0;
+        if (Math.Abs(MaxValue - MinValue) < 0.001) return 5; // Mitte
         double normalized = (CurrentValue - MinValue) / (MaxValue - MinValue);
-        return (int)Math.Round(normalized * 15);
+        return (int)Math.Round(normalized * 10);
     }
 
     /// <summary>Formatierte Anzeige des aktuellen Werts (immer mit Punkt als Dezimaltrennzeichen).</summary>

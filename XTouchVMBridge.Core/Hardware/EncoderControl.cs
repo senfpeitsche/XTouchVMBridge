@@ -10,7 +10,7 @@ namespace XTouchVMBridge.Core.Hardware;
 public class EncoderControl : HardwareControlBase
 {
     public const int MinPosition = 0;
-    public const int MaxPosition = 15;
+    public const int MaxPosition = 10;  // 11 LEDs: L5 L4 L3 L2 L1 M R1 R2 R3 R4 R5
 
     private int _ringPosition;
     private XTouchEncoderRingMode _ringMode;
@@ -148,12 +148,49 @@ public class EncoderControl : HardwareControlBase
 
     /// <summary>
     /// Berechnet den MIDI CC-Wert für den Encoder-Ring.
-    /// Format: (mode * 16 + position) [+ 64 wenn LED an].
+    /// X-Touch Encoder Ring Mapping (basierend auf Tests):
+    /// - Mode 0 (Dot):    1-11 = einzelne LED (L5..M..R5)
+    /// - Mode 1 (Pan):    17-27 = von Mitte aus füllend (L5..M..R5)
+    /// - Mode 2 (Wrap):   33-43 = von links füllend
+    /// - Mode 3 (Spread): 49-54 = symmetrisch von Mitte
+    /// - +64: L6 und R6 LEDs zusätzlich an
     /// </summary>
     public byte CalculateCcValue()
     {
-        int value = (int)_ringMode * 16 + _ringPosition;
-        if (_ringLed) value += 64;
-        return (byte)Math.Clamp(value, 0, 127);
+        // RingPosition ist 0-15, wir mappen auf die gültigen Bereiche
+        // Für Pan-Mode: Position 0 = Wert 17 (voll links), Position 5 = Wert 22 (Mitte), Position 10 = Wert 27 (voll rechts)
+        int baseValue;
+
+        switch (_ringMode)
+        {
+            case XTouchEncoderRingMode.Dot:
+                // Position 0-10 → Wert 1-11
+                baseValue = Math.Clamp(_ringPosition, 0, 10) + 1;
+                break;
+
+            case XTouchEncoderRingMode.Pan:
+                // Position 0-10 → Wert 17-27
+                baseValue = Math.Clamp(_ringPosition, 0, 10) + 17;
+                break;
+
+            case XTouchEncoderRingMode.Wrap:
+                // Position 0-10 → Wert 33-43
+                baseValue = Math.Clamp(_ringPosition, 0, 10) + 33;
+                break;
+
+            case XTouchEncoderRingMode.Spread:
+                // Position 0-5 → Wert 49-54
+                baseValue = Math.Clamp(_ringPosition, 0, 5) + 49;
+                break;
+
+            default:
+                baseValue = 0;
+                break;
+        }
+
+        // +64 für äußere LEDs (L6/R6)
+        if (_ringLed) baseValue += 64;
+
+        return (byte)Math.Clamp(baseValue, 0, 127);
     }
 }

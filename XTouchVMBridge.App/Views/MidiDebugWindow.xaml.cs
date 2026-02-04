@@ -202,6 +202,9 @@ public partial class MidiDebugWindow : Window
 
     private void ReapplyFilter()
     {
+        // Während Initialisierung noch nicht filtern
+        if (MessageCountText == null) return;
+
         lock (_lock)
         {
             _filteredMessages.Clear();

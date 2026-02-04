@@ -197,11 +197,16 @@ public class XTouchDevice : IMidiDevice
     {
         ValidateChannel(channel);
         var enc = _channels[channel].Encoder;
-        enc.RingPosition = value;
         enc.RingMode = mode;
         enc.RingLed = led;
 
-        SendShortMessage(0xB0, (byte)(MackieProtocol.CcEncoderRingBase + channel), enc.CalculateCcValue());
+        // value ist bereits der berechnete CC-Wert (mode * 16 + position [+ 64])
+        // Wir extrahieren die Position für den internen State
+        int position = value % 16;
+        enc.RingPosition = position;
+
+        // Sende den CC-Wert direkt
+        SendShortMessage(0xB0, (byte)(MackieProtocol.CcEncoderRingBase + channel), (byte)value);
     }
 
     public void SetLevelMeter(int channel, int level)

@@ -60,6 +60,10 @@ public class VoicemeeterBridge : BackgroundService
     {
         if (ChannelViews.Count == 0) return;
         _currentViewIndex = (_currentViewIndex + direction + ChannelViews.Count) % ChannelViews.Count;
+
+        // Encoder-Funktionen für neue View registrieren
+        RegisterEncoderFunctions();
+
         _needsFullRefresh = true;
         _logger.LogInformation("Ansicht gewechselt zu: {View}", ChannelViews[_currentViewIndex].Name);
     }
@@ -90,7 +94,7 @@ public class VoicemeeterBridge : BackgroundService
     // ─── Encoder-Funktionen registrieren ─────────────────────────────
 
     /// <summary>
-    /// Registriert die Funktionen für jeden Encoder (pro Kanal) aus der Config.
+    /// Registriert die Funktionen für jeden Encoder basierend auf der aktuellen View.
     /// Durch Drücken des Encoders wird die nächste Funktion in der Liste aktiviert.
     /// Drehen ändert den Wert der aktiven Funktion.
     /// </summary>
@@ -98,18 +102,18 @@ public class VoicemeeterBridge : BackgroundService
     {
         for (int xtCh = 0; xtCh < Math.Min(8, _xtouch.ChannelCount); xtCh++)
         {
-            int vmCh = ChannelViews[0].Channels[xtCh]; // Home-View Kanal
+            int vmCh = CurrentChannelMapping[xtCh];
+
+            var encoder = _xtouch.Channels[xtCh].Encoder;
+
+            // Bestehende Funktionen entfernen
+            encoder.ClearFunctions();
 
             if (!_config.Mappings.TryGetValue(vmCh, out var mapping))
                 continue;
 
             if (mapping.EncoderFunctions.Count == 0)
                 continue;
-
-            var encoder = _xtouch.Channels[xtCh].Encoder;
-
-            // Bestehende Funktionen entfernen (für Reload)
-            encoder.ClearFunctions();
 
             foreach (var fn in mapping.EncoderFunctions)
             {
@@ -118,7 +122,6 @@ public class VoicemeeterBridge : BackgroundService
             }
 
             encoder.RingMode = XTouchEncoderRingMode.Pan;
-            encoder.SyncRingToActiveFunction();
         }
     }
 
@@ -258,6 +261,9 @@ public class VoicemeeterBridge : BackgroundService
                     _xtouch.SetButtonLed(xtCh, btnType, LedState.Off);
                 }
             }
+
+            // Encoder-Ring synchronisieren
+            SyncEncoderRing(xtCh, vmCh);
         }
 
         // Sync Main Fader (channel 8)
@@ -440,15 +446,16 @@ public class VoicemeeterBridge : BackgroundService
                 // Ring-Position am Gerät aktualisieren
                 _xtouch.SetEncoderRing(e.Channel, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);
 
-                // Wert im Display anzeigen
+                // Parameter oben, Wert unten anzeigen
+                _xtouch.SetDisplayText(e.Channel, 0, fn.Name);
                 _xtouch.SetDisplayText(e.Channel, 1, fn.FormatValue());
 
                 _logger.LogDebug("Encoder {Ch} [{Fn}]: {Val}", e.Channel + 1, fn.Name, fn.FormatValue());
 
-                // Nach 2s wieder den Funktionsnamen anzeigen
+                // Nach 5s wieder auf Kanalnamen zurückschalten
                 _scheduler.AddTask(
-                    () => ShowEncoderFunctionName(e.Channel),
-                    TimeSpan.FromSeconds(2),
+                    () => RestoreChannelDisplay(e.Channel),
+                    TimeSpan.FromSeconds(5),
                     $"encoder_display_{e.Channel}");
             }
         }
@@ -466,40 +473,62 @@ public class VoicemeeterBridge : BackgroundService
             var fn = encoder.CycleFunction();
             if (fn != null)
             {
+                // Aktuellen Wert aus Voicemeeter lesen
+                float currentValue = _vm.GetParameter(fn.VmParameter);
+                fn.CurrentValue = currentValue;
+
                 encoder.SyncRingToActiveFunction();
                 _xtouch.SetEncoderRing(e.Channel, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);
 
-                // Aktive Funktion und Wert anzeigen
-                _xtouch.SetDisplayText(e.Channel, 1, fn.Name);
+                // Parameter oben, Wert unten anzeigen
+                _xtouch.SetDisplayText(e.Channel, 0, fn.Name);
+                _xtouch.SetDisplayText(e.Channel, 1, fn.FormatValue());
 
                 _logger.LogInformation("Encoder {Ch}: Funktion → {Fn} ({Val})",
                     e.Channel + 1, fn.Name, fn.FormatValue());
 
-                // Nach 1.5s den Wert anzeigen, dann nach weiteren 2s den Funktionsnamen
+                // Nach 5s wieder auf Kanalnamen zurückschalten
                 _scheduler.AddTask(
-                    () => _xtouch.SetDisplayText(e.Channel, 1, fn.FormatValue()),
-                    TimeSpan.FromSeconds(1.5),
+                    () => RestoreChannelDisplay(e.Channel),
+                    TimeSpan.FromSeconds(5),
                     $"encoder_display_{e.Channel}");
-
-                _scheduler.AddTask(
-                    () => ShowEncoderFunctionName(e.Channel),
-                    TimeSpan.FromSeconds(3.5),
-                    $"encoder_name_{e.Channel}");
             }
         }
     }
 
     /// <summary>
-    /// Zeigt den Namen der aktiven Encoder-Funktion im Display an.
-    /// Format: "►HIGH" (Pfeil zeigt aktive Funktion).
+    /// Stellt das normale Kanal-Display wieder her (Name oben, View-Name unten).
     /// </summary>
-    private void ShowEncoderFunctionName(int xtCh)
+    private void RestoreChannelDisplay(int xtCh)
     {
-        var fn = _xtouch.Channels[xtCh].Encoder.ActiveFunction;
-        if (fn != null)
+        int vmCh = CurrentChannelMapping[xtCh];
+        string vmLabel = GetVmLabel(vmCh);
+        _xtouch.SetDisplayText(xtCh, 0, vmLabel);
+        _xtouch.SetDisplayText(xtCh, 1, ChannelViews[_currentViewIndex].Name);
+    }
+
+    /// <summary>
+    /// Synchronisiert den Encoder-Ring mit dem aktuellen Wert aus Voicemeeter.
+    /// </summary>
+    private void SyncEncoderRing(int xtCh, int vmCh)
+    {
+        var encoder = _xtouch.Channels[xtCh].Encoder;
+        var fn = encoder.ActiveFunction;
+
+        if (fn == null)
         {
-            _xtouch.SetDisplayText(xtCh, 1, $">{fn.Name}");
+            // Keine Funktion → Ring ausschalten
+            _xtouch.SetEncoderRing(xtCh, 0, XTouchEncoderRingMode.Dot, false);
+            return;
         }
+
+        // Aktuellen Wert aus Voicemeeter lesen und in die Funktion übernehmen
+        float currentValue = _vm.GetParameter(fn.VmParameter);
+        fn.CurrentValue = currentValue;
+
+        // Ring-Position aktualisieren
+        encoder.SyncRingToActiveFunction();
+        _xtouch.SetEncoderRing(xtCh, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);
     }
 
     private void OnFaderTouched(object? sender, FaderTouchEventArgs e)
