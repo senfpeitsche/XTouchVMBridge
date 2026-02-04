@@ -85,6 +85,10 @@ public class VoicemeeterBridge : BackgroundService
     private readonly DateTime[] _faderProtectUntil = new DateTime[9]; // 0-7 = Channel, 8 = Main
     private const int FaderProtectMs = 500; // 500ms Schutz nach Fader-Bewegung
 
+    // ─── Gain-Cache: Erkennt Änderungen aus Voicemeeter (z.B. per GUI) ───
+    private readonly double[] _lastGainValues = new double[9]; // 0-7 = Channel, 8 = Main
+    private bool _gainCacheInitialized;
+
     public VoicemeeterBridge(
         ILogger<VoicemeeterBridge> logger,
         IMidiDevice xtouch,
@@ -262,21 +266,36 @@ public class VoicemeeterBridge : BackgroundService
 
             // Fader-Position synchronisieren - aber NUR wenn KEIN Fader aktiv ist
             // Das verhindert MIDI-Kollisionen die den Fader zurücksetzen
+            double dbToSet;
+            if (mapping?.Fader != null)
+            {
+                dbToSet = _vm.GetParameter(mapping.Fader.Parameter);
+            }
+            else
+            {
+                // Fallback: Gain direkt aus Voicemeeter lesen (nicht aus gecachtem State!)
+                string prefix = vmCh < 8 ? $"Strip[{vmCh}]" : $"Bus[{vmCh - 8}]";
+                dbToSet = _vm.GetParameter($"{prefix}.Gain");
+            }
+
             if (!anyFaderActive)
             {
-                double dbToSet;
-                if (mapping?.Fader != null)
-                {
-                    dbToSet = _vm.GetParameter(mapping.Fader.Parameter);
-                }
-                else
-                {
-                    // Fallback: Gain direkt aus Voicemeeter lesen (nicht aus gecachtem State!)
-                    string prefix = vmCh < 8 ? $"Strip[{vmCh}]" : $"Bus[{vmCh - 8}]";
-                    dbToSet = _vm.GetParameter($"{prefix}.Gain");
-                }
                 _xtouch.SetFaderDb(xtCh, dbToSet);
             }
+
+            // Gain-Änderung aus Voicemeeter erkennen (z.B. per GUI) → dB im Display anzeigen
+            if (_gainCacheInitialized && Math.Abs(dbToSet - _lastGainValues[xtCh]) > 0.05)
+            {
+                // Nur anzeigen wenn der Fader NICHT vom X-Touch bewegt wird
+                bool isTouched = _xtouch.Channels[xtCh].Fader.IsTouched;
+                if (!isTouched)
+                {
+                    string dbText = dbToSet <= -60 ? " -inf " : $"{dbToSet:F1}dB";
+                    _xtouch.SetDisplayText(xtCh, 1, dbText);
+                    _displayDbUntil[xtCh] = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+                }
+            }
+            _lastGainValues[xtCh] = dbToSet;
 
             // Button-LEDs synchronisieren (alle 4 Buttons)
             foreach (XTouchButtonType btnType in Enum.GetValues<XTouchButtonType>())
@@ -298,21 +317,18 @@ public class VoicemeeterBridge : BackgroundService
             SyncEncoderRing(xtCh, vmCh);
         }
 
-        // Sync Main Fader (channel 8) - aber NUR wenn KEIN Fader aktiv ist
-        if (!anyFaderActive)
-        {
-            SyncMainFader();
-        }
+        // Sync Main Fader (channel 8)
+        SyncMainFader(anyFaderActive);
+
+        // Nach dem ersten Durchlauf ist der Gain-Cache initialisiert
+        if (!_gainCacheInitialized)
+            _gainCacheInitialized = true;
 
         UpdateDisplays();
     }
 
-    private void SyncMainFader()
+    private void SyncMainFader(bool anyFaderActive)
     {
-        // Don't sync if main fader is being touched or recently moved
-        if (_xtouch.IsMainFaderTouched) return;
-        if (_faderProtectUntil[8] > DateTime.UtcNow) return;
-
         var currentView = ChannelViews[_currentViewIndex];
         if (!currentView.MainFaderChannel.HasValue) return;
 
@@ -331,8 +347,15 @@ public class VoicemeeterBridge : BackgroundService
             db = _vm.GetParameter($"{prefix}.Gain");
         }
 
-        // Send to X-Touch main fader (channel 8)
-        _xtouch.SetFaderDb(8, db);
+        // Fader nur bewegen wenn KEIN Fader aktiv ist
+        if (!anyFaderActive)
+        {
+            _xtouch.SetFaderDb(8, db);
+        }
+
+        // Gain-Änderung aus Voicemeeter erkennen → dB im Display könnte hier
+        // angezeigt werden, aber Main Fader hat kein eigenes Scribble-Display.
+        _lastGainValues[8] = db;
     }
 
     private void UpdateDisplays()
