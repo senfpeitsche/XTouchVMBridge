@@ -154,6 +154,17 @@ public class VoicemeeterBridge : BackgroundService
     }
 
     /// <summary>
+    /// Setzt den Encoder-Schutz: Verhindert dass der Bridge-Sync den Encoder-Ring
+    /// und Display für die angegebene Dauer überschreibt. Wird vom PanelView
+    /// aufgerufen wenn der Encoder per Mausrad gesteuert wird.
+    /// </summary>
+    public void SuppressEncoderSync(int channel, TimeSpan duration)
+    {
+        if (channel >= 0 && channel < _displayEncoderUntil.Length)
+            _displayEncoderUntil[channel] = DateTime.UtcNow + duration;
+    }
+
+    /// <summary>
     /// Lädt die Config neu und re-registriert die Encoder-Funktionen.
     /// Wird aufgerufen wenn die Config im Panel geändert wurde.
     /// </summary>
@@ -323,8 +334,9 @@ public class VoicemeeterBridge : BackgroundService
                 // Kein Mapping → LED-State nicht überschreiben (Panel-Toggle beibehalten)
             }
 
-            // Encoder-Ring synchronisieren
-            SyncEncoderRing(xtCh, vmCh);
+            // Encoder-Ring synchronisieren (nur wenn kein Encoder-Schutz aktiv)
+            if (!(xtCh < _displayEncoderUntil.Length && _displayEncoderUntil[xtCh] > DateTime.UtcNow))
+                SyncEncoderRing(xtCh, vmCh);
         }
 
         // Sync Main Fader (channel 8)

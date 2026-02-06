@@ -41,7 +41,8 @@ public partial class XTouchPanelWindow : Window
     private readonly TextBlock[] _displayTop = new TextBlock[8];
     private readonly TextBlock[] _displayBottom = new TextBlock[8];
     private readonly Button[] _encoderButtons = new Button[8];
-    private readonly ProgressBar[] _encoderRings = new ProgressBar[8];
+    private readonly Grid[] _encoderRingContainers = new Grid[8];
+    private readonly Border[] _encoderRingIndicators = new Border[8];
     private readonly Button[] _recButtons = new Button[8];
     private readonly Button[] _soloButtons = new Button[8];
     private readonly Button[] _muteButtons = new Button[8];
@@ -173,18 +174,26 @@ public partial class XTouchPanelWindow : Window
         _displayTop[ch] = topText;
         _displayBottom[ch] = bottomText;
 
-        // Encoder Ring
-        var encoderRing = new ProgressBar
+        // Encoder Ring (modusabhängig: Pan=von Mitte, Wrap=von links)
+        var ringContainer = new Grid
         {
             Width = 48, Height = 6,
-            Minimum = 0, Maximum = 15, Value = 0,
             Background = new SolidColorBrush(Color.FromRgb(40, 40, 40)),
-            Foreground = new SolidColorBrush(Color.FromRgb(255, 180, 0)),
-            BorderThickness = new Thickness(0),
-            Margin = new Thickness(0, 2, 0, 0)
+            Margin = new Thickness(0, 2, 0, 0),
+            ClipToBounds = true
         };
-        stack.Children.Add(encoderRing);
-        _encoderRings[ch] = encoderRing;
+        var ringIndicator = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(255, 180, 0)),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Width = 2, // initial: schmaler Strich
+            Margin = new Thickness(23, 0, 0, 0) // Mitte
+        };
+        ringContainer.Children.Add(ringIndicator);
+        stack.Children.Add(ringContainer);
+        _encoderRingContainers[ch] = ringContainer;
+        _encoderRingIndicators[ch] = ringIndicator;
 
         // Encoder Button (Knob)
         var encoderBtn = new Button
@@ -581,9 +590,15 @@ public partial class XTouchPanelWindow : Window
         }
     }
 
-    // ── Global View: MIDI TRACKS, INPUTS, AUDIO TRACKS, AUDIO INST, AUX, BUSES, OUTPUTS, USER
+    // ── Global View: GLOBAL VIEW Button + MIDI TRACKS, INPUTS, AUDIO TRACKS, AUDIO INST, AUX, BUSES, OUTPUTS, USER
     private void BuildGlobalViewButtons()
     {
+        // "GLOBAL VIEW" Master-Button (Note 51) — links vor den 8 View-Buttons
+        var gvBtn = CreateMasterButton("G.VIEW", "GlobalView_Main", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
+        gvBtn.Click += (s, _) => OnMasterButtonClick(s, "Global View", "Global View", 51,
+            "Global View — Aktiviert/deaktiviert den Global-View-Modus.\nZeigt alle Kanäle unabhängig vom Typ.");
+        GlobalViewPanel.Children.Add(gvBtn);
+
         var names = new[] { "MIDI TR", "INPUTS", "AUDIO", "A.INST", "AUX", "BUSES", "OUTPUTS", "USER" };
         var notes = new[] { 62, 63, 64, 65, 66, 67, 68, 69 };
         for (int i = 0; i < names.Length; i++)
@@ -736,21 +751,29 @@ public partial class XTouchPanelWindow : Window
         _masterButtons["Channel_Right"] = chRight;
     }
 
-    // ── Navigation Buttons (Cursor D-Pad)
+    // ── Navigation Buttons (Kreuz-Anordnung, gleicher Stil wie Master-Buttons)
     private void BuildNavigationButtons()
     {
-        var navItems = new (Button Btn, string Name, int Note, string Desc)[]
+        var navItems = new (string Label, string Name, int Note, string Desc, int Row, int Col)[]
         {
-            (NavUpButton, "Up", 96, "Cursor hoch — Navigation in Listen/Menüs"),
-            (NavDownButton, "Down", 97, "Cursor runter — Navigation in Listen/Menüs"),
-            (NavLeftButton, "Left", 98, "Cursor links — Navigation / Zoom out"),
-            (NavRightButton, "Right", 99, "Cursor rechts — Navigation / Zoom in"),
-            (NavSelectButton, "Select", 100, "Zoom/Select — Auswahl bestätigen / Zoom toggle")
+            ("▲",  "Up",     96, "Cursor hoch — Navigation in Listen/Menüs",       0, 1),
+            ("◄",  "Left",   98, "Cursor links — Navigation / Zoom out",            1, 0),
+            ("●",  "Select", 100, "Zoom/Select — Auswahl bestätigen / Zoom toggle", 1, 1),
+            ("►",  "Right",  99, "Cursor rechts — Navigation / Zoom in",            1, 2),
+            ("▼",  "Down",   97, "Cursor runter — Navigation in Listen/Menüs",      2, 1)
         };
-        foreach (var (btn, name, note, desc) in navItems)
+        foreach (var (label, name, note, desc, row, col) in navItems)
         {
-            btn.Click += (s, _) => OnMasterButtonClick(s,"Navigation", name, note, desc);
-            _masterButtons[$"Nav_{name}"] = btn;
+            var bgColor = name == "Select" ? Color.FromRgb(30, 45, 30) : Color.FromRgb(35, 35, 35);
+            var borderColor = name == "Select" ? Color.FromRgb(60, 90, 60) : Color.FromRgb(70, 70, 70);
+            var btn = CreateMasterButton(label, $"Nav_{name}", bgColor, borderColor);
+            btn.Width = 36;
+            btn.Height = 26;
+            btn.FontSize = 12;
+            btn.Click += (s, _) => OnMasterButtonClick(s, "Navigation", name, note, desc);
+            Grid.SetRow(btn, row);
+            Grid.SetColumn(btn, col);
+            NavigationPanel.Children.Add(btn);
         }
     }
 
@@ -1096,8 +1119,8 @@ public partial class XTouchPanelWindow : Window
             _displayPanels[ch].Background = new SolidColorBrush(XTouchColorToWpf(xtCh.Display.Color, dim: true));
             _displayTop[ch].Foreground = new SolidColorBrush(XTouchColorToWpf(xtCh.Display.Color, dim: false));
 
-            // Encoder Ring + Funktionsname auf Knob
-            _encoderRings[ch].Value = xtCh.Encoder.RingPosition;
+            // Encoder Ring (modusabhängige Anzeige) + Funktionsname auf Knob
+            UpdateEncoderRingVisual(ch, xtCh.Encoder);
             if (xtCh.Encoder.HasFunctions && xtCh.Encoder.ActiveFunction != null)
             {
                 _encoderButtons[ch].Content = new TextBlock
@@ -1229,6 +1252,64 @@ public partial class XTouchPanelWindow : Window
         return xtCh.GetButton(type).LedState;
     }
 
+    /// <summary>
+    /// Aktualisiert die visuelle Encoder-Ring-Anzeige basierend auf dem RingMode:
+    /// - Pan/Dot/Spread: Strich in der Mitte bei Position 5, Balken von Mitte nach links/rechts
+    /// - Wrap: Balken von links nach rechts (z.B. Gain)
+    /// </summary>
+    private void UpdateEncoderRingVisual(int ch, EncoderControl encoder)
+    {
+        var indicator = _encoderRingIndicators[ch];
+        var container = _encoderRingContainers[ch];
+        if (indicator == null || container == null) return;
+
+        double totalWidth = container.Width; // 48
+        int pos = encoder.RingPosition;      // 0..10
+        double center = totalWidth / 2.0;    // 24
+
+        if (encoder.RingMode == XTouchEncoderRingMode.Wrap)
+        {
+            // Wrap-Modus (Gain): Balken füllt von links nach rechts
+            double fillWidth = (pos / 10.0) * totalWidth;
+            indicator.Margin = new Thickness(0, 0, 0, 0);
+            indicator.HorizontalAlignment = HorizontalAlignment.Left;
+            indicator.Width = Math.Max(2, fillWidth);
+        }
+        else
+        {
+            // Pan/Dot/Spread: von der Mitte aus
+            // Position 5 = Mitte → schmaler Strich
+            // Position < 5 → Balken geht von Position nach Mitte (links)
+            // Position > 5 → Balken geht von Mitte nach Position (rechts)
+            double posPixel = (pos / 10.0) * totalWidth;
+
+            if (pos == 5)
+            {
+                // Exakt Mitte: nur ein schmaler Strich
+                indicator.Margin = new Thickness(center - 1, 0, 0, 0);
+                indicator.HorizontalAlignment = HorizontalAlignment.Left;
+                indicator.Width = 2;
+            }
+            else if (pos < 5)
+            {
+                // Links von der Mitte: Balken von posPixel bis center
+                double left = posPixel;
+                double width = center - posPixel;
+                indicator.Margin = new Thickness(left, 0, 0, 0);
+                indicator.HorizontalAlignment = HorizontalAlignment.Left;
+                indicator.Width = Math.Max(2, width);
+            }
+            else
+            {
+                // Rechts von der Mitte: Balken von center bis posPixel
+                double width = posPixel - center;
+                indicator.Margin = new Thickness(center, 0, 0, 0);
+                indicator.HorizontalAlignment = HorizontalAlignment.Left;
+                indicator.Width = Math.Max(2, width);
+            }
+        }
+    }
+
     private void UpdateButtonVisual(Button btn, LedState state)
     {
         if (btn.Tag is not ButtonTag tag) return;
@@ -1254,7 +1335,7 @@ public partial class XTouchPanelWindow : Window
     private void OnEncoderUpdate(int ch)
     {
         if (ch >= 0 && ch < 8 && _device != null)
-            _encoderRings[ch].Value = _device.Channels[ch].Encoder.RingPosition;
+            UpdateEncoderRingVisual(ch, _device.Channels[ch].Encoder);
     }
     private void OnEncoderPressUpdate(int ch, bool pressed) { }
 
@@ -1282,6 +1363,9 @@ public partial class XTouchPanelWindow : Window
             if (_vm != null)
                 fn.CurrentValue = _vm.GetParameter(fn.VmParameter);
 
+            // Bridge-Sync unterdrücken damit der Wert nicht sofort überschrieben wird
+            _bridge?.SuppressEncoderSync(ch, TimeSpan.FromSeconds(3));
+
             // Ring-Position synchronisieren
             encoder.SyncRingToActiveFunction();
             _device.SetEncoderRing(ch, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);
@@ -1304,19 +1388,21 @@ public partial class XTouchPanelWindow : Window
         var encoder = _device.Channels[ch].Encoder;
         if (!encoder.HasFunctions || encoder.ActiveFunction == null) return;
 
-        // Mausrad-Delta → Ticks umrechnen (Delta = 120 pro Notch normalerweise)
-        int ticks = e.Delta > 0 ? 1 : -1;
+        // Mausrad: feste dB-Schritte (unabhängig von Encoder-StepSize)
+        // Normal: ±0.1 dB, Strg: ±0.5 dB
+        double step = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control)
+            ? 0.5 : 0.1;
+        double delta = e.Delta > 0 ? step : -step;
 
-        // Bei gedrückter Shift-Taste: feinere Steuerung (halber Step)
-        // Bei gedrückter Strg-Taste: gröbere Steuerung (5x Step)
-        if (System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
-            ticks *= 5;
-
-        var fn = encoder.ApplyTicks(ticks);
-        if (fn == null) return;
+        var fn = encoder.ActiveFunction;
+        fn.CurrentValue = Math.Clamp(fn.CurrentValue + delta, fn.MinValue, fn.MaxValue);
+        encoder.SyncRingToActiveFunction();
 
         // Wert an Voicemeeter senden
         _vm?.SetParameter(fn.VmParameter, (float)fn.CurrentValue);
+
+        // Bridge-Sync unterdrücken damit der Wert nicht sofort überschrieben wird
+        _bridge?.SuppressEncoderSync(ch, TimeSpan.FromSeconds(1));
 
         // Ring-Position am Gerät aktualisieren
         _device.SetEncoderRing(ch, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);

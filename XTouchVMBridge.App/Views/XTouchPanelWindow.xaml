@@ -435,28 +435,23 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- FADER BANK / CHANNEL + NAVIGATION + JOG -->
+                        <!-- FADER BANK / CHANNEL / NAVIGATION + JOG -->
                         <Border BorderBrush="#333" BorderThickness="1" CornerRadius="3"
                                 Background="#1A1A1A" Padding="4" Margin="0,2">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Fader Bank / Channel Buttons -->
+                                <!-- Fader Bank / Channel / Navigation Buttons -->
                                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="FADER BANK" Style="{StaticResource SectionHeader}"/>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" x:Name="FaderBankPanel"/>
                                     <TextBlock Text="CHANNEL" Style="{StaticResource SectionHeader}" Margin="0,6,0,2"/>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" x:Name="ChannelNavPanel"/>
-                                </StackPanel>
-
-                                <!-- Cursor Navigation (D-Pad style) -->
-                                <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <TextBlock Text="NAVIGATION" Style="{StaticResource SectionHeader}"/>
-                                    <Grid HorizontalAlignment="Center" Margin="0,2,0,0">
+                                    <TextBlock Text="NAVIGATION" Style="{StaticResource SectionHeader}" Margin="0,6,0,2"/>
+                                    <Grid HorizontalAlignment="Center" x:Name="NavigationPanel">
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
@@ -467,61 +462,52 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <Button x:Name="NavUpButton" Grid.Row="0" Grid.Column="1" Content="▲"
-                                                Style="{StaticResource MasterButton}" Width="30" Height="26"
-                                                ToolTip="Up — Note 96"/>
-                                        <Button x:Name="NavLeftButton" Grid.Row="1" Grid.Column="0" Content="◄"
-                                                Style="{StaticResource MasterButton}" Width="30" Height="26"
-                                                ToolTip="Left — Note 98"/>
-                                        <Button x:Name="NavSelectButton" Grid.Row="1" Grid.Column="1" Content="●"
-                                                Style="{StaticResource MasterButton}" Width="30" Height="26"
-                                                Background="#2A4A2A" ToolTip="Select/Zoom — Note 100"/>
-                                        <Button x:Name="NavRightButton" Grid.Row="1" Grid.Column="2" Content="►"
-                                                Style="{StaticResource MasterButton}" Width="30" Height="26"
-                                                ToolTip="Right — Note 99"/>
-                                        <Button x:Name="NavDownButton" Grid.Row="2" Grid.Column="1" Content="▼"
-                                                Style="{StaticResource MasterButton}" Width="30" Height="26"
-                                                ToolTip="Down — Note 97"/>
                                     </Grid>
                                 </StackPanel>
 
-                                <!-- Jog Wheel + Scrub -->
-                                <StackPanel Grid.Column="2" Margin="8,0,0,0">
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                        <TextBlock Text="SCRUB" Style="{StaticResource SectionHeader}" Margin="0,0,8,0"/>
-                                        <TextBlock Text="JOG" Style="{StaticResource SectionHeader}"/>
-                                    </StackPanel>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <!-- Scrub Button -->
-                                        <Button x:Name="ScrubButton" Grid.Column="0" Content="Scrub"
+                                <!-- Scrub + Jog Wheel (Scrub rechts oben auf 45° zum Jog Wheel) -->
+                                <Grid Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Scrub Button rechts oben -->
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="4,0,0,0" VerticalAlignment="Top">
+                                        <TextBlock Text="SCRUB" Style="{StaticResource SectionHeader}"/>
+                                        <Button x:Name="ScrubButton" Content="Scrub"
                                                 Style="{StaticResource MasterButton}"
-                                                Width="40" Height="32" Background="#352D25" Foreground="#DDD"
-                                                ToolTip="SCRUB — Note 101" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                        <!-- Jog Wheel -->
-                                        <Button x:Name="JogWheelButton" Grid.Column="1" Width="70" Height="70" Cursor="Hand"
-                                                ToolTip="Jog Wheel — CC 60">
+                                                Width="48" Height="26" Background="#352D25" Foreground="#DDD"
+                                                ToolTip="SCRUB — Note 101" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <!-- Jog Wheel links unten -->
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,4,0,0">
+                                        <TextBlock Text="JOG" Style="{StaticResource SectionHeader}"/>
+                                        <Button x:Name="JogWheelButton" Width="98" Height="98" Cursor="Hand"
+                                                ToolTip="Jog Wheel — CC 60" HorizontalAlignment="Center">
                                             <Button.Template>
                                                 <ControlTemplate TargetType="Button">
                                                     <Grid>
                                                         <Ellipse Fill="#1E1E1E" Stroke="#555" StrokeThickness="3"/>
-                                                        <Ellipse Fill="#222" Width="44" Height="44" Stroke="#444" StrokeThickness="1"/>
-                                                        <Ellipse Fill="#333" Width="20" Height="20"/>
+                                                        <Ellipse Fill="#222" Width="62" Height="62" Stroke="#444" StrokeThickness="1"/>
+                                                        <Ellipse Fill="#333" Width="28" Height="28"/>
                                                         <TextBlock Text="JOG" Foreground="#888" FontFamily="Consolas"
-                                                                   FontSize="7" FontWeight="Bold"
+                                                                   FontSize="9" FontWeight="Bold"
                                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Grid>
                                                 </ControlTemplate>
                                             </Button.Template>
                                         </Button>
-                                    </Grid>
-                                    <TextBlock x:Name="JogWheelLabel" Text="CC 60" Foreground="#666"
-                                               FontFamily="Consolas" FontSize="7"
-                                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                </StackPanel>
+                                        <TextBlock x:Name="JogWheelLabel" Text="CC 60" Foreground="#666"
+                                                   FontFamily="Consolas" FontSize="7"
+                                                   HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Grid>
                             </Grid>
                         </Border>
 
