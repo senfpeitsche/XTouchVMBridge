@@ -18,6 +18,13 @@ namespace XTouchVMBridge.Voicemeeter.Services;
 ///
 /// Control-Mappings (Fader, Buttons, Encoder) werden aus der Config gelesen,
 /// nicht mehr hardcoded. Siehe <see cref="ControlMappingConfig"/>.
+///
+/// Display-Schutz-Mechanismen:
+///   - <c>_displayDbUntil</c>: Zeigt dB-Wert 3s nach Fader-Touch/-Bewegung
+///     oder bei Gain-Änderung aus Voicemeeter (z.B. per GUI).
+///   - <c>_displayEncoderUntil</c>: Schützt Encoder-Anzeige (Funktionsname + Wert)
+///     für 3s nach Drücken/Drehen, damit der Wert in Ruhe abgelesen und
+///     eingestellt werden kann, ohne dass der Polling-Loop das Display überschreibt.
 /// </summary>
 public class VoicemeeterBridge : BackgroundService
 {
@@ -88,6 +95,12 @@ public class VoicemeeterBridge : BackgroundService
     // ─── Gain-Cache: Erkennt Änderungen aus Voicemeeter (z.B. per GUI) ───
     private readonly double[] _lastGainValues = new double[9]; // 0-7 = Channel, 8 = Main
     private bool _gainCacheInitialized;
+
+    // ─── Encoder-Display-Schutz: Verhindert Überschreiben der Encoder-Anzeige ───
+    // Beim Drücken/Drehen eines Encoders wird der Funktionsname (oben) und Wert (unten)
+    // für 3 Sekunden angezeigt. Während dieser Zeit überschreibt UpdateDisplays()
+    // weder die obere noch die untere Zeile. Jede Encoder-Interaktion verlängert den Schutz.
+    private readonly DateTime[] _displayEncoderUntil = new DateTime[8];
 
     public VoicemeeterBridge(
         ILogger<VoicemeeterBridge> logger,
@@ -358,6 +371,12 @@ public class VoicemeeterBridge : BackgroundService
         _lastGainValues[8] = db;
     }
 
+    /// <summary>
+    /// Aktualisiert die Scribble-Displays aller Kanäle.
+    /// Obere Zeile: Kanalname aus Voicemeeter (sofern kein Encoder-Display aktiv).
+    /// Untere Zeile: View-Name (sofern kein dB-Wert, Fader-Touch oder Encoder-Display aktiv).
+    /// Farben: View-spezifische Farbe hat Vorrang, dann globale Channel-Config, sonst Weiß.
+    /// </summary>
     private void UpdateDisplays()
     {
         var colors = new XTouchColor[8];
@@ -367,9 +386,8 @@ public class VoicemeeterBridge : BackgroundService
         {
             int vmCh = CurrentChannelMapping[xtCh];
 
-            // Name aus Voicemeeter-Label lesen
-            string vmLabel = GetVmLabel(vmCh);
-            _xtouch.SetDisplayText(xtCh, 0, vmLabel);
+            // Encoder-Display-Schutz: Wenn Encoder aktiv ist, Display nicht überschreiben
+            bool encoderActive = xtCh < _displayEncoderUntil.Length && _displayEncoderUntil[xtCh] > now;
 
             // Farbe: View-Override hat Vorrang, sonst globale Channel-Config
             var viewColor = ChannelViews[_currentViewIndex].GetChannelColor(xtCh);
@@ -380,11 +398,18 @@ public class VoicemeeterBridge : BackgroundService
             else
                 colors[xtCh] = XTouchColor.White;
 
-            // Untere Zeile: Ansichtsname, aber NUR wenn kein dB-Wert angezeigt wird
+            // Obere Zeile: Kanalnamen nur setzen wenn kein Encoder-Display aktiv ist
+            if (!encoderActive)
+            {
+                string vmLabel = GetVmLabel(vmCh);
+                _xtouch.SetDisplayText(xtCh, 0, vmLabel);
+            }
+
+            // Untere Zeile: Ansichtsname, aber NUR wenn kein dB-Wert, kein Encoder-Display
             // und der Fader nicht berührt wird
             bool showingDb = xtCh < _displayDbUntil.Length && _displayDbUntil[xtCh] > now;
             bool isTouched = _xtouch.Channels[xtCh].Fader.IsTouched;
-            if (!showingDb && !isTouched)
+            if (!showingDb && !isTouched && !encoderActive)
             {
                 _xtouch.SetDisplayText(xtCh, 1, ChannelViews[_currentViewIndex].Name);
             }
@@ -536,12 +561,15 @@ public class VoicemeeterBridge : BackgroundService
                 _xtouch.SetDisplayText(e.Channel, 0, fn.Name);
                 _xtouch.SetDisplayText(e.Channel, 1, fn.FormatValue());
 
+                // Display-Schutz: Verhindert dass UpdateDisplays() die Anzeige überschreibt
+                _displayEncoderUntil[e.Channel] = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+
                 _logger.LogDebug("Encoder {Ch} [{Fn}]: {Val}", e.Channel + 1, fn.Name, fn.FormatValue());
 
-                // Nach 5s wieder auf Kanalnamen zurückschalten
+                // Nach 3s wieder auf Kanalnamen zurückschalten
                 _scheduler.AddTask(
                     () => RestoreChannelDisplay(e.Channel),
-                    TimeSpan.FromSeconds(5),
+                    TimeSpan.FromSeconds(3),
                     $"encoder_display_{e.Channel}");
             }
         }
@@ -570,13 +598,16 @@ public class VoicemeeterBridge : BackgroundService
                 _xtouch.SetDisplayText(e.Channel, 0, fn.Name);
                 _xtouch.SetDisplayText(e.Channel, 1, fn.FormatValue());
 
+                // Display-Schutz: Verhindert dass UpdateDisplays() die Anzeige überschreibt
+                _displayEncoderUntil[e.Channel] = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+
                 _logger.LogInformation("Encoder {Ch}: Funktion → {Fn} ({Val})",
                     e.Channel + 1, fn.Name, fn.FormatValue());
 
-                // Nach 5s wieder auf Kanalnamen zurückschalten
+                // Nach 3s wieder auf Kanalnamen zurückschalten
                 _scheduler.AddTask(
                     () => RestoreChannelDisplay(e.Channel),
-                    TimeSpan.FromSeconds(5),
+                    TimeSpan.FromSeconds(3),
                     $"encoder_display_{e.Channel}");
             }
         }
