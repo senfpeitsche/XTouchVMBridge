@@ -112,8 +112,11 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 - **X-Touch Panel**: Interaktive visuelle Darstellung der X-Touch Oberfläche (Tray-Menu).
   Zeigt alle Controls in Echtzeit, Klick auf ein Control zeigt MIDI-Details und zugeordnete Funktion.
   - **Strg+Klick auf Master-Buttons**: Führt die konfigurierte Aktion aus (z.B. Media-Keys).
-    Ohne konfigurierte Aktion wird die MIDI-Note direkt ans X-Touch gesendet (z.B. SMPTE/BEATS umschalten).
+    Ohne konfigurierte Aktion wird die LED getoggelt (On/Off) und die MIDI-Note ans X-Touch gesendet.
   - **Strg+Klick auf Kanal-Buttons** (REC/SOLO/MUTE/SELECT): Toggelt den zugeordneten Voicemeeter-Parameter.
+    Nicht-zugewiesene Buttons toggeln ihre LED direkt (On/Off).
+  - **Strg+Klick auf Encoder**: Schaltet durch die Funktionsliste (z.B. HIGH → MID → LOW → PAN → GAIN).
+  - **Mausrad auf Encoder**: Ändert den Wert der aktiven Funktion. Strg+Mausrad = 5× gröbere Schritte.
   - **Strg+Klick auf Fader**: Fader per Mausbewegung steuern (Drag), Wert wird in Echtzeit an Voicemeeter gesendet.
 - **Per-View Display-Farben**: Jede Channel View kann eigene Display-Farben pro Strip definieren,
   die die globale Kanalfarbe überschreiben. Konfigurierbar im Channel View Editor.
@@ -152,9 +155,11 @@ Interaktive visuelle Darstellung der vollständigen X-Touch Oberfläche, erreich
 - **Klick-Detail**: Jedes Control zeigt im Detail-Panel: aktueller Zustand, Encoder-Funktionsliste mit
   aktivem Modus (z.B. ">HIGH = 3.5dB"), MIDI-Protokoll-Details, Hersteller-Doku-Referenzen
 - **Strg+Klick-Steuerung**: Alle Controls können per Strg+Klick direkt bedient werden:
-  - Master-Buttons: konfigurierte Aktion ausführen, oder MIDI-Note ans Gerät senden (z.B. SMPTE/BEATS)
-  - Kanal-Buttons (REC/SOLO/MUTE/SELECT): zugeordneten VM-Parameter toggeln
+  - Master-Buttons: konfigurierte Aktion ausführen, oder LED toggeln (On/Off)
+  - Kanal-Buttons (REC/SOLO/MUTE/SELECT): zugeordneten VM-Parameter toggeln, oder LED toggeln bei nicht-zugewiesenen Buttons
+  - Encoder: durch zugewiesene Funktionen cyclen (HIGH → MID → LOW → PAN → GAIN → ...)
   - Fader: per Maus-Drag steuern (transparentes Overlay über dem deaktivierten Slider)
+- **Mausrad-Steuerung** auf Encodern: Wert der aktiven Funktion ändern, Strg+Mausrad für 5× gröbere Schritte
 
 ## Channel View Editor
 
@@ -199,10 +204,13 @@ Standardmäßig sind für Encoder 2, 4-8 folgende Funktionen registriert:
 | PAN | Pan_x | -0.5..+0.5 | 0.05 |
 | GAIN | Gain | -60..+12 dB | 0.5 dB |
 
-- **Drücken**: Schaltet zur nächsten Funktion (HIGH → MID → LOW → PAN → GAIN → HIGH ...)
-- **Drehen**: Ändert den Wert der aktiven Funktion
+- **Drücken** (Hardware): Schaltet zur nächsten Funktion (HIGH → MID → LOW → PAN → GAIN → HIGH ...)
+- **Drehen** (Hardware): Ändert den Wert der aktiven Funktion
+- **Strg+Klick** (Panel): Schaltet zur nächsten Funktion (identisch mit Hardware-Drücken)
+- **Mausrad** (Panel): Ändert den Wert der aktiven Funktion (±1 Step pro Notch)
+- **Strg+Mausrad** (Panel): Grobe Steuerung (±5 Steps pro Notch)
 - **Display**: Zeigt kurzzeitig den neuen Funktionsnamen, dann den Wert, dann ">FUNKTIONSNAME"
-- **Encoder-Ring**: Position zeigt den aktuellen Wert relativ zum Bereich (0-15 LEDs)
+- **Encoder-Ring**: Position zeigt den aktuellen Wert relativ zum Bereich (0-10 LEDs)
 
 Encoder 1 bleibt für Ansichtswechsel, Encoder 3 für Shortcut-Modus.
 

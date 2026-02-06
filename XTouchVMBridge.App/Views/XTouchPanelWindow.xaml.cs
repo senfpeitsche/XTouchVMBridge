@@ -78,6 +78,10 @@ public partial class XTouchPanelWindow : Window
     private int _lastFaderClickChannel = -1;
     private const int DoubleTapThresholdMs = 400;
 
+    // ─── Manueller LED-Toggle für nicht-zugewiesene Buttons (Panel-Only) ──
+    private readonly Dictionary<(int Channel, XTouchButtonType Type), bool> _manualLedState = new();
+    private readonly Dictionary<int, bool> _masterButtonLedState = new();
+
     public XTouchPanelWindow() : this(null, null, null, null, null, null) { }
 
     public XTouchPanelWindow(IMidiDevice? device, XTouchVMBridgeConfig? config,
@@ -188,10 +192,11 @@ public partial class XTouchPanelWindow : Window
             Width = 44, Height = 44,
             Margin = new Thickness(0, 2, 0, 4),
             Cursor = System.Windows.Input.Cursors.Hand,
-            ToolTip = $"Encoder {ch + 1}"
+            ToolTip = $"Encoder {ch + 1}\nStrg+Klick: Funktion wechseln\nMausrad: Wert ändern\nStrg+Mausrad: Grob (5×)"
         };
         encoderBtn.Template = CreateEncoderTemplate();
-        encoderBtn.Click += (_, _) => ShowEncoderDetail(ch);
+        encoderBtn.Click += (_, _) => OnEncoderClick(ch);
+        encoderBtn.MouseWheel += (_, e) => OnEncoderMouseWheel(ch, e);
         stack.Children.Add(encoderBtn);
         _encoderButtons[ch] = encoderBtn;
 
@@ -540,7 +545,7 @@ public partial class XTouchPanelWindow : Window
         {
             int noteNum = notes[i];
             var btn = CreateMasterButton(names[i], $"EncoderAssign_{names[i]}", Color.FromRgb(35, 35, 35), Color.FromRgb(80, 80, 80));
-            btn.Click += (_, _) => OnMasterButtonClick("Encoder Assign", names[Array.IndexOf(notes, noteNum)], noteNum,
+            btn.Click += (s, _) => OnMasterButtonClick(s,"Encoder Assign", names[Array.IndexOf(notes, noteNum)], noteNum,
                 "Wählt den Parameter für alle 8 Encoder.\nDrehen der Encoder ändert den gewählten Parameter pro Kanal.");
             EncoderAssignPanel.Children.Add(btn);
         }
@@ -558,7 +563,7 @@ public partial class XTouchPanelWindow : Window
         foreach (var (name, note, desc) in displayItems)
         {
             var btn = CreateMasterButton(name, $"Display_{name}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
-            btn.Click += (_, _) => OnMasterButtonClick("Display Mode", name, note, desc);
+            btn.Click += (s, _) => OnMasterButtonClick(s,"Display Mode", name, note, desc);
             DisplayModePanel.Children.Add(btn);
         }
 
@@ -571,7 +576,7 @@ public partial class XTouchPanelWindow : Window
         foreach (var (name, note, desc) in timecodeItems)
         {
             var btn = CreateMasterButton(name, $"Timecode_{name}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
-            btn.Click += (_, _) => OnMasterButtonClick("Timecode Mode", name, note, desc);
+            btn.Click += (s, _) => OnMasterButtonClick(s,"Timecode Mode", name, note, desc);
             TimecodeModePanelXaml.Children.Add(btn);
         }
     }
@@ -585,7 +590,7 @@ public partial class XTouchPanelWindow : Window
         {
             int idx = i;
             var btn = CreateMasterButton(names[i], $"GlobalView_{names[i]}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
-            btn.Click += (_, _) => OnMasterButtonClick("Global View", names[idx], notes[idx],
+            btn.Click += (s, _) => OnMasterButtonClick(s,"Global View", names[idx], notes[idx],
                 $"Globale Ansicht: {names[idx]}.\nFiltert die Kanalstreifen nach Typ.");
             GlobalViewPanel.Children.Add(btn);
         }
@@ -600,7 +605,7 @@ public partial class XTouchPanelWindow : Window
             string label = $"F{i + 1}";
             int noteNum = 54 + i; // F1=54..F8=61
             var btn = CreateMasterButton(label, $"Function_{label}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
-            btn.Click += (_, _) => OnMasterButtonClick("Function", label, noteNum,
+            btn.Click += (s, _) => OnMasterButtonClick(s,"Function", label, noteNum,
                 $"Funktion {idx + 1} — benutzerdefinierbar.\nZuweisung hängt von der DAW/Anwendung ab.");
             FunctionPanel.Children.Add(btn);
         }
@@ -613,7 +618,7 @@ public partial class XTouchPanelWindow : Window
         foreach (var (name, note) in items)
         {
             var btn = CreateMasterButton(name, $"Modify_{name}", Color.FromRgb(30, 30, 45), Color.FromRgb(60, 60, 100));
-            btn.Click += (_, _) => OnMasterButtonClick("Modify", name, note,
+            btn.Click += (s, _) => OnMasterButtonClick(s,"Modify", name, note,
                 $"Modifier-Taste '{name}'.\nKombiniert mit anderen Tasten für erweiterte Funktionen.");
             ModifyPanel.Children.Add(btn);
         }
@@ -630,7 +635,7 @@ public partial class XTouchPanelWindow : Window
         foreach (var (name, note) in items)
         {
             var btn = CreateMasterButton(name, $"Auto_{name}", Color.FromRgb(30, 40, 30), Color.FromRgb(60, 90, 60));
-            btn.Click += (_, _) => OnMasterButtonClick("Automation", name, note,
+            btn.Click += (s, _) => OnMasterButtonClick(s,"Automation", name, note,
                 $"Automation-Modus '{name}'.\nSteuert den Automation-Modus der DAW.");
             AutomationPanel.Children.Add(btn);
         }
@@ -643,7 +648,7 @@ public partial class XTouchPanelWindow : Window
         foreach (var (name, note) in items)
         {
             var btn = CreateMasterButton(name, $"Util_{name}", Color.FromRgb(40, 35, 25), Color.FromRgb(90, 80, 50));
-            btn.Click += (_, _) => OnMasterButtonClick("Utility", name, note,
+            btn.Click += (s, _) => OnMasterButtonClick(s,"Utility", name, note,
                 $"Utility-Taste '{name}'.\nWird von der DAW zugewiesen.");
             UtilityPanel.Children.Add(btn);
         }
@@ -661,7 +666,7 @@ public partial class XTouchPanelWindow : Window
         foreach (var (name, note) in topItems)
         {
             var btn = CreateMasterButton(name, $"Transport_{name}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
-            btn.Click += (_, _) => OnMasterButtonClick("Transport", name, note,
+            btn.Click += (s, _) => OnMasterButtonClick(s,"Transport", name, note,
                 $"Transport-Taste '{name}'.\nSteuert die DAW-Transport-Funktionen.");
             TransportTopPanel.Children.Add(btn);
         }
@@ -690,7 +695,7 @@ public partial class XTouchPanelWindow : Window
                 Cursor = System.Windows.Input.Cursors.Hand
             };
             btn.Template = CreateRoundedButtonTemplate(4);
-            btn.Click += (_, _) => OnMasterButtonClick("Transport", name, note,
+            btn.Click += (s, _) => OnMasterButtonClick(s,"Transport", name, note,
                 $"Transport: {name} ({symbol})\nMIDI: Note On #{note}");
             _masterButtons[$"Transport_{name}"] = btn;
             TransportButtonPanel.Children.Add(btn);
@@ -703,14 +708,14 @@ public partial class XTouchPanelWindow : Window
         // Fader Bank: ◄ ► → jetzt normale zuweisbare Buttons (nicht mehr für View-Wechsel)
         var fbLeft = CreateMasterButton("◄", "FaderBank_Left", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         fbLeft.FontSize = 14; fbLeft.Width = 36;
-        fbLeft.Click += (_, _) => OnMasterButtonClick("Fader Bank", "Bank Left", 46,
+        fbLeft.Click += (s, _) => OnMasterButtonClick(s,"Fader Bank", "Bank Left", 46,
             "Fader Bank Links — Frei zuweisbar.\n(Channel View Cycling erfolgt über FLIP-Button)");
         FaderBankPanel.Children.Add(fbLeft);
         _masterButtons["FaderBank_Left"] = fbLeft;
 
         var fbRight = CreateMasterButton("►", "FaderBank_Right", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         fbRight.FontSize = 14; fbRight.Width = 36;
-        fbRight.Click += (_, _) => OnMasterButtonClick("Fader Bank", "Bank Right", 47,
+        fbRight.Click += (s, _) => OnMasterButtonClick(s,"Fader Bank", "Bank Right", 47,
             "Fader Bank Rechts — Frei zuweisbar.\n(Channel View Cycling erfolgt über FLIP-Button)");
         FaderBankPanel.Children.Add(fbRight);
         _masterButtons["FaderBank_Right"] = fbRight;
@@ -718,14 +723,14 @@ public partial class XTouchPanelWindow : Window
         // Channel: ◄ ► → auch normale zuweisbare Buttons
         var chLeft = CreateMasterButton("◄", "Channel_Left", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         chLeft.FontSize = 14; chLeft.Width = 36;
-        chLeft.Click += (_, _) => OnMasterButtonClick("Channel", "Channel Left", 48,
+        chLeft.Click += (s, _) => OnMasterButtonClick(s,"Channel", "Channel Left", 48,
             "Channel Links — Frei zuweisbar.");
         ChannelNavPanel.Children.Add(chLeft);
         _masterButtons["Channel_Left"] = chLeft;
 
         var chRight = CreateMasterButton("►", "Channel_Right", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         chRight.FontSize = 14; chRight.Width = 36;
-        chRight.Click += (_, _) => OnMasterButtonClick("Channel", "Channel Right", 49,
+        chRight.Click += (s, _) => OnMasterButtonClick(s,"Channel", "Channel Right", 49,
             "Channel Rechts — Frei zuweisbar.");
         ChannelNavPanel.Children.Add(chRight);
         _masterButtons["Channel_Right"] = chRight;
@@ -744,7 +749,7 @@ public partial class XTouchPanelWindow : Window
         };
         foreach (var (btn, name, note, desc) in navItems)
         {
-            btn.Click += (_, _) => OnMasterButtonClick("Navigation", name, note, desc);
+            btn.Click += (s, _) => OnMasterButtonClick(s,"Navigation", name, note, desc);
             _masterButtons[$"Nav_{name}"] = btn;
         }
     }
@@ -752,7 +757,7 @@ public partial class XTouchPanelWindow : Window
     // ── Scrub Button
     private void BuildScrubButton()
     {
-        ScrubButton.Click += (_, _) => OnMasterButtonClick("Control", "SCRUB", 101,
+        ScrubButton.Click += (s, _) => OnMasterButtonClick(s,"Control", "SCRUB", 101,
             "SCRUB-Taste aktiviert den Scrub-Modus für das Jog Wheel.\n" +
             "Im Scrub-Modus: Frame-genaue Audio-Wiedergabe beim Drehen.");
         _masterButtons["Scrub"] = ScrubButton;
@@ -962,18 +967,36 @@ public partial class XTouchPanelWindow : Window
     /// </summary>
     private void ExecuteHwButtonAction(int ch, XTouchButtonType type)
     {
-        if (_config == null || _vm == null) return;
+        // Prüfen ob ein zugewiesener VM-Parameter existiert
+        bool hasMapping = false;
+        if (_config != null && _vm != null)
+        {
+            int vmCh = ResolveVmChannel(ch);
+            if (_config.Mappings.TryGetValue(vmCh, out var mapping))
+            {
+                string btnKey = type.ToString();
+                if (mapping.Buttons.TryGetValue(btnKey, out var btnMap) && btnMap != null)
+                {
+                    // Bool-Parameter toggeln
+                    float currentValue = _vm.GetParameter(btnMap.Parameter);
+                    float newValue = currentValue > 0.5f ? 0f : 1f;
+                    _vm.SetParameter(btnMap.Parameter, newValue);
+                    hasMapping = true;
+                }
+            }
+        }
 
-        int vmCh = ResolveVmChannel(ch);
-        if (!_config.Mappings.TryGetValue(vmCh, out var mapping)) return;
+        // Kein Mapping vorhanden → LED manuell toggeln (Panel + Hardware)
+        if (!hasMapping)
+        {
+            var key = (ch, type);
+            _manualLedState.TryGetValue(key, out bool isOn);
+            _manualLedState[key] = !isOn;
 
-        string btnKey = type.ToString();
-        if (!mapping.Buttons.TryGetValue(btnKey, out var btnMap) || btnMap == null) return;
-
-        // Bool-Parameter toggeln
-        float currentValue = _vm.GetParameter(btnMap.Parameter);
-        float newValue = currentValue > 0.5f ? 0f : 1f;
-        _vm.SetParameter(btnMap.Parameter, newValue);
+            // Hardware-LED setzen falls Gerät verbunden
+            if (_device != null && ch < _device.Channels.Count)
+                _device.SetButtonLed(ch, type, !isOn ? LedState.On : LedState.Off);
+        }
     }
 
     private record ButtonTag(int Channel, XTouchButtonType Type, Color ActiveColor, Color InactiveColor);
@@ -1107,11 +1130,11 @@ public partial class XTouchPanelWindow : Window
                 : xtCh.LevelMeter.Level > 7 ? Color.FromRgb(255, 200, 0)
                 : Color.FromRgb(0, 200, 80));
 
-            // Buttons LED-State
-            UpdateButtonVisual(_recButtons[ch], xtCh.GetButton(XTouchButtonType.Rec).LedState);
-            UpdateButtonVisual(_soloButtons[ch], xtCh.GetButton(XTouchButtonType.Solo).LedState);
-            UpdateButtonVisual(_muteButtons[ch], xtCh.GetButton(XTouchButtonType.Mute).LedState);
-            UpdateButtonVisual(_selectButtons[ch], xtCh.GetButton(XTouchButtonType.Select).LedState);
+            // Buttons LED-State (manueller Toggle hat Vorrang bei nicht-zugewiesenen Buttons)
+            UpdateButtonVisual(_recButtons[ch], GetEffectiveLedState(ch, XTouchButtonType.Rec, xtCh));
+            UpdateButtonVisual(_soloButtons[ch], GetEffectiveLedState(ch, XTouchButtonType.Solo, xtCh));
+            UpdateButtonVisual(_muteButtons[ch], GetEffectiveLedState(ch, XTouchButtonType.Mute, xtCh));
+            UpdateButtonVisual(_selectButtons[ch], GetEffectiveLedState(ch, XTouchButtonType.Select, xtCh));
         }
 
         // View-Button Text synchronisieren + Flip-Button LED
@@ -1194,6 +1217,18 @@ public partial class XTouchPanelWindow : Window
         }
     }
 
+    /// <summary>
+    /// Ermittelt den effektiven LED-State: manueller Toggle für nicht-zugewiesene Buttons,
+    /// ansonsten den Hardware-LedState vom Device.
+    /// </summary>
+    private LedState GetEffectiveLedState(int ch, XTouchButtonType type, XTouchChannel xtCh)
+    {
+        var key = (ch, type);
+        if (_manualLedState.TryGetValue(key, out bool isOn))
+            return isOn ? LedState.On : LedState.Off;
+        return xtCh.GetButton(type).LedState;
+    }
+
     private void UpdateButtonVisual(Button btn, LedState state)
     {
         if (btn.Tag is not ButtonTag tag) return;
@@ -1222,6 +1257,76 @@ public partial class XTouchPanelWindow : Window
             _encoderRings[ch].Value = _device.Channels[ch].Encoder.RingPosition;
     }
     private void OnEncoderPressUpdate(int ch, bool pressed) { }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  Encoder per Maus steuern (Strg+Klick → Funktion cyclen, Mausrad → Wert ändern)
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Klick auf Encoder-Knob: Bei Strg → nächste Funktion durchschalten,
+    /// sonst Detail-Panel anzeigen.
+    /// </summary>
+    private void OnEncoderClick(int ch)
+    {
+        if (System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
+        {
+            if (_device == null || ch >= _device.Channels.Count) return;
+            var encoder = _device.Channels[ch].Encoder;
+            if (!encoder.HasFunctions) return;
+
+            // Zur nächsten Funktion cyclen
+            var fn = encoder.CycleFunction();
+            if (fn == null) return;
+
+            // Aktuellen Wert aus Voicemeeter lesen
+            if (_vm != null)
+                fn.CurrentValue = _vm.GetParameter(fn.VmParameter);
+
+            // Ring-Position synchronisieren
+            encoder.SyncRingToActiveFunction();
+            _device.SetEncoderRing(ch, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);
+
+            // Display kurz aktualisieren (Name + Wert)
+            _device.SetDisplayText(ch, 0, fn.Name);
+            _device.SetDisplayText(ch, 1, fn.FormatValue());
+            return;
+        }
+
+        ShowEncoderDetail(ch);
+    }
+
+    /// <summary>
+    /// Mausrad auf Encoder-Knob: Wert der aktiven Funktion ändern.
+    /// </summary>
+    private void OnEncoderMouseWheel(int ch, System.Windows.Input.MouseWheelEventArgs e)
+    {
+        if (_device == null || ch >= _device.Channels.Count) return;
+        var encoder = _device.Channels[ch].Encoder;
+        if (!encoder.HasFunctions || encoder.ActiveFunction == null) return;
+
+        // Mausrad-Delta → Ticks umrechnen (Delta = 120 pro Notch normalerweise)
+        int ticks = e.Delta > 0 ? 1 : -1;
+
+        // Bei gedrückter Shift-Taste: feinere Steuerung (halber Step)
+        // Bei gedrückter Strg-Taste: gröbere Steuerung (5x Step)
+        if (System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
+            ticks *= 5;
+
+        var fn = encoder.ApplyTicks(ticks);
+        if (fn == null) return;
+
+        // Wert an Voicemeeter senden
+        _vm?.SetParameter(fn.VmParameter, (float)fn.CurrentValue);
+
+        // Ring-Position am Gerät aktualisieren
+        _device.SetEncoderRing(ch, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);
+
+        // Display kurz aktualisieren (Name + Wert)
+        _device.SetDisplayText(ch, 0, fn.Name);
+        _device.SetDisplayText(ch, 1, fn.FormatValue());
+
+        e.Handled = true;
+    }
     private void OnFaderTouchUpdate(int ch, bool touched)
     {
         if (ch >= 0 && ch < 8)
@@ -1401,7 +1506,7 @@ public partial class XTouchPanelWindow : Window
     /// Bei gedrückter Strg-Taste wird die zugewiesene Aktion direkt ausgeführt,
     /// ansonsten wird das Detail-Panel angezeigt.
     /// </summary>
-    private void OnMasterButtonClick(string section, string name, int noteNumber, string description)
+    private void OnMasterButtonClick(object sender, string section, string name, int noteNumber, string description)
     {
         if (System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
         {
@@ -1409,8 +1514,16 @@ public partial class XTouchPanelWindow : Window
             if (_masterButtonActionService?.ExecuteAction(noteNumber) == true)
                 return;
 
-            // Fallback: Note-On an das X-Touch senden (z.B. SMPTE/BEATS/NAME/VALUE umschalten)
-            _device?.SetMasterButtonLed(noteNumber, Core.Enums.LedState.On);
+            // LED toggeln (Panel + Hardware)
+            _masterButtonLedState.TryGetValue(noteNumber, out bool isOn);
+            _masterButtonLedState[noteNumber] = !isOn;
+            var newState = !isOn ? LedState.On : LedState.Off;
+
+            _device?.SetMasterButtonLed(noteNumber, newState);
+
+            // PanelView-Button visuell aktualisieren
+            if (sender is Button panelBtn)
+                panelBtn.Background = new SolidColorBrush(!isOn ? Color.FromRgb(100, 160, 220) : Color.FromRgb(35, 35, 35));
             return;
         }
 

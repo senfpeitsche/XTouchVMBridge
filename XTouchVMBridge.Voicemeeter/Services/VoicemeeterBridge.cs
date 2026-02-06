@@ -320,10 +320,7 @@ public class VoicemeeterBridge : BackgroundService
                     _xtouch.SetButtonLed(xtCh, btnType,
                         val > 0.5f ? LedState.On : LedState.Off);
                 }
-                else
-                {
-                    _xtouch.SetButtonLed(xtCh, btnType, LedState.Off);
-                }
+                // Kein Mapping → LED-State nicht überschreiben (Panel-Toggle beibehalten)
             }
 
             // Encoder-Ring synchronisieren

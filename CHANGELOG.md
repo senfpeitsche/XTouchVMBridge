@@ -1,6 +1,24 @@
 # Changelog
 
-## [Unreleased] - 2025-02-04
+## [Unreleased] - 2025-02-06
+
+### X-Touch Panel: Encoder-Steuerung per Maus
+- **Neu**: Strg+Klick auf Encoder cycled durch die zugewiesenen Funktionen (identisch mit Hardware-Drücken)
+- **Neu**: Mausrad auf Encoder ändert den Wert der aktiven Funktion (±1 Step pro Notch)
+- **Neu**: Strg+Mausrad auf Encoder für grobe Steuerung (±5 Steps pro Notch)
+- **Neu**: ToolTip auf Encoder-Knobs zeigt Bedienungshinweise
+
+### X-Touch Panel: Button-LED-Toggle für alle Buttons
+- **Neu**: Strg+Klick auf nicht-zugewiesene Kanal-Buttons (REC/SELECT) toggelt die LED direkt (On/Off)
+- **Neu**: Strg+Klick auf Master-Buttons toggelt die LED (On/Off) wenn keine Aktion konfiguriert ist
+- **Fix**: LED-Toggle funktioniert jetzt zuverlässig (eigener State-Speicher im PanelView)
+- **Fix**: VoicemeeterBridge überschreibt nicht-zugewiesene Button-LEDs nicht mehr auf Off
+
+### X-Touch Initialisierung
+- **Fix**: Master-Section-Buttons (Notes 40–103) werden beim Start zurückgesetzt
+  (vorher nur Channel-Buttons Notes 0–31)
+
+## [Previous] - 2025-02-04
 
 ### LCD-Displays
 - **Fix**: LCD-Displays funktionieren jetzt korrekt

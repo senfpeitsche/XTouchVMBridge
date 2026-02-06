@@ -101,10 +101,19 @@ Jede Funktion merkt sich ihren eigenen Wert — beim Umschalten bleibt der Zusta
 
 ### Encoder-Display-Verhalten
 
-Bei Drücken oder Drehen des Encoders:
+Bei Drücken/Drehen des Encoders (Hardware) oder Strg+Klick/Mausrad (Panel):
 - **Obere Display-Zeile**: Zeigt den Parameter-Namen (z.B. "HIGH", "MID", "PAN")
 - **Untere Display-Zeile**: Zeigt den aktuellen Wert (z.B. "0.0dB", "-3.5dB")
 - **Nach 5 Sekunden**: Automatisches Zurückschalten auf Kanalname (oben) und View-Name (unten)
+
+### Panel-Encoder-Steuerung
+
+Im X-Touch Panel können Encoder vollständig per Maus bedient werden:
+- **Strg+Klick**: Ruft `encoder.CycleFunction()` auf (identisch mit Hardware-Drücken)
+- **Mausrad**: Ruft `encoder.ApplyTicks(±1)` auf (identisch mit Hardware-Drehen)
+- **Strg+Mausrad**: `ApplyTicks(±5)` für grobe Steuerung
+- Aktueller Wert wird aus Voicemeeter gelesen und nach Änderung zurückgeschrieben
+- Ring-Position, Display-Text und Hardware werden synchronisiert
 
 ### Encoder LED-Ring Synchronisation
 
@@ -434,33 +443,90 @@ Das X-Touch Panel unterstützt Strg+Klick als Direkt-Steuerung für alle Control
 ### Master-Buttons
 
 ```csharp
-// OnMasterButtonClick: Strg+Klick → Aktion oder MIDI-Note
+// OnMasterButtonClick: Strg+Klick → Aktion oder LED-Toggle
 if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
 {
     // 1. Konfigurierte Aktion ausführen (z.B. Media-Keys)
     if (_masterButtonActionService?.ExecuteAction(noteNumber) == true)
         return;
-    // 2. Fallback: Note-On ans X-Touch senden (z.B. SMPTE/BEATS umschalten)
-    _device?.SetMasterButtonLed(noteNumber, LedState.On);
+    // 2. Fallback: LED toggeln (On/Off) + MIDI-Note ans X-Touch senden
+    _masterButtonLedState.TryGetValue(noteNumber, out bool isOn);
+    _masterButtonLedState[noteNumber] = !isOn;
+    _device?.SetMasterButtonLed(noteNumber, !isOn ? LedState.On : LedState.Off);
+    // PanelView-Button visuell aktualisieren (sender ist der WPF-Button)
     return;
 }
 ```
 
 `ExecuteAction()` gibt `bool` zurück — `true` wenn eine Aktion konfiguriert und ausgeführt wurde.
+Ohne konfigurierte Aktion wird die LED getoggelt (On/Off) statt immer auf On gesetzt.
+Der LED-State wird in `_masterButtonLedState` (Dictionary<int,bool>) gespeichert.
 
 ### Kanal-Buttons (REC/SOLO/MUTE/SELECT)
 
 ```csharp
-// OnHwButtonClick: Strg+Klick → VM-Parameter toggeln
+// OnHwButtonClick: Strg+Klick → VM-Parameter toggeln oder LED toggeln
 if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
 {
-    ExecuteHwButtonAction(ch, type); // Liest Mapping, toggelt VM-Parameter
+    ExecuteHwButtonAction(ch, type);
     return;
 }
 ```
 
-Die Kanal-Zuordnung wird über `_bridge.CurrentChannelMapping[xtChannel]` aufgelöst,
-damit Channel Views korrekt berücksichtigt werden.
+`ExecuteHwButtonAction` prüft ob ein VM-Parameter zugewiesen ist:
+- **Zugewiesen** (z.B. Mute, Solo): VM-Parameter toggeln (wie bisher)
+- **Nicht zugewiesen** (z.B. Rec, Select): LED direkt toggeln über `_manualLedState` Dictionary
+
+```csharp
+// Kein Mapping → LED manuell toggeln (Panel + Hardware)
+if (!hasMapping)
+{
+    var key = (ch, type);
+    _manualLedState.TryGetValue(key, out bool isOn);
+    _manualLedState[key] = !isOn;
+    _device.SetButtonLed(ch, type, !isOn ? LedState.On : LedState.Off);
+}
+```
+
+`GetEffectiveLedState()` prüft in `RefreshAll()` ob ein manueller State vorhanden ist:
+
+```csharp
+private LedState GetEffectiveLedState(int ch, XTouchButtonType type, XTouchChannel xtCh)
+{
+    if (_manualLedState.TryGetValue((ch, type), out bool isOn))
+        return isOn ? LedState.On : LedState.Off;
+    return xtCh.GetButton(type).LedState;  // Fallback: Hardware-State
+}
+```
+
+Die VoicemeeterBridge überschreibt nicht-zugewiesene Buttons nicht mehr auf Off
+(der else-Zweig in `UpdateParameters()` wurde entfernt).
+
+### Encoder (Strg+Klick + Mausrad)
+
+```csharp
+// OnEncoderClick: Strg+Klick → nächste Funktion durchschalten
+if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+{
+    var fn = encoder.CycleFunction();      // HIGH → MID → LOW → ...
+    fn.CurrentValue = _vm.GetParameter(fn.VmParameter);  // Wert aus VM lesen
+    encoder.SyncRingToActiveFunction();    // Ring-Position synchronisieren
+    _device.SetEncoderRing(ch, ...);       // Hardware aktualisieren
+    return;
+}
+```
+
+```csharp
+// OnEncoderMouseWheel: Mausrad → Wert ändern
+int ticks = e.Delta > 0 ? 1 : -1;
+if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+    ticks *= 5;                            // Strg+Mausrad: 5× gröbere Schritte
+var fn = encoder.ApplyTicks(ticks);        // Wert ändern (mit Clamping)
+_vm.SetParameter(fn.VmParameter, (float)fn.CurrentValue);  // An VM senden
+_device.SetEncoderRing(ch, ...);           // Ring aktualisieren
+_device.SetDisplayText(ch, 0, fn.Name);    // Display: Funktionsname
+_device.SetDisplayText(ch, 1, fn.FormatValue());  // Display: Wert
+```
 
 ### Fader (Transparentes Overlay-Pattern)
 
@@ -507,8 +573,9 @@ public void SetMasterButtonLed(int noteNumber, LedState state)
 }
 ```
 
-Wird im Panel für Strg+Klick auf nicht-konfigurierte Master-Buttons verwendet
-(z.B. SMPTE, BEATS, NAME, VALUE), um die MIDI-Note direkt ans Gerät zu senden.
+Wird im Panel für Strg+Klick auf nicht-konfigurierte Master-Buttons verwendet,
+um die LED zu toggeln und die MIDI-Note ans Gerät zu senden.
+Der Toggle-State wird in `_masterButtonLedState` im PanelView gespeichert.
 
 ---
 
@@ -659,7 +726,7 @@ Der `MidiMessageDecoder` dekodiert alle Nachrichten. Um einen neuen Typ hinzuzuf
 | **Template Method** | `HardwareControlBase` | Gemeinsame Basis für alle Controls |
 | **Scheduler** | `TaskScheduler` (in Bridge) | Verzögerte Aktionen (Display-Reset) |
 | **Transparent Overlay** | `XTouchPanelWindow` Fader | Maus-Events über deaktiviertem WPF-Control abfangen |
-| **Fallback Chain** | `OnMasterButtonClick` | Aktion → MIDI-Note → Detail-Panel |
+| **Fallback Chain** | `OnMasterButtonClick` | Aktion → LED-Toggle → Detail-Panel |
 
 ## Voicemeeter API Parameter
 
@@ -696,6 +763,21 @@ F0 00 00 66 14 13 00 F7
 ```
 
 Ohne diesen Handshake reagieren LCDs und andere Displays möglicherweise nicht.
+
+### Initialisierung (SendInitialization)
+
+Beim Verbinden werden alle Controls auf einen definierten Ausgangszustand gesetzt:
+
+1. **Handshake** (SysEx)
+2. **Faders** auf Mittelposition
+3. **Encoder-Ringe** löschen (CC 48-55 → 0)
+4. **Channel-Button-LEDs** aus (Notes 0–31 → velocity 0)
+5. **Master-Section-Button-LEDs** aus (Notes 40–103 → velocity 0)
+6. **Display-Farben** auf Weiß
+7. **Display-Text** löschen
+
+Notes 32–39 (Encoder Press) und 104+ (Fader Touch) werden nicht resettet,
+da diese nur Input-Events sind und keine LEDs haben.
 
 ### LCD-Displays (8 × 2 Zeilen à 7 Zeichen)
 

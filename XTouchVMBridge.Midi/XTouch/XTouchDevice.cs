@@ -510,11 +510,11 @@ public class XTouchDevice : IMidiDevice
             SendShortMessage(0xB0, (byte)(MackieProtocol.CcEncoderRingBase + ch), 0);
         }
 
-        // 3. Alle Button-LEDs aus
+        // 3. Alle Button-LEDs aus (Channel-Buttons 0–31 + Master-Section 40–103)
         for (int note = 0; note < 32; note++)
-        {
             SendShortMessage(0x90, (byte)note, 0);
-        }
+        for (int note = 40; note <= 103; note++)
+            SendShortMessage(0x90, (byte)note, 0);
 
         // 4. Display-Farben auf Weiß (alle 8 Kanäle)
         byte[] colors = new byte[MackieProtocol.ChannelCount];
