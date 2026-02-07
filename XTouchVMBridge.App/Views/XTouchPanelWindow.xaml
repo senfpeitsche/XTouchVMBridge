@@ -613,10 +613,30 @@
 
                             <!-- VmParameter -->
                             <StackPanel x:Name="MasterVmParamPanel" Visibility="Collapsed" Margin="0,6,0,0">
-                                <TextBlock Text="VM-Parameter:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBlock Text="Kanaltyp:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <ComboBox x:Name="MasterVmChannelTypeCombo"
+                                          Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"
+                                          SelectionChanged="OnMasterVmChannelTypeChanged"/>
+
+                                <TextBlock Text="Gruppe:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <ComboBox x:Name="MasterVmGroupCombo"
+                                          Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"
+                                          SelectionChanged="OnMasterVmGroupChanged"/>
+
+                                <TextBlock Text="Parameter:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <ComboBox x:Name="MasterVmParamCombo"
+                                          Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"
+                                          SelectionChanged="OnMasterVmParamComboChanged"/>
+
+                                <TextBlock Text="Strip/Bus-Index:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <ComboBox x:Name="MasterVmIndexCombo"
+                                          Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"
+                                          SelectionChanged="OnMasterVmIndexChanged"/>
+
+                                <TextBlock Text="Ergebnis:" Foreground="#888" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
                                 <TextBox x:Name="MasterVmParamBox" Background="#222" Foreground="#DDD"
-                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"
-                                         ToolTip="z.B. Strip[0].Mute, Bus[2].EQ.on"/>
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444" IsReadOnly="True"
+                                         ToolTip="Resultierender VM-Parameter (z.B. Strip[0].Mute)"/>
                             </StackPanel>
 
                             <!-- LaunchProgram -->

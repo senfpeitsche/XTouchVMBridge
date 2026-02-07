@@ -204,4 +204,77 @@ public static class VoicemeeterParameterCatalog
         double DefaultMax = 1,
         double DefaultStep = 1,
         string Unit = "");
+
+    // ─── Gruppierte Bool-Parameter (für Master-Button-Dropdown) ─────
+
+    /// <summary>Eine Gruppe von Bool-Parametern mit Anzeigename.</summary>
+    public record ParameterGroup(string GroupName, List<ParameterTemplate> Parameters);
+
+    /// <summary>Strip-Bool-Parameter gruppiert nach Funktion.</summary>
+    public static readonly List<ParameterGroup> StripBoolGroups = new()
+    {
+        new("Basis", new List<ParameterTemplate>
+        {
+            new("Strip[{s}].Mute",   "Mute",           0, 1, 1, ""),
+            new("Strip[{s}].Solo",   "Solo",           0, 1, 1, ""),
+            new("Strip[{s}].Mono",   "Mono",           0, 1, 1, ""),
+            new("Strip[{s}].MC",     "Mix down Mono",  0, 1, 1, ""),
+        }),
+        new("EQ", new List<ParameterTemplate>
+        {
+            new("Strip[{s}].EQ.on",  "EQ Ein/Aus",     0, 1, 1, ""),
+            new("Strip[{s}].EQ.AB",  "EQ A/B",         0, 1, 1, ""),
+        }),
+        new("Routing", new List<ParameterTemplate>
+        {
+            new("Strip[{s}].A1",     "Routing → A1",   0, 1, 1, ""),
+            new("Strip[{s}].A2",     "Routing → A2",   0, 1, 1, ""),
+            new("Strip[{s}].A3",     "Routing → A3",   0, 1, 1, ""),
+            new("Strip[{s}].A4",     "Routing → A4",   0, 1, 1, ""),
+            new("Strip[{s}].A5",     "Routing → A5",   0, 1, 1, ""),
+            new("Strip[{s}].B1",     "Routing → B1",   0, 1, 1, ""),
+            new("Strip[{s}].B2",     "Routing → B2",   0, 1, 1, ""),
+            new("Strip[{s}].B3",     "Routing → B3",   0, 1, 1, ""),
+        }),
+        new("FX Post-Fader", new List<ParameterTemplate>
+        {
+            new("Strip[{s}].PostReverb",  "Reverb Post-Fader", 0, 1, 1, ""),
+            new("Strip[{s}].PostDelay",   "Delay Post-Fader",  0, 1, 1, ""),
+            new("Strip[{s}].PostFx1",     "FX1 Post-Fader",    0, 1, 1, ""),
+            new("Strip[{s}].PostFx2",     "FX2 Post-Fader",    0, 1, 1, ""),
+        }),
+        new("Compressor", new List<ParameterTemplate>
+        {
+            new("Strip[{s}].Comp.MakeUp", "Comp MakeUp",       0, 1, 1, ""),
+        }),
+    };
+
+    /// <summary>Bus-Bool-Parameter gruppiert nach Funktion.</summary>
+    public static readonly List<ParameterGroup> BusBoolGroups = new()
+    {
+        new("Basis", new List<ParameterTemplate>
+        {
+            new("Bus[{b}].Mute",      "Mute",        0, 1, 1, ""),
+            new("Bus[{b}].Mono",      "Mono",        0, 1, 1, ""),
+            new("Bus[{b}].Sel",       "Select",      0, 1, 1, ""),
+        }),
+        new("EQ", new List<ParameterTemplate>
+        {
+            new("Bus[{b}].EQ.on",     "EQ Ein/Aus",  0, 1, 1, ""),
+            new("Bus[{b}].EQ.AB",     "EQ A/B",      0, 1, 1, ""),
+        }),
+        new("Monitor", new List<ParameterTemplate>
+        {
+            new("Bus[{b}].Monitor",   "Monitor",     0, 1, 1, ""),
+        }),
+    };
+
+    /// <summary>
+    /// Gibt die gruppierten Bool-Parameter für einen Kanaltyp zurück.
+    /// channelType: "Strip" oder "Bus"
+    /// </summary>
+    public static List<ParameterGroup> GetBoolGroups(string channelType)
+    {
+        return channelType == "Bus" ? BusBoolGroups : StripBoolGroups;
+    }
 }

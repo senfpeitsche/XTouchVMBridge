@@ -7,7 +7,6 @@ namespace XTouchVMBridge.App.Services;
 
 /// <summary>
 /// Filtert MIDI-Eingaben wenn der Bildschirm gesperrt ist.
-/// Entspricht ScreenLockDetector (inner class in XTouchVM.App) aus dem Python-Original.
 ///
 /// Zeigt "SCREEN LOCKED" auf dem X-Touch Display und blockiert alle Eingaben.
 /// </summary>
@@ -18,7 +17,6 @@ public class ScreenLockMidiFilter
     private readonly IMidiDevice _xtouch;
 
     private bool _isDisplayingLockMessage;
-    private bool _wasLocked;
 
     public ScreenLockMidiFilter(
         ILogger<ScreenLockMidiFilter> logger,
@@ -30,29 +28,27 @@ public class ScreenLockMidiFilter
         _xtouch = xtouch;
 
         _xtouch.RawMidiReceived += OnRawMidiReceived;
+        _lockDetector.LockStateChanged += OnLockStateChanged;
     }
 
-    private void OnRawMidiReceived(object? sender, MidiMessageEventArgs e)
+    private void OnLockStateChanged(object? sender, bool isLocked)
     {
-        bool isLocked = _lockDetector.CheckLockState();
-
-        if (isLocked && !_wasLocked)
+        if (isLocked)
         {
-            // Gerade gesperrt: Lock-Nachricht anzeigen
             ShowLockMessage();
-            _wasLocked = true;
             _logger.LogDebug("Bildschirm gesperrt — MIDI-Eingabe blockiert.");
         }
-        else if (!isLocked && _wasLocked)
+        else
         {
-            // Gerade entsperrt: Display wiederherstellen
-            _wasLocked = false;
             _isDisplayingLockMessage = false;
             _logger.LogDebug("Bildschirm entsperrt — MIDI-Eingabe freigegeben.");
             // Full refresh wird durch die Bridge getriggert
         }
+    }
 
-        if (isLocked)
+    private void OnRawMidiReceived(object? sender, MidiMessageEventArgs e)
+    {
+        if (_lockDetector.IsLocked)
         {
             e.Handled = true; // Nachricht konsumieren
         }

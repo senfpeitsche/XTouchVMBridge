@@ -1,66 +1,39 @@
-using System.Diagnostics;
-using System.Runtime.InteropServices;
+using Microsoft.Win32;
 using XTouchVMBridge.Core.Interfaces;
 
 namespace XTouchVMBridge.App.Services;
 
 /// <summary>
 /// Erkennt ob der Windows-Bildschirm gesperrt ist.
-/// Entspricht islocked.py aus dem Python-Original.
-///
-/// Prüft über GetForegroundWindow → GetWindowThreadProcessId → Prozessname
-/// ob LockApp.exe der Vordergrund-Prozess ist.
+/// Nutzt SystemEvents.SessionSwitch für sofortige, event-basierte Erkennung.
 /// </summary>
 public class ScreenLockDetector : IScreenLockDetector
 {
     private bool _isLocked;
-    private DateTime _nextCheck = DateTime.MinValue;
-    private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(1);
 
     public bool IsLocked => _isLocked;
 
-    public bool CheckLockState()
+    public event EventHandler<bool>? LockStateChanged;
+
+    public ScreenLockDetector()
     {
-        if (DateTime.UtcNow < _nextCheck)
-            return _isLocked;
-
-        _nextCheck = DateTime.UtcNow + _checkInterval;
-
-        try
-        {
-            IntPtr hwnd = GetForegroundWindow();
-            if (hwnd == IntPtr.Zero)
-            {
-                _isLocked = false;
-                return _isLocked;
-            }
-
-            GetWindowThreadProcessId(hwnd, out uint processId);
-            if (processId == 0)
-            {
-                _isLocked = false;
-                return _isLocked;
-            }
-
-            using var process = Process.GetProcessById((int)processId);
-            string? processName = process.ProcessName;
-            _isLocked = processName != null &&
-                        processName.Contains("LockApp", StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
-            // Bei AccessDenied oder ungültigem Prozess: nicht als gesperrt behandeln
-            _isLocked = false;
-        }
-
-        return _isLocked;
+        SystemEvents.SessionSwitch += OnSessionSwitch;
     }
 
-    // ─── P/Invoke ───────────────────────────────────────────────────
+    private void OnSessionSwitch(object? sender, SessionSwitchEventArgs e)
+    {
+        bool wasLocked = _isLocked;
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
+        _isLocked = e.Reason switch
+        {
+            SessionSwitchReason.SessionLock => true,
+            SessionSwitchReason.SessionUnlock => false,
+            _ => _isLocked
+        };
 
-    [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+        if (_isLocked != wasLocked)
+        {
+            LockStateChanged?.Invoke(this, _isLocked);
+        }
+    }
 }

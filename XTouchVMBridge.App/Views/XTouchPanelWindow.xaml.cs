@@ -1900,11 +1900,13 @@ public partial class XTouchPanelWindow : Window
             }
 
             // Felder befüllen
-            MasterVmParamBox.Text = actionConfig?.VmParameter ?? "";
             MasterProgramPathBox.Text = actionConfig?.ProgramPath ?? "";
             MasterProgramArgsBox.Text = actionConfig?.ProgramArgs ?? "";
             MasterKeyCombinationBox.Text = actionConfig?.KeyCombination ?? "";
             MasterTextBox.Text = actionConfig?.Text ?? "";
+
+            // VM-Parameter-Dropdowns initialisieren
+            InitMasterVmParamDropdowns(actionConfig?.VmParameter);
 
             // Sub-Panel für aktiven Typ anzeigen
             UpdateMasterActionSubPanels(activeType);
@@ -1999,6 +2001,202 @@ public partial class XTouchPanelWindow : Window
         _suppressMappingEvents = false;
 
         SaveAndReload();
+    }
+
+    // ─── VM-Parameter Dropdown-Kaskade ──────────────────────────────
+
+    /// <summary>Initialisiert die VM-Parameter-Dropdowns beim Anzeigen des Panels.</summary>
+    private void InitMasterVmParamDropdowns(string? currentParam)
+    {
+        _suppressMappingEvents = true;
+        try
+        {
+            // Kanaltyp-Dropdown befüllen
+            MasterVmChannelTypeCombo.Items.Clear();
+            MasterVmChannelTypeCombo.Items.Add(new ComboBoxItem { Content = "Strip", Tag = "Strip" });
+            MasterVmChannelTypeCombo.Items.Add(new ComboBoxItem { Content = "Bus", Tag = "Bus" });
+
+            // Versuche aktuellen Parameter zu parsen um Dropdowns vorzubelegen
+            string preselectedType = "Strip";
+            int preselectedIndex = 0;
+            string? preselectedGroup = null;
+            string? preselectedTemplate = null;
+
+            if (!string.IsNullOrWhiteSpace(currentParam))
+            {
+                if (currentParam.StartsWith("Bus["))
+                {
+                    preselectedType = "Bus";
+                    var match = System.Text.RegularExpressions.Regex.Match(currentParam, @"Bus\[(\d+)\]");
+                    if (match.Success) preselectedIndex = int.Parse(match.Groups[1].Value);
+                }
+                else if (currentParam.StartsWith("Strip["))
+                {
+                    preselectedType = "Strip";
+                    var match = System.Text.RegularExpressions.Regex.Match(currentParam, @"Strip\[(\d+)\]");
+                    if (match.Success) preselectedIndex = int.Parse(match.Groups[1].Value);
+                }
+
+                // Finde passende Gruppe und Template
+                var groups = VoicemeeterParameterCatalog.GetBoolGroups(preselectedType);
+                foreach (var group in groups)
+                {
+                    foreach (var param in group.Parameters)
+                    {
+                        string resolved = param.Template
+                            .Replace("{s}", preselectedIndex.ToString())
+                            .Replace("{b}", preselectedIndex.ToString());
+                        if (resolved == currentParam)
+                        {
+                            preselectedGroup = group.GroupName;
+                            preselectedTemplate = param.Template;
+                            break;
+                        }
+                    }
+                    if (preselectedGroup != null) break;
+                }
+            }
+
+            // Kanaltyp setzen
+            MasterVmChannelTypeCombo.SelectedIndex = preselectedType == "Bus" ? 1 : 0;
+
+            // Gruppen befüllen
+            PopulateMasterVmGroups(preselectedType, preselectedGroup);
+
+            // Parameter befüllen (falls Gruppe gefunden)
+            if (preselectedGroup != null)
+                PopulateMasterVmParams(preselectedType, preselectedGroup, preselectedTemplate);
+
+            // Index-Dropdown befüllen
+            PopulateMasterVmIndex(preselectedIndex);
+
+            // Ergebnis aktualisieren
+            UpdateMasterVmResultParam();
+        }
+        finally
+        {
+            _suppressMappingEvents = false;
+        }
+    }
+
+    /// <summary>Befüllt das Gruppen-Dropdown für den gewählten Kanaltyp.</summary>
+    private void PopulateMasterVmGroups(string channelType, string? preselectedGroup = null)
+    {
+        MasterVmGroupCombo.Items.Clear();
+        var groups = VoicemeeterParameterCatalog.GetBoolGroups(channelType);
+        int selectIndex = 0;
+        for (int i = 0; i < groups.Count; i++)
+        {
+            MasterVmGroupCombo.Items.Add(new ComboBoxItem { Content = groups[i].GroupName, Tag = groups[i].GroupName });
+            if (groups[i].GroupName == preselectedGroup) selectIndex = i;
+        }
+        if (MasterVmGroupCombo.Items.Count > 0)
+            MasterVmGroupCombo.SelectedIndex = selectIndex;
+    }
+
+    /// <summary>Befüllt das Parameter-Dropdown für die gewählte Gruppe.</summary>
+    private void PopulateMasterVmParams(string channelType, string groupName, string? preselectedTemplate = null)
+    {
+        MasterVmParamCombo.Items.Clear();
+        var groups = VoicemeeterParameterCatalog.GetBoolGroups(channelType);
+        var group = groups.FirstOrDefault(g => g.GroupName == groupName);
+        if (group == null) return;
+
+        int selectIndex = 0;
+        for (int i = 0; i < group.Parameters.Count; i++)
+        {
+            var p = group.Parameters[i];
+            MasterVmParamCombo.Items.Add(new ComboBoxItem { Content = p.DisplayName, Tag = p.Template });
+            if (p.Template == preselectedTemplate) selectIndex = i;
+        }
+        if (MasterVmParamCombo.Items.Count > 0)
+            MasterVmParamCombo.SelectedIndex = selectIndex;
+    }
+
+    /// <summary>Befüllt das Index-Dropdown (0–7).</summary>
+    private void PopulateMasterVmIndex(int preselectedIndex = 0)
+    {
+        MasterVmIndexCombo.Items.Clear();
+        for (int i = 0; i < 8; i++)
+        {
+            MasterVmIndexCombo.Items.Add(new ComboBoxItem { Content = i.ToString(), Tag = i });
+        }
+        if (preselectedIndex >= 0 && preselectedIndex < 8)
+            MasterVmIndexCombo.SelectedIndex = preselectedIndex;
+        else
+            MasterVmIndexCombo.SelectedIndex = 0;
+    }
+
+    /// <summary>Aktualisiert das Ergebnis-TextBox basierend auf den Dropdown-Auswahlen.</summary>
+    private void UpdateMasterVmResultParam()
+    {
+        string? template = null;
+        if (MasterVmParamCombo.SelectedItem is ComboBoxItem paramItem)
+            template = paramItem.Tag as string;
+
+        int index = 0;
+        if (MasterVmIndexCombo.SelectedItem is ComboBoxItem indexItem && indexItem.Tag is int idx)
+            index = idx;
+
+        if (template != null)
+        {
+            MasterVmParamBox.Text = template
+                .Replace("{s}", index.ToString())
+                .Replace("{b}", index.ToString());
+        }
+        else
+        {
+            MasterVmParamBox.Text = "";
+        }
+    }
+
+    /// <summary>Kanaltyp-Dropdown geändert → Gruppen neu laden.</summary>
+    private void OnMasterVmChannelTypeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressMappingEvents) return;
+        if (MasterVmChannelTypeCombo.SelectedItem is not ComboBoxItem item) return;
+        var channelType = item.Tag as string ?? "Strip";
+
+        _suppressMappingEvents = true;
+        PopulateMasterVmGroups(channelType);
+        // Ersten Gruppeneintrag auswählen → löst Parameter-Laden aus
+        if (MasterVmGroupCombo.Items.Count > 0)
+        {
+            var firstGroupName = (MasterVmGroupCombo.Items[0] as ComboBoxItem)?.Tag as string;
+            PopulateMasterVmParams(channelType, firstGroupName ?? "");
+        }
+        UpdateMasterVmResultParam();
+        _suppressMappingEvents = false;
+    }
+
+    /// <summary>Gruppen-Dropdown geändert → Parameter neu laden.</summary>
+    private void OnMasterVmGroupChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressMappingEvents) return;
+        if (MasterVmGroupCombo.SelectedItem is not ComboBoxItem groupItem) return;
+        var groupName = groupItem.Tag as string ?? "";
+        var channelType = "Strip";
+        if (MasterVmChannelTypeCombo.SelectedItem is ComboBoxItem ctItem)
+            channelType = ctItem.Tag as string ?? "Strip";
+
+        _suppressMappingEvents = true;
+        PopulateMasterVmParams(channelType, groupName);
+        UpdateMasterVmResultParam();
+        _suppressMappingEvents = false;
+    }
+
+    /// <summary>Parameter-Dropdown geändert → Ergebnis aktualisieren.</summary>
+    private void OnMasterVmParamComboChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressMappingEvents) return;
+        UpdateMasterVmResultParam();
+    }
+
+    /// <summary>Index-Dropdown geändert → Ergebnis aktualisieren.</summary>
+    private void OnMasterVmIndexChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressMappingEvents) return;
+        UpdateMasterVmResultParam();
     }
 
     // ═══════════════════════════════════════════════════════════════════

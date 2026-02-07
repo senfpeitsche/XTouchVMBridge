@@ -8,6 +8,6 @@ public interface IScreenLockDetector
     /// <summary>Ob der Bildschirm aktuell gesperrt ist.</summary>
     bool IsLocked { get; }
 
-    /// <summary>Status prüfen (mit Throttling).</summary>
-    bool CheckLockState();
+    /// <summary>Wird ausgelöst wenn sich der Lock-Status ändert.</summary>
+    event EventHandler<bool> LockStateChanged;
 }
