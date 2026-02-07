@@ -1,3 +1,4 @@
+using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Events;
 using XTouchVMBridge.Core.Interfaces;
 using XTouchVMBridge.Core.Models;
@@ -21,6 +22,13 @@ public enum SegmentDisplayMode
 /// BackgroundService der das 7-Segment-Display auf dem X-Touch steuert.
 /// Standardmäßig wird die Uhrzeit angezeigt. Per konfigurierbarem Button
 /// kann zwischen verschiedenen Anzeige-Modi gewechselt werden.
+///
+/// NAME/VALUE-Button (Note 52) = Cycle-Button (konfiguierbar).
+/// Auf dem X-Touch ist der Button "Display Name" doppelt belegt.
+///
+/// LED-Feedback:
+///   - Button-LED leuchtet wenn ein nicht-Standard-Modus aktiv ist (Date, CpuUsage, Off).
+///   - Button-LED blinkt kurz beim Moduswechsel als visuelle Bestätigung.
 /// </summary>
 public class SegmentDisplayService : BackgroundService
 {
@@ -28,15 +36,15 @@ public class SegmentDisplayService : BackgroundService
     private readonly IMidiDevice _midiDevice;
     private readonly XTouchVMBridgeConfig _config;
 
-    private SegmentDisplayMode _currentMode = SegmentDisplayMode.Time;
+    private volatile SegmentDisplayMode _currentMode = SegmentDisplayMode.Time;
     private readonly SegmentDisplayMode[] _modes;
-    private int _currentModeIndex;
+    private volatile int _currentModeIndex;
 
     /// <summary>
     /// MIDI-Note die zum Durchschalten der Anzeige-Modi verwendet wird.
-    /// Default: 113 (SMPTE-Button auf dem X-Touch).
+    /// Default: 52 (NAME/VALUE-Button auf dem X-Touch).
     /// </summary>
-    public int CycleButtonNote { get; set; } = 113;
+    public int CycleButtonNote { get; set; } = 52;
 
     public SegmentDisplayService(
         ILogger<SegmentDisplayService> logger,
@@ -56,6 +64,7 @@ public class SegmentDisplayService : BackgroundService
             CycleButtonNote = _config.SegmentDisplayCycleButton;
 
         _midiDevice.MasterButtonChanged += OnMasterButtonChanged;
+        _midiDevice.ButtonChanged += OnButtonChanged;
         _midiDevice.ConnectionStateChanged += OnConnectionStateChanged;
 
         _logger.LogInformation("SegmentDisplayService initialisiert (Cycle-Button: Note {Note}, Modus: {Mode}).",
@@ -64,14 +73,44 @@ public class SegmentDisplayService : BackgroundService
 
     private void OnMasterButtonChanged(object? sender, MasterButtonEventArgs e)
     {
+        _logger.LogDebug("SegmentDisplay: MasterButtonChanged empfangen — Note={Note}, Pressed={Pressed}",
+            e.NoteNumber, e.IsPressed);
+
         if (!e.IsPressed) return;
         if (e.NoteNumber != CycleButtonNote) return;
 
+        CycleMode();
+    }
+
+    /// <summary>
+    /// Fängt auch reguläre ButtonChanged-Events ab, falls der Cycle-Button
+    /// im Channel-Button-Bereich liegt (Note &lt; 32).
+    /// Normalerweise nicht nötig, aber als Fallback.
+    /// </summary>
+    private void OnButtonChanged(object? sender, ButtonEventArgs e)
+    {
+        if (!e.IsPressed) return;
+
+        // ButtonChanged liefert Channel (0-7) und ButtonType
+        // Die Note-Nummer muss rekonstruiert werden
+        int noteNumber = e.Channel + ((int)e.ButtonType * 8);
+        if (noteNumber != CycleButtonNote) return;
+
+        _logger.LogDebug("SegmentDisplay: ButtonChanged als Cycle-Button erkannt — Note={Note}", noteNumber);
+        CycleMode();
+    }
+
+    private void CycleMode()
+    {
         // Zum nächsten Modus wechseln
         _currentModeIndex = (_currentModeIndex + 1) % _modes.Length;
         _currentMode = _modes[_currentModeIndex];
 
-        _logger.LogInformation("Segment-Display Modus gewechselt zu: {Mode}", _currentMode);
+        _logger.LogInformation("Segment-Display Modus gewechselt zu: {Mode} (Index {Index}/{Total})",
+            _currentMode, _currentModeIndex + 1, _modes.Length);
+
+        // LED-Feedback basierend auf aktivem Modus
+        UpdateCycleButtonLed();
 
         // Sofort aktualisieren
         UpdateDisplay();
@@ -82,8 +121,12 @@ public class SegmentDisplayService : BackgroundService
         if (connected)
         {
             _logger.LogDebug("X-Touch verbunden — Segment-Display wird aktualisiert.");
-            // Kurz warten damit das Gerät bereit ist
-            Task.Delay(500).ContinueWith(_ => UpdateDisplay());
+            // Kurz warten damit das Gerät bereit ist, dann Display + LED setzen
+            Task.Delay(500).ContinueWith(_ =>
+            {
+                UpdateDisplay();
+                UpdateCycleButtonLed();
+            });
         }
     }
 
@@ -93,6 +136,9 @@ public class SegmentDisplayService : BackgroundService
 
         // Warte kurz damit X-Touch initialisiert ist
         await Task.Delay(2000, stoppingToken);
+
+        // Initial LED-Zustand setzen
+        UpdateCycleButtonLed();
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -141,6 +187,23 @@ public class SegmentDisplayService : BackgroundService
         }
     }
 
+    /// <summary>Setzt die LED des Cycle-Buttons basierend auf dem aktiven Modus.</summary>
+    private void UpdateCycleButtonLed()
+    {
+        try
+        {
+            var ledState = _currentMode != SegmentDisplayMode.Time
+                ? LedState.On
+                : LedState.Off;
+            _logger.LogDebug("Cycle-Button LED setzen: Note={Note}, State={State}", CycleButtonNote, ledState);
+            _midiDevice.SetMasterButtonLed(CycleButtonNote, ledState);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Cycle-Button LED Update fehlgeschlagen.");
+        }
+    }
+
     /// <summary>Formatiert die aktuelle Uhrzeit als "  HH.MM.SS  " (12 Zeichen).</summary>
     private static string FormatTime()
     {
@@ -169,6 +232,7 @@ public class SegmentDisplayService : BackgroundService
     public override void Dispose()
     {
         _midiDevice.MasterButtonChanged -= OnMasterButtonChanged;
+        _midiDevice.ButtonChanged -= OnButtonChanged;
         _midiDevice.ConnectionStateChanged -= OnConnectionStateChanged;
         base.Dispose();
     }

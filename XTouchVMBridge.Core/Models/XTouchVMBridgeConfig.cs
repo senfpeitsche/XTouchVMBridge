@@ -41,7 +41,7 @@ public class XTouchVMBridgeConfig
 
     /// <summary>
     /// MIDI Note-Nummer des Buttons zum Durchschalten der Segment-Display-Modi.
-    /// Default: 113 (SMPTE-Button). 0 = deaktiviert.
+    /// Default: 52 (NAME/VALUE-Button). 0 = deaktiviert.
     /// </summary>
-    public int SegmentDisplayCycleButton { get; set; } = 113;
+    public int SegmentDisplayCycleButton { get; set; } = 52;
 }

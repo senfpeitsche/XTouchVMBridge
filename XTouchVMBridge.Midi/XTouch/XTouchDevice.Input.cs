@@ -89,6 +89,9 @@ public partial class XTouchDevice
     {
         bool isPressed = velocity > 0;
 
+        // Debug: Alle Note-Events loggen für Diagnose
+        _logger.LogDebug("NoteOn empfangen: Note={Note}, Velocity={Velocity}, Pressed={Pressed}", note, velocity, isPressed);
+
         // Encoder Press (Notes 32–39)
         if (note is >= MackieProtocol.NoteEncoderPressBase and < MackieProtocol.NoteEncoderPressBase + MackieProtocol.ChannelCount)
         {
