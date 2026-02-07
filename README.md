@@ -104,8 +104,7 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
   Drücken schaltet zyklisch durch die Funktionsliste, Drehen ändert den Wert der aktiven Funktion.
   Aktuelle Funktion und Wert werden im Display und auf dem Encoder-Knob angezeigt.
 - **Voicemeeter Bridge**: Echtzeit-Steuerung von Gain, Mute, Solo; Level-Meter-Feedback
-- **Kanal-Ansichten**: Home / Outputs / Inputs, umschaltbar per Encoder 1
-- **Shortcut-Modi**: Desktop / VR Audio-Routing, umschaltbar per Encoder 3
+- **Kanal-Ansichten**: Home / Outputs / Inputs, umschaltbar per FLIIP Buttom
 - **Audio-Device-Monitor**: Erkennt USB-Geräteänderungen, startet Voicemeeter neu
 - **Screen-Lock-Schutz**: Blockiert X-Touch-Eingabe bei gesperrtem Bildschirm
 - **MIDI Debug Monitor**: Echtzeit-Anzeige aller MIDI-Nachrichten (Tray-Menu)
