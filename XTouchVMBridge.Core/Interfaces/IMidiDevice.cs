@@ -89,6 +89,12 @@ public interface IMidiDevice : IDisposable
     /// <summary>Listet alle verfügbaren X-Touch MIDI-Geräte auf.</summary>
     IReadOnlyList<string> ListDevices();
 
+    /// <summary>
+    /// Prüft ob das ausgewählte MIDI-Gerät noch in der Geräteliste vorhanden ist.
+    /// Erkennt Geräte-Disconnects auch wenn IsConnected noch true ist.
+    /// </summary>
+    bool IsDeviceStillPresent();
+
     /// <summary>Wird ausgelöst wenn sich der Verbindungsstatus ändert.</summary>
     event EventHandler<bool>? ConnectionStateChanged;
 }

@@ -20,6 +20,11 @@ public class AudioDeviceMonitorService : BackgroundService
     private readonly IMidiDevice _midiDevice;
     private int _previousDeviceCount;
     private bool _changeDetectedLastCheck;
+    private int _reconnectAttempts;
+
+    private const int BasePollingMs = 3_000;
+    private const int MaxReconnectDelayMs = 30_000;
+    private const int MaxReconnectAttempts = 100;
 
     public event EventHandler? DevicesChanged;
 
@@ -71,18 +76,68 @@ public class AudioDeviceMonitorService : BackgroundService
                     _changeDetectedLastCheck = false;
                 }
 
-                // X-Touch Reconnect: wenn nicht verbunden, versuche erneut zu verbinden
+                // Aktive Prüfung: Gerät noch vorhanden obwohl IsConnected true?
+                if (_midiDevice.IsConnected && !_midiDevice.IsDeviceStillPresent())
+                {
+                    _logger.LogWarning("X-Touch ist nicht mehr in der Geräteliste — erzwinge Disconnect.");
+                    _midiDevice.Disconnect();
+                }
+
+                // X-Touch Reconnect mit Exponential Backoff
                 if (!_midiDevice.IsConnected)
                 {
-                    _logger.LogDebug("X-Touch nicht verbunden — versuche Reconnect...");
-                    try
+                    if (_reconnectAttempts < MaxReconnectAttempts)
                     {
-                        await _midiDevice.ConnectAsync(stoppingToken);
+                        // Exponential Backoff: 1s, 2s, 4s, 8s, ... bis MaxReconnectDelayMs
+                        int backoffMs = Math.Min(1_000 * (1 << Math.Min(_reconnectAttempts, 5)), MaxReconnectDelayMs);
+                        _reconnectAttempts++;
+
+                        _logger.LogDebug("X-Touch nicht verbunden — Reconnect-Versuch {Attempt} (Wartezeit: {Delay}ms)...",
+                            _reconnectAttempts, backoffMs);
+
+                        await Task.Delay(backoffMs, stoppingToken);
+
+                        try
+                        {
+                            await _midiDevice.ConnectAsync(stoppingToken);
+
+                            if (_midiDevice.IsConnected)
+                            {
+                                _logger.LogInformation("X-Touch erfolgreich wiederverbunden nach {Attempts} Versuch(en).", _reconnectAttempts);
+                                _reconnectAttempts = 0;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "X-Touch Reconnect fehlgeschlagen (Versuch {Attempt}).", _reconnectAttempts);
+                        }
                     }
-                    catch (Exception ex)
+                    else if (_reconnectAttempts == MaxReconnectAttempts)
                     {
-                        _logger.LogDebug(ex, "X-Touch Reconnect fehlgeschlagen.");
+                        _reconnectAttempts++;
+                        _logger.LogWarning("X-Touch Reconnect: Maximale Versuche ({Max}) erreicht. " +
+                            "Prüfe weiterhin alle {Interval}s.", MaxReconnectAttempts, MaxReconnectDelayMs / 1000);
                     }
+                    else
+                    {
+                        // Nach Max-Versuchen: weiterhin periodisch prüfen, aber seltener
+                        await Task.Delay(MaxReconnectDelayMs, stoppingToken);
+                        try
+                        {
+                            await _midiDevice.ConnectAsync(stoppingToken);
+                            if (_midiDevice.IsConnected)
+                            {
+                                _logger.LogInformation("X-Touch erfolgreich wiederverbunden (nach erweiterter Wartezeit).");
+                                _reconnectAttempts = 0;
+                            }
+                        }
+                        catch { /* still trying */ }
+                    }
+                }
+                else
+                {
+                    // Verbindung steht — Reconnect-Zähler zurücksetzen
+                    _reconnectAttempts = 0;
                 }
             }
             catch (Exception ex)
@@ -90,7 +145,7 @@ public class AudioDeviceMonitorService : BackgroundService
                 _logger.LogError(ex, "Fehler im Audio-Device-Monitor.");
             }
 
-            await Task.Delay(5_000, stoppingToken);
+            await Task.Delay(BasePollingMs, stoppingToken);
         }
     }
 

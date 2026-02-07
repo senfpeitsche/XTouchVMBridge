@@ -9,7 +9,9 @@
       "Bash(python test_lcd.py:*)",
       "Bash(powershell -Command:*)",
       "Bash(Select-String \"error CS|warning CS\")",
-      "Bash(git -C \"D:\\\\Projekte\\\\XTouchVMBridge\" diff HEAD -- XTouchVMBridge.Voicemeeter/Services/VoicemeeterBridge.cs XTouchVMBridge.Midi/XTouch/XTouchDevice.cs)"
+      "Bash(git -C \"D:\\\\Projekte\\\\XTouchVMBridge\" diff HEAD -- XTouchVMBridge.Voicemeeter/Services/VoicemeeterBridge.cs XTouchVMBridge.Midi/XTouch/XTouchDevice.cs)",
+      "Bash(find:*)",
+      "Bash(ls:*)"
     ]
   }
 }

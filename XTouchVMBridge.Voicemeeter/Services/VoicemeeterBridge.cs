@@ -1,5 +1,4 @@
 using XTouchVMBridge.Core.Enums;
-using XTouchVMBridge.Core.Events;
 using XTouchVMBridge.Core.Hardware;
 using XTouchVMBridge.Core.Interfaces;
 using XTouchVMBridge.Core.Models;
@@ -25,8 +24,12 @@ namespace XTouchVMBridge.Voicemeeter.Services;
 ///   - <c>_displayEncoderUntil</c>: Schützt Encoder-Anzeige (Funktionsname + Wert)
 ///     für 3s nach Drücken/Drehen, damit der Wert in Ruhe abgelesen und
 ///     eingestellt werden kann, ohne dass der Polling-Loop das Display überschreibt.
+///
+/// Partial-Klassen:
+///   - VoicemeeterBridge.Sync.cs      → Level-Updates, Parameter-Sync, Display-Updates
+///   - VoicemeeterBridge.Callbacks.cs  → X-Touch Event-Callbacks (Fader, Button, Encoder, Touch)
 /// </summary>
-public class VoicemeeterBridge : BackgroundService
+public partial class VoicemeeterBridge : BackgroundService
 {
     private readonly ILogger<VoicemeeterBridge> _logger;
     private readonly IMidiDevice _xtouch;
@@ -80,6 +83,7 @@ public class VoicemeeterBridge : BackgroundService
     private VoicemeeterState _vmState = new();
     private readonly double[] _levelCache = new double[VoicemeeterState.TotalChannels];
     private bool _needsFullRefresh = true;
+    private volatile bool _xtouchReconnected;
 
     // ─── Doppel-Touch-Erkennung für Fader (0 dB Reset) ─────────────
     private readonly DateTime[] _lastFaderTouchTime = new DateTime[9]; // 0-7 = Channel, 8 = Main
@@ -184,15 +188,53 @@ public class VoicemeeterBridge : BackgroundService
 
         RegisterCallbacks();
 
+        // Warten bis Voicemeeter und X-Touch verbunden sind.
+        // Die Bridge startet als HostedService BEVOR Connect() aufgerufen wird,
+        // daher müssen wir hier auf beide Verbindungen warten.
+        _logger.LogDebug("Warte auf Voicemeeter- und X-Touch-Verbindung...");
+        while (!stoppingToken.IsCancellationRequested && (!_vm.IsConnected || !_xtouch.IsConnected))
+        {
+            await Task.Delay(200, stoppingToken);
+        }
+
+        if (stoppingToken.IsCancellationRequested) return;
+
+        // Beide Verbindungen stehen — ersten Dirty-Check konsumieren und
+        // Full Refresh erzwingen damit Fader/LCDs sofort gesetzt werden.
+        // Kurz warten damit das X-Touch nach Initialisierung bereit ist.
+        await Task.Delay(500, stoppingToken);
+        _ = _vm.IsParameterDirty; // Dirty-Flag konsumieren (VBVMR_IsParametersDirty pollt intern)
+        _needsFullRefresh = true;
+        _xtouchReconnected = false; // Initiales Connect ist kein "Reconnect"
+        _logger.LogInformation("Voicemeeter und X-Touch verbunden — starte initialen Sync.");
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                // Level-Updates (immer)
+                // Reconnect erkannt (via ConnectionStateChanged-Event)?
+                // Das Event wird auch bei Reconnects durch den AudioDeviceMonitor gefeuert.
+                if (_xtouchReconnected)
+                {
+                    _xtouchReconnected = false;
+                    _needsFullRefresh = true;
+                    _ = _vm.IsParameterDirty; // Dirty-Flag konsumieren
+                    _logger.LogInformation("X-Touch (re)connected — erzwinge Full Refresh.");
+                    await Task.Delay(300, stoppingToken); // Gerät stabilisieren lassen
+                }
+
+                if (!_xtouch.IsConnected)
+                {
+                    // X-Touch getrennt — warten statt busy-loop
+                    await Task.Delay(500, stoppingToken);
+                    continue;
+                }
+
+                // Level-Updates (immer, unabhängig vom Dirty-Flag)
                 UpdateLevels();
 
-                // Parameter-Updates (nur wenn dirty)
-                if (_vm.IsParameterDirty || _needsFullRefresh)
+                // Parameter-Updates (nur wenn dirty oder Full Refresh ansteht)
+                if (_needsFullRefresh || _vm.IsParameterDirty)
                 {
                     UpdateParameters();
                     _needsFullRefresh = false;
@@ -221,6 +263,20 @@ public class VoicemeeterBridge : BackgroundService
         _xtouch.EncoderRotated += OnEncoderRotated;
         _xtouch.EncoderPressed += OnEncoderPressed;
         _xtouch.FaderTouched += OnFaderTouched;
+        _xtouch.ConnectionStateChanged += OnXTouchConnectionChanged;
+    }
+
+    private void OnXTouchConnectionChanged(object? sender, bool connected)
+    {
+        if (connected)
+        {
+            _xtouchReconnected = true;
+            _logger.LogDebug("Bridge: X-Touch Verbindungsstatus → verbunden (Full Refresh wird angefordert).");
+        }
+        else
+        {
+            _logger.LogDebug("Bridge: X-Touch Verbindungsstatus → getrennt.");
+        }
     }
 
     // ─── Helpers: Mapping-Zugriff ────────────────────────────────────
@@ -241,190 +297,6 @@ public class VoicemeeterBridge : BackgroundService
         string btnKey = buttonType.ToString();
         mapping.Buttons.TryGetValue(btnKey, out var btnMap);
         return btnMap;
-    }
-
-    // ─── Update Methods ─────────────────────────────────────────────
-
-    private void UpdateLevels()
-    {
-        for (int xtCh = 0; xtCh < MidiDevice_ChannelCount(); xtCh++)
-        {
-            int vmCh = CurrentChannelMapping[xtCh];
-            double level = _vm.GetLevel(vmCh);
-
-            // Nur bei Änderung aktualisieren
-            if (Math.Abs(level - _levelCache[vmCh]) > 0.1)
-            {
-                _levelCache[vmCh] = level;
-                int meterLevel = LevelMeterControl.DbToLevel(level);
-                _xtouch.SetLevelMeter(xtCh, meterLevel);
-            }
-        }
-    }
-
-    private void UpdateParameters()
-    {
-        _vmState = _vm.GetCurrentState();
-
-        var now = DateTime.UtcNow;
-
-        // Prüfen ob IRGENDEIN Fader berührt oder geschützt ist
-        bool anyFaderActive = false;
-        for (int i = 0; i < MidiDevice_ChannelCount(); i++)
-        {
-            if (_xtouch.Channels[i].Fader.IsTouched ||
-                (i < _faderProtectUntil.Length && _faderProtectUntil[i] > now))
-            {
-                anyFaderActive = true;
-                break;
-            }
-        }
-        // Auch Main Fader prüfen
-        if (_xtouch.IsMainFaderTouched || _faderProtectUntil[8] > now)
-            anyFaderActive = true;
-
-        for (int xtCh = 0; xtCh < MidiDevice_ChannelCount(); xtCh++)
-        {
-            int vmCh = CurrentChannelMapping[xtCh];
-            var mapping = GetMapping(vmCh);
-
-            // Fader-Position synchronisieren - aber NUR wenn KEIN Fader aktiv ist
-            // Das verhindert MIDI-Kollisionen die den Fader zurücksetzen
-            double dbToSet;
-            if (mapping?.Fader != null)
-            {
-                dbToSet = _vm.GetParameter(mapping.Fader.Parameter);
-            }
-            else
-            {
-                // Fallback: Gain direkt aus Voicemeeter lesen (nicht aus gecachtem State!)
-                string prefix = vmCh < 8 ? $"Strip[{vmCh}]" : $"Bus[{vmCh - 8}]";
-                dbToSet = _vm.GetParameter($"{prefix}.Gain");
-            }
-
-            if (!anyFaderActive)
-            {
-                _xtouch.SetFaderDb(xtCh, dbToSet);
-            }
-
-            // Gain-Änderung aus Voicemeeter erkennen (z.B. per GUI) → dB im Display anzeigen
-            if (_gainCacheInitialized && Math.Abs(dbToSet - _lastGainValues[xtCh]) > 0.05)
-            {
-                // Nur anzeigen wenn der Fader NICHT vom X-Touch bewegt wird
-                bool isTouched = _xtouch.Channels[xtCh].Fader.IsTouched;
-                if (!isTouched)
-                {
-                    string dbText = dbToSet <= -60 ? " -inf " : $"{dbToSet:F1}dB";
-                    _xtouch.SetDisplayText(xtCh, 1, dbText);
-                    _displayDbUntil[xtCh] = DateTime.UtcNow + TimeSpan.FromSeconds(3);
-                }
-            }
-            _lastGainValues[xtCh] = dbToSet;
-
-            // Button-LEDs synchronisieren (alle 4 Buttons)
-            foreach (XTouchButtonType btnType in Enum.GetValues<XTouchButtonType>())
-            {
-                var btnMap = GetButtonMapping(vmCh, btnType);
-                if (btnMap != null)
-                {
-                    float val = _vm.GetParameter(btnMap.Parameter);
-                    _xtouch.SetButtonLed(xtCh, btnType,
-                        val > 0.5f ? LedState.On : LedState.Off);
-                }
-                // Kein Mapping → LED-State nicht überschreiben (Panel-Toggle beibehalten)
-            }
-
-            // Encoder-Ring synchronisieren (nur wenn kein Encoder-Schutz aktiv)
-            if (!(xtCh < _displayEncoderUntil.Length && _displayEncoderUntil[xtCh] > DateTime.UtcNow))
-                SyncEncoderRing(xtCh, vmCh);
-        }
-
-        // Sync Main Fader (channel 8)
-        SyncMainFader(anyFaderActive);
-
-        // Nach dem ersten Durchlauf ist der Gain-Cache initialisiert
-        if (!_gainCacheInitialized)
-            _gainCacheInitialized = true;
-
-        UpdateDisplays();
-    }
-
-    private void SyncMainFader(bool anyFaderActive)
-    {
-        var currentView = ChannelViews[_currentViewIndex];
-        if (!currentView.MainFaderChannel.HasValue) return;
-
-        int vmCh = currentView.MainFaderChannel.Value;
-        var mapping = GetMapping(vmCh);
-
-        double db;
-        if (mapping?.Fader != null)
-        {
-            db = _vm.GetParameter(mapping.Fader.Parameter);
-        }
-        else
-        {
-            // Fallback: Gain direkt aus Voicemeeter lesen
-            string prefix = vmCh < 8 ? $"Strip[{vmCh}]" : $"Bus[{vmCh - 8}]";
-            db = _vm.GetParameter($"{prefix}.Gain");
-        }
-
-        // Fader nur bewegen wenn KEIN Fader aktiv ist
-        if (!anyFaderActive)
-        {
-            _xtouch.SetFaderDb(8, db);
-        }
-
-        // Gain-Änderung aus Voicemeeter erkennen → dB im Display könnte hier
-        // angezeigt werden, aber Main Fader hat kein eigenes Scribble-Display.
-        _lastGainValues[8] = db;
-    }
-
-    /// <summary>
-    /// Aktualisiert die Scribble-Displays aller Kanäle.
-    /// Obere Zeile: Kanalname aus Voicemeeter (sofern kein Encoder-Display aktiv).
-    /// Untere Zeile: View-Name (sofern kein dB-Wert, Fader-Touch oder Encoder-Display aktiv).
-    /// Farben: View-spezifische Farbe hat Vorrang, dann globale Channel-Config, sonst Weiß.
-    /// </summary>
-    private void UpdateDisplays()
-    {
-        var colors = new XTouchColor[8];
-        var now = DateTime.UtcNow;
-
-        for (int xtCh = 0; xtCh < MidiDevice_ChannelCount(); xtCh++)
-        {
-            int vmCh = CurrentChannelMapping[xtCh];
-
-            // Encoder-Display-Schutz: Wenn Encoder aktiv ist, Display nicht überschreiben
-            bool encoderActive = xtCh < _displayEncoderUntil.Length && _displayEncoderUntil[xtCh] > now;
-
-            // Farbe: View-Override hat Vorrang, sonst globale Channel-Config
-            var viewColor = ChannelViews[_currentViewIndex].GetChannelColor(xtCh);
-            if (viewColor.HasValue)
-                colors[xtCh] = viewColor.Value;
-            else if (_config.Channels.TryGetValue(vmCh, out var chConfig))
-                colors[xtCh] = chConfig.Color;
-            else
-                colors[xtCh] = XTouchColor.White;
-
-            // Obere Zeile: Kanalnamen nur setzen wenn kein Encoder-Display aktiv ist
-            if (!encoderActive)
-            {
-                string vmLabel = GetVmLabel(vmCh);
-                _xtouch.SetDisplayText(xtCh, 0, vmLabel);
-            }
-
-            // Untere Zeile: Ansichtsname, aber NUR wenn kein dB-Wert, kein Encoder-Display
-            // und der Fader nicht berührt wird
-            bool showingDb = xtCh < _displayDbUntil.Length && _displayDbUntil[xtCh] > now;
-            bool isTouched = _xtouch.Channels[xtCh].Fader.IsTouched;
-            if (!showingDb && !isTouched && !encoderActive)
-            {
-                _xtouch.SetDisplayText(xtCh, 1, ChannelViews[_currentViewIndex].Name);
-            }
-        }
-
-        _xtouch.SetAllDisplayColors(colors);
     }
 
     /// <summary>
@@ -456,361 +328,6 @@ public class VoicemeeterBridge : BackgroundService
 
         return $"Ch {vmChannel + 1}";
     }
-
-    // ─── Callbacks (X-Touch → Voicemeeter) ──────────────────────────
-
-    private void OnFaderChanged(object? sender, FaderEventArgs e)
-    {
-        // Main Fader (channel 8 in Mackie protocol)
-        if (e.Channel == 8)
-        {
-            // Nur verarbeiten wenn Main Fader berührt wird (verhindert MIDI-Feedback-Loop)
-            if (!_xtouch.IsMainFaderTouched) return;
-            HandleMainFader(e);
-            return;
-        }
-
-        // Strip faders (channels 0-7)
-        if (e.Channel >= CurrentChannelMapping.Length) return;
-
-        // Nur verarbeiten wenn Fader berührt wird (verhindert MIDI-Feedback-Loop)
-        if (!_xtouch.Channels[e.Channel].Fader.IsTouched) return;
-
-        int vmCh = CurrentChannelMapping[e.Channel];
-        var mapping = GetMapping(vmCh);
-
-        if (mapping?.Fader != null)
-        {
-            double db = Math.Clamp(e.Db, mapping.Fader.Min, mapping.Fader.Max);
-            _vm.SetParameter(mapping.Fader.Parameter, (float)db);
-        }
-        else
-        {
-            // Fallback: Standard-Gain
-            double db = Math.Max(e.Db, -60.0);
-            _vm.SetGain(vmCh, db);
-        }
-
-        // dB-Wert temporär anzeigen (wird durch _displayDbUntil geschützt)
-        string dbText = e.Db <= -60 ? " -inf " : $"{e.Db:F1}dB";
-        _xtouch.SetDisplayText(e.Channel, 1, dbText);
-
-        // Fader-Schutz: Verhindert dass der Sync-Loop den Fader zurücksetzt
-        if (e.Channel < _faderProtectUntil.Length)
-        {
-            _faderProtectUntil[e.Channel] = DateTime.UtcNow + TimeSpan.FromMilliseconds(FaderProtectMs);
-        }
-
-        // Display-Schutz für 3 Sekunden nach letzter Fader-Bewegung
-        if (e.Channel < _displayDbUntil.Length)
-        {
-            _displayDbUntil[e.Channel] = DateTime.UtcNow + TimeSpan.FromSeconds(3);
-        }
-    }
-
-    private void HandleMainFader(FaderEventArgs e)
-    {
-        var currentView = ChannelViews[_currentViewIndex];
-        if (!currentView.MainFaderChannel.HasValue) return;
-
-        int vmCh = currentView.MainFaderChannel.Value;
-        var mapping = GetMapping(vmCh);
-
-        if (mapping?.Fader != null)
-        {
-            double db = Math.Clamp(e.Db, mapping.Fader.Min, mapping.Fader.Max);
-            _vm.SetParameter(mapping.Fader.Parameter, (float)db);
-        }
-        else
-        {
-            // Fallback: Standard-Gain
-            double db = Math.Max(e.Db, -60.0);
-            _vm.SetGain(vmCh, db);
-        }
-
-        // Fader-Schutz für Main Fader (Index 8)
-        _faderProtectUntil[8] = DateTime.UtcNow + TimeSpan.FromMilliseconds(FaderProtectMs);
-
-        _logger.LogDebug("Main Fader -> VM Channel {VmCh}: {Db:F1} dB", vmCh, e.Db);
-    }
-
-    private void OnButtonChanged(object? sender, ButtonEventArgs e)
-    {
-        if (!e.IsPressed) return; // Nur auf Press reagieren
-
-        int vmCh = CurrentChannelMapping[e.Channel];
-        var btnMap = GetButtonMapping(vmCh, e.ButtonType);
-
-        if (btnMap != null)
-        {
-            // Generisch: Bool-Parameter toggeln
-            float current = _vm.GetParameter(btnMap.Parameter);
-            _vm.SetParameter(btnMap.Parameter, current > 0.5f ? 0f : 1f);
-            _needsFullRefresh = true;
-        }
-    }
-
-    private void OnEncoderRotated(object? sender, EncoderEventArgs e)
-    {
-        var encoder = _xtouch.Channels[e.Channel].Encoder;
-
-        // Wenn der Encoder Funktionen hat → Wert der aktiven Funktion ändern
-        if (encoder.HasFunctions)
-        {
-            var fn = encoder.ApplyTicks(e.Ticks);
-            if (fn != null)
-            {
-                // Wert an Voicemeeter senden
-                _vm.SetParameter(fn.VmParameter, (float)fn.CurrentValue);
-
-                // Ring-Position am Gerät aktualisieren
-                _xtouch.SetEncoderRing(e.Channel, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);
-
-                // Parameter oben, Wert unten anzeigen
-                _xtouch.SetDisplayText(e.Channel, 0, fn.Name);
-                _xtouch.SetDisplayText(e.Channel, 1, fn.FormatValue());
-
-                // Display-Schutz: Verhindert dass UpdateDisplays() die Anzeige überschreibt
-                _displayEncoderUntil[e.Channel] = DateTime.UtcNow + TimeSpan.FromSeconds(3);
-
-                _logger.LogDebug("Encoder {Ch} [{Fn}]: {Val}", e.Channel + 1, fn.Name, fn.FormatValue());
-
-                // Nach 3s wieder auf Kanalnamen zurückschalten
-                _scheduler.AddTask(
-                    () => RestoreChannelDisplay(e.Channel),
-                    TimeSpan.FromSeconds(3),
-                    $"encoder_display_{e.Channel}");
-            }
-        }
-    }
-
-    private void OnEncoderPressed(object? sender, EncoderPressEventArgs e)
-    {
-        if (!e.IsPressed) return;
-
-        var encoder = _xtouch.Channels[e.Channel].Encoder;
-
-        // Wenn der Encoder Funktionen hat → nächste Funktion durchschalten
-        if (encoder.HasFunctions)
-        {
-            var fn = encoder.CycleFunction();
-            if (fn != null)
-            {
-                // Aktuellen Wert aus Voicemeeter lesen
-                float currentValue = _vm.GetParameter(fn.VmParameter);
-                fn.CurrentValue = currentValue;
-
-                encoder.SyncRingToActiveFunction();
-                _xtouch.SetEncoderRing(e.Channel, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);
-
-                // Parameter oben, Wert unten anzeigen
-                _xtouch.SetDisplayText(e.Channel, 0, fn.Name);
-                _xtouch.SetDisplayText(e.Channel, 1, fn.FormatValue());
-
-                // Display-Schutz: Verhindert dass UpdateDisplays() die Anzeige überschreibt
-                _displayEncoderUntil[e.Channel] = DateTime.UtcNow + TimeSpan.FromSeconds(3);
-
-                _logger.LogInformation("Encoder {Ch}: Funktion → {Fn} ({Val})",
-                    e.Channel + 1, fn.Name, fn.FormatValue());
-
-                // Nach 3s wieder auf Kanalnamen zurückschalten
-                _scheduler.AddTask(
-                    () => RestoreChannelDisplay(e.Channel),
-                    TimeSpan.FromSeconds(3),
-                    $"encoder_display_{e.Channel}");
-            }
-        }
-    }
-
-    /// <summary>
-    /// Stellt das normale Kanal-Display wieder her (Name oben, View-Name unten).
-    /// </summary>
-    private void RestoreChannelDisplay(int xtCh)
-    {
-        int vmCh = CurrentChannelMapping[xtCh];
-        string vmLabel = GetVmLabel(vmCh);
-        _xtouch.SetDisplayText(xtCh, 0, vmLabel);
-        _xtouch.SetDisplayText(xtCh, 1, ChannelViews[_currentViewIndex].Name);
-    }
-
-    /// <summary>
-    /// Synchronisiert den Encoder-Ring mit dem aktuellen Wert aus Voicemeeter.
-    /// </summary>
-    private void SyncEncoderRing(int xtCh, int vmCh)
-    {
-        var encoder = _xtouch.Channels[xtCh].Encoder;
-        var fn = encoder.ActiveFunction;
-
-        if (fn == null)
-        {
-            // Keine Funktion → Ring ausschalten
-            _xtouch.SetEncoderRing(xtCh, 0, XTouchEncoderRingMode.Dot, false);
-            return;
-        }
-
-        // Aktuellen Wert aus Voicemeeter lesen und in die Funktion übernehmen
-        float currentValue = _vm.GetParameter(fn.VmParameter);
-        fn.CurrentValue = currentValue;
-
-        // Ring-Position aktualisieren
-        encoder.SyncRingToActiveFunction();
-        _xtouch.SetEncoderRing(xtCh, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);
-    }
-
-    private void OnFaderTouched(object? sender, FaderTouchEventArgs e)
-    {
-
-        if (e.IsTouched)
-        {
-            var now = DateTime.Now;
-            int channel = e.Channel; // 0-7 für Channel, 8 für Main
-
-            // Doppel-Touch-Erkennung: Fader auf 0 dB setzen
-            if (channel < _lastFaderTouchTime.Length)
-            {
-                var timeSinceLastTouch = (now - _lastFaderTouchTime[channel]).TotalMilliseconds;
-
-                if (timeSinceLastTouch < DoubleTapThresholdMs && timeSinceLastTouch > 50) // Min 50ms um Prellen zu vermeiden
-                {
-                    _logger.LogDebug("Doppel-Touch auf Fader {Channel} erkannt (Zeit: {Ms}ms)", channel, timeSinceLastTouch);
-                    SetFaderTo0dB(channel);
-                    _lastFaderTouchTime[channel] = DateTime.MinValue; // Reset
-                    return;
-                }
-
-                _lastFaderTouchTime[channel] = now;
-            }
-
-            // Bei Touch: aktuellen dB-Wert anzeigen (nur für Channel-Fader 0-7)
-            if (e.Channel >= CurrentChannelMapping.Length) return;
-
-            int vmCh = CurrentChannelMapping[e.Channel];
-            var mapping = GetMapping(vmCh);
-
-            double db;
-            if (mapping?.Fader != null)
-            {
-                db = _vm.GetParameter(mapping.Fader.Parameter);
-            }
-            else
-            {
-                db = _vmState.Gains[vmCh];
-            }
-
-            string dbText = db <= -60 ? " -inf " : $"{db:F1}dB";
-            _xtouch.SetDisplayText(e.Channel, 1, dbText);
-        }
-        else
-        {
-            // Bei Release: Sofort den aktuellen Wert aus Voicemeeter an X-Touch senden
-            // Das hält den Motor-Fader auf der korrekten Position
-            if (e.Channel < 8 && e.Channel < CurrentChannelMapping.Length)
-            {
-                int vmCh = CurrentChannelMapping[e.Channel];
-                var mapping = GetMapping(vmCh);
-
-                double currentDb;
-                if (mapping?.Fader != null)
-                {
-                    currentDb = _vm.GetParameter(mapping.Fader.Parameter);
-                }
-                else
-                {
-                    string prefix = vmCh < 8 ? $"Strip[{vmCh}]" : $"Bus[{vmCh - 8}]";
-                    currentDb = _vm.GetParameter($"{prefix}.Gain");
-                }
-
-                _xtouch.SetFaderDb(e.Channel, currentDb);
-            }
-            else if (e.Channel == 8)
-            {
-                // Main Fader Release
-                var currentView = ChannelViews[_currentViewIndex];
-                if (currentView.MainFaderChannel.HasValue)
-                {
-                    int vmCh = currentView.MainFaderChannel.Value;
-                    var mapping = GetMapping(vmCh);
-
-                    double currentDb;
-                    if (mapping?.Fader != null)
-                    {
-                        currentDb = _vm.GetParameter(mapping.Fader.Parameter);
-                    }
-                    else
-                    {
-                        string prefix = vmCh < 8 ? $"Strip[{vmCh}]" : $"Bus[{vmCh - 8}]";
-                        currentDb = _vm.GetParameter($"{prefix}.Gain");
-                    }
-
-                    _xtouch.SetFaderDb(8, currentDb);
-                }
-            }
-
-            // dB-Wert noch 3 Sekunden anzeigen lassen (nur für Channel-Fader 0-7)
-            if (e.Channel < _displayDbUntil.Length)
-            {
-                _displayDbUntil[e.Channel] = DateTime.UtcNow + TimeSpan.FromSeconds(3);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Setzt einen Fader auf 0 dB.
-    /// </summary>
-    /// <param name="channel">0-7 für Channel-Fader, 8 für Main Fader</param>
-    private void SetFaderTo0dB(int channel)
-    {
-        int vmCh;
-        ControlMappingConfig? mapping;
-
-        if (channel == 8)
-        {
-            // Main Fader
-            var currentView = ChannelViews[_currentViewIndex];
-            if (!currentView.MainFaderChannel.HasValue) return;
-            vmCh = currentView.MainFaderChannel.Value;
-            mapping = GetMapping(vmCh);
-        }
-        else
-        {
-            // Channel Fader 0-7
-            if (channel >= CurrentChannelMapping.Length) return;
-            vmCh = CurrentChannelMapping[channel];
-            mapping = GetMapping(vmCh);
-        }
-
-        if (mapping?.Fader != null)
-        {
-            // 0 dB setzen (innerhalb der konfigurierten Grenzen)
-            double db = Math.Clamp(0.0, mapping.Fader.Min, mapping.Fader.Max);
-            _vm.SetParameter(mapping.Fader.Parameter, (float)db);
-        }
-        else
-        {
-            // Fallback: Standard-Gain auf 0 dB
-            _vm.SetGain(vmCh, 0.0);
-        }
-
-        // Fader-Position auf X-Touch aktualisieren
-        _xtouch.SetFaderDb(channel, 0.0);
-
-        // Fader-Schutz setzen
-        if (channel < _faderProtectUntil.Length)
-        {
-            _faderProtectUntil[channel] = DateTime.UtcNow + TimeSpan.FromMilliseconds(FaderProtectMs);
-        }
-
-        // Display aktualisieren (nur für Channel-Fader 0-7)
-        if (channel < _displayDbUntil.Length)
-        {
-            _xtouch.SetDisplayText(channel, 1, " 0.0dB");
-            _displayDbUntil[channel] = DateTime.UtcNow + TimeSpan.FromSeconds(3);
-        }
-
-        _logger.LogDebug("Fader {Channel} auf 0 dB gesetzt (Doppel-Touch)", channel);
-    }
-
-    // ─── Helpers ────────────────────────────────────────────────────
 
     private int MidiDevice_ChannelCount() => Math.Min(_xtouch.ChannelCount, CurrentChannelMapping.Length);
 }
