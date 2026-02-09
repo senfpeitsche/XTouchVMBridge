@@ -52,4 +52,13 @@ public interface IVoicemeeterService : IDisposable
 
     /// <summary>Generischen String-Parameter lesen (z.B. "Strip[0].Label").</summary>
     string GetParameterString(string paramName);
+
+    /// <summary>Voicemeeter-Fenster in den Vordergrund bringen (Command.Show = 1).</summary>
+    void ShowVoicemeeter();
+
+    /// <summary>Voicemeeter-GUI sperren/entsperren (Command.Lock toggle).</summary>
+    void LockGui(bool locked);
+
+    /// <summary>Macro-Button per Index auslösen (0–79). Mode 2 = Trigger.</summary>
+    void TriggerMacroButton(int buttonIndex);
 }

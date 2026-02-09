@@ -170,6 +170,33 @@ public class VoicemeeterService : IVoicemeeterService
         return System.Text.Encoding.ASCII.GetString(buffer, 0, length);
     }
 
+    // ─── Commands ─────────────────────────────────────────────────────
+
+    public void ShowVoicemeeter()
+    {
+        VoicemeeterRemote.SetParameterFloat("Command.Show", 1.0f);
+        _logger.LogInformation("Voicemeeter-Fenster in den Vordergrund gebracht.");
+    }
+
+    public void LockGui(bool locked)
+    {
+        VoicemeeterRemote.SetParameterFloat("Command.Lock", locked ? 1.0f : 0.0f);
+        _logger.LogInformation("Voicemeeter GUI {State}.", locked ? "gesperrt" : "entsperrt");
+    }
+
+    public void TriggerMacroButton(int buttonIndex)
+    {
+        if (buttonIndex < 0 || buttonIndex > 79)
+        {
+            _logger.LogWarning("TriggerMacroButton: Index {Index} außerhalb des gültigen Bereichs (0–79).", buttonIndex);
+            return;
+        }
+
+        // Mode 2 = Trigger (kurzer Impuls)
+        VoicemeeterRemote.MacroButtonSetStatus(buttonIndex, 1.0f, 2);
+        _logger.LogInformation("Macro-Button {Index} ausgelöst.", buttonIndex);
+    }
+
     // ─── State Snapshot ─────────────────────────────────────────────
 
     public VoicemeeterState GetCurrentState()

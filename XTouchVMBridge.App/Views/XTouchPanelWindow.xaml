@@ -677,6 +677,14 @@
                                          ToolTip="Text der in die Zwischenablage kopiert und eingefügt wird"/>
                             </StackPanel>
 
+                            <!-- TriggerMacroButton -->
+                            <StackPanel x:Name="MasterMacroButtonPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="Macro-Button Index (0–79):" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox x:Name="MasterMacroButtonIndexBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444" Width="60" HorizontalAlignment="Left"
+                                         ToolTip="Index des Voicemeeter Macro-Buttons (0–79)"/>
+                            </StackPanel>
+
                             <!-- Speichern / Entfernen Buttons -->
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                 <Button Content="Speichern" Padding="8,3" Cursor="Hand"

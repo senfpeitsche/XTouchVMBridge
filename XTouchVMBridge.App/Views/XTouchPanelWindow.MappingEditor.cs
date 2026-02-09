@@ -237,6 +237,10 @@ public partial class XTouchPanelWindow
             MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "Programm starten", Tag = MasterButtonActionType.LaunchProgram });
             MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "Tastenkombination senden", Tag = MasterButtonActionType.SendKeys });
             MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "Text senden", Tag = MasterButtonActionType.SendText });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM Audio Engine neu starten", Tag = MasterButtonActionType.RestartAudioEngine });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM-Fenster anzeigen", Tag = MasterButtonActionType.ShowVoicemeeter });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM-GUI sperren/entsperren", Tag = MasterButtonActionType.LockGui });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "Macro-Button auslösen", Tag = MasterButtonActionType.TriggerMacroButton });
 
             // Aktuelle Config laden
             MasterButtonActionConfig? actionConfig = null;
@@ -260,6 +264,7 @@ public partial class XTouchPanelWindow
             MasterProgramArgsBox.Text = actionConfig?.ProgramArgs ?? "";
             MasterKeyCombinationBox.Text = actionConfig?.KeyCombination ?? "";
             MasterTextBox.Text = actionConfig?.Text ?? "";
+            MasterMacroButtonIndexBox.Text = actionConfig?.MacroButtonIndex?.ToString() ?? "0";
 
             // VM-Parameter-Dropdowns initialisieren
             InitMasterVmParamDropdowns(actionConfig?.VmParameter);
@@ -284,6 +289,7 @@ public partial class XTouchPanelWindow
         MasterLaunchPanel.Visibility = type == MasterButtonActionType.LaunchProgram ? Visibility.Visible : Visibility.Collapsed;
         MasterSendKeysPanel.Visibility = type == MasterButtonActionType.SendKeys ? Visibility.Visible : Visibility.Collapsed;
         MasterSendTextPanel.Visibility = type == MasterButtonActionType.SendText ? Visibility.Visible : Visibility.Collapsed;
+        MasterMacroButtonPanel.Visibility = type == MasterButtonActionType.TriggerMacroButton ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Aktionstyp-ComboBox geändert.</summary>
@@ -325,6 +331,13 @@ public partial class XTouchPanelWindow
         }
         else
         {
+            int? macroIndex = null;
+            if (selectedType == MasterButtonActionType.TriggerMacroButton &&
+                int.TryParse(MasterMacroButtonIndexBox.Text.Trim(), out int parsedIndex))
+            {
+                macroIndex = Math.Clamp(parsedIndex, 0, 79);
+            }
+
             _config.MasterButtonActions[_selectedMasterButtonNote] = new MasterButtonActionConfig
             {
                 ActionType = selectedType,
@@ -332,7 +345,8 @@ public partial class XTouchPanelWindow
                 ProgramPath = selectedType == MasterButtonActionType.LaunchProgram ? MasterProgramPathBox.Text.Trim() : null,
                 ProgramArgs = selectedType == MasterButtonActionType.LaunchProgram ? MasterProgramArgsBox.Text.Trim() : null,
                 KeyCombination = selectedType == MasterButtonActionType.SendKeys ? MasterKeyCombinationBox.Text.Trim() : null,
-                Text = selectedType == MasterButtonActionType.SendText ? MasterTextBox.Text : null
+                Text = selectedType == MasterButtonActionType.SendText ? MasterTextBox.Text : null,
+                MacroButtonIndex = macroIndex
             };
         }
 
@@ -353,6 +367,7 @@ public partial class XTouchPanelWindow
         MasterProgramArgsBox.Text = "";
         MasterKeyCombinationBox.Text = "";
         MasterTextBox.Text = "";
+        MasterMacroButtonIndexBox.Text = "0";
         UpdateMasterActionSubPanels(MasterButtonActionType.None);
         _suppressMappingEvents = false;
 

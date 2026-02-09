@@ -103,7 +103,22 @@ public class MasterButtonActionService : IDisposable
                 case MasterButtonActionType.CycleChannelView:
                     CycleChannelView();
                     break;
+                case MasterButtonActionType.RestartAudioEngine:
+                    ExecuteRestartAudioEngine();
+                    break;
+                case MasterButtonActionType.ShowVoicemeeter:
+                    ExecuteShowVoicemeeter();
+                    break;
+                case MasterButtonActionType.LockGui:
+                    ExecuteLockGui();
+                    break;
+                case MasterButtonActionType.TriggerMacroButton:
+                    ExecuteTriggerMacroButton(actionConfig);
+                    break;
             }
+
+            // LED-Feedback: kurz aufblinken als Bestätigung
+            BlinkLed(noteNumber);
 
             return true;
         }
@@ -199,6 +214,62 @@ public class MasterButtonActionService : IDisposable
         float currentValue = _vm.GetParameter(config.VmParameter);
         float newValue = currentValue > 0.5f ? 0f : 1f;
         _vm.SetParameter(config.VmParameter, newValue);
+    }
+
+    private void ExecuteRestartAudioEngine()
+    {
+        _logger.LogInformation("Voicemeeter Audio Engine wird neu gestartet.");
+        _vm.Restart();
+    }
+
+    private void ExecuteShowVoicemeeter()
+    {
+        _logger.LogInformation("Voicemeeter-Fenster wird angezeigt.");
+        _vm.ShowVoicemeeter();
+    }
+
+    private void ExecuteLockGui()
+    {
+        // Toggle: aktuellen Lock-Status lesen und umkehren
+        float currentLock = _vm.GetParameter("Command.Lock");
+        bool newLock = currentLock < 0.5f;
+        _logger.LogInformation("Voicemeeter GUI wird {State}.", newLock ? "gesperrt" : "entsperrt");
+        _vm.LockGui(newLock);
+    }
+
+    private void ExecuteTriggerMacroButton(MasterButtonActionConfig config)
+    {
+        if (!config.MacroButtonIndex.HasValue)
+        {
+            _logger.LogWarning("TriggerMacroButton: Kein Macro-Button-Index konfiguriert.");
+            return;
+        }
+
+        _logger.LogInformation("Macro-Button {Index} wird ausgelöst.", config.MacroButtonIndex.Value);
+        _vm.TriggerMacroButton(config.MacroButtonIndex.Value);
+    }
+
+    /// <summary>
+    /// LED kurz aufblinken lassen als Bestätigung einer ausgeführten Aktion.
+    /// </summary>
+    private void BlinkLed(int noteNumber)
+    {
+        try
+        {
+            _midiDevice.SetMasterButtonLed(noteNumber, Core.Enums.LedState.On);
+            Task.Delay(150).ContinueWith(_ =>
+            {
+                try
+                {
+                    _midiDevice.SetMasterButtonLed(noteNumber, Core.Enums.LedState.Off);
+                }
+                catch { /* LED-Reset ignorieren */ }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "LED-Blink für Note {Note} fehlgeschlagen.", noteNumber);
+        }
     }
 
     /// <summary>

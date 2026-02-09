@@ -21,7 +21,19 @@ public enum MasterButtonActionType
     SendText,
 
     /// <summary>Durch die Channel-Ansichten (Views) cyclen.</summary>
-    CycleChannelView
+    CycleChannelView,
+
+    /// <summary>Voicemeeter Audio Engine neu starten.</summary>
+    RestartAudioEngine,
+
+    /// <summary>Voicemeeter-Fenster in den Vordergrund bringen.</summary>
+    ShowVoicemeeter,
+
+    /// <summary>Voicemeeter-GUI sperren/entsperren (Toggle).</summary>
+    LockGui,
+
+    /// <summary>Voicemeeter Macro-Button auslösen (per Index).</summary>
+    TriggerMacroButton
 }
 
 /// <summary>
@@ -51,4 +63,7 @@ public class MasterButtonActionConfig
 
     /// <summary>Text der gesendet wird (für ActionType = SendText).</summary>
     public string? Text { get; set; }
+
+    /// <summary>Macro-Button Index 0-79 (für ActionType = TriggerMacroButton).</summary>
+    public int? MacroButtonIndex { get; set; }
 }
