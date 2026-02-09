@@ -24,6 +24,8 @@ public class MasterButtonActionService : IDisposable
     private readonly VoicemeeterBridge _bridge;
     private readonly XTouchVMBridgeConfig _config;
     private readonly InputSimulator _inputSimulator;
+    private readonly Dictionary<int, bool> _toggleLedStates = new();
+    private bool _lockGuiState; // eigener State, da Command.Lock write-only ist
     private bool _disposed;
 
     /// <summary>
@@ -117,8 +119,8 @@ public class MasterButtonActionService : IDisposable
                     break;
             }
 
-            // LED-Feedback: kurz aufblinken als Bestätigung
-            BlinkLed(noteNumber);
+            // LED-Feedback
+            UpdateLedFeedback(noteNumber, actionConfig);
 
             return true;
         }
@@ -230,11 +232,10 @@ public class MasterButtonActionService : IDisposable
 
     private void ExecuteLockGui()
     {
-        // Toggle: aktuellen Lock-Status lesen und umkehren
-        float currentLock = _vm.GetParameter("Command.Lock");
-        bool newLock = currentLock < 0.5f;
-        _logger.LogInformation("Voicemeeter GUI wird {State}.", newLock ? "gesperrt" : "entsperrt");
-        _vm.LockGui(newLock);
+        // Toggle: eigenen State umkehren (Command.Lock ist write-only in der VM API)
+        _lockGuiState = !_lockGuiState;
+        _logger.LogInformation("Voicemeeter GUI wird {State}.", _lockGuiState ? "gesperrt" : "entsperrt");
+        _vm.LockGui(_lockGuiState);
     }
 
     private void ExecuteTriggerMacroButton(MasterButtonActionConfig config)
@@ -250,25 +251,49 @@ public class MasterButtonActionService : IDisposable
     }
 
     /// <summary>
-    /// LED kurz aufblinken lassen als Bestätigung einer ausgeführten Aktion.
+    /// LED-Feedback je nach konfiguriertem Modus.
+    /// Blink: LED kurz aufblinken (150ms).
+    /// Toggle: LED wechselt bei jedem Druck zwischen An und Aus.
+    /// Blinking: LED blinkt dauerhaft (Hardware-Blink, toggelt An/Aus bei erneutem Druck).
     /// </summary>
-    private void BlinkLed(int noteNumber)
+    private void UpdateLedFeedback(int noteNumber, MasterButtonActionConfig config)
     {
         try
         {
-            _midiDevice.SetMasterButtonLed(noteNumber, Core.Enums.LedState.On);
-            Task.Delay(150).ContinueWith(_ =>
+            switch (config.LedFeedback)
             {
-                try
-                {
-                    _midiDevice.SetMasterButtonLed(noteNumber, Core.Enums.LedState.Off);
-                }
-                catch { /* LED-Reset ignorieren */ }
-            });
+                case LedFeedbackMode.Blink:
+                    _midiDevice.SetMasterButtonLed(noteNumber, Core.Enums.LedState.On);
+                    Task.Delay(150).ContinueWith(_ =>
+                    {
+                        try { _midiDevice.SetMasterButtonLed(noteNumber, Core.Enums.LedState.Off); }
+                        catch { /* ignorieren */ }
+                    });
+                    break;
+
+                case LedFeedbackMode.Toggle:
+                    _toggleLedStates.TryGetValue(noteNumber, out bool currentlyOn);
+                    bool newState = !currentlyOn;
+                    _toggleLedStates[noteNumber] = newState;
+                    _midiDevice.SetMasterButtonLed(noteNumber,
+                        newState ? Core.Enums.LedState.On : Core.Enums.LedState.Off);
+                    _logger.LogDebug("LED Toggle Note {Note}: {State}", noteNumber, newState ? "An" : "Aus");
+                    break;
+
+                case LedFeedbackMode.Blinking:
+                    // Hardware-Blink: toggelt zwischen Blink und Aus bei jedem Druck
+                    _toggleLedStates.TryGetValue(noteNumber, out bool currentlyBlinking);
+                    bool newBlinkState = !currentlyBlinking;
+                    _toggleLedStates[noteNumber] = newBlinkState;
+                    _midiDevice.SetMasterButtonLed(noteNumber,
+                        newBlinkState ? Core.Enums.LedState.Blink : Core.Enums.LedState.Off);
+                    _logger.LogDebug("LED Blinking Note {Note}: {State}", noteNumber, newBlinkState ? "Blinkt" : "Aus");
+                    break;
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "LED-Blink für Note {Note} fehlgeschlagen.", noteNumber);
+            _logger.LogDebug(ex, "LED-Feedback für Note {Note} fehlgeschlagen.", noteNumber);
         }
     }
 

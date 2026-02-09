@@ -65,7 +65,10 @@ Diese Parameter sind bereits im C#-Projekt uber `IVoicemeeterService` oder `Enco
 | `Strip[N].Pan_x` | EncoderFunction "PAN" | Encoder | `VoicemeeterBridge.cs:97` |
 | Level Type 1 (Strip PostFader) | `GetLevel()` | Level-Meter | `VoicemeeterService.cs:85` |
 | Level Type 3 (Bus Output) | `GetLevel()` | Level-Meter | `VoicemeeterService.cs:93` |
-| `Command.Restart` | `Restart()` | -- | `VoicemeeterService.cs:60` |
+| `Command.Restart` | `Restart()` | -- | `VoicemeeterService.cs:72` |
+| `Command.Show` | `ShowVoicemeeter()` | Master-Button | `VoicemeeterService.cs:175` |
+| `Command.Lock` | `LockGui(bool)` | Master-Button (Toggle) | `VoicemeeterService.cs:181` |
+| `MacroButton[N]` (Mode 2) | `TriggerMacroButton(int)` | Master-Button | `VoicemeeterService.cs:187` |
 
 ---
 
@@ -270,13 +273,14 @@ Implementierungsidee: Per Encoder durchschalten (Cycle) oder als EncoderFunction
 | `Bus[N].FadeBy` | Methode (via Set) | Relatives Faden |
 | `Strip[N].AppGain` | Methode | App-spezifische Lautstarkeregelung |
 | `Strip[N].AppMute` | Methode | App-spezifische Stummschaltung |
-| `Command.Restart` | float (trigger) | Voicemeeter neustarten |
-| `Command.Shutdown` | float (trigger) | Voicemeeter beenden |
-| `Command.Lock` | float (bool) | GUI sperren |
+| `Command.Restart` | float (trigger) | Voicemeeter neustarten | **Implementiert** (`Restart()`) |
+| `Command.Shutdown` | float (trigger) | Voicemeeter beenden | Noch nicht implementiert |
+| `Command.Show` | float (trigger) | Fenster in den Vordergrund | **Implementiert** (`ShowVoicemeeter()`) |
+| `Command.Lock` | float (bool) | GUI sperren/entsperren | **Implementiert** (`LockGui(bool)`) |
 
 ### Macro Buttons
 
-Bereits als P/Invoke deklariert in `VoicemeeterRemote.cs:56-59`:
+P/Invoke in `VoicemeeterRemote.cs`, gekapselt in `IVoicemeeterService.TriggerMacroButton(int)`:
 
 ```csharp
 VoicemeeterRemote.MacroButtonGetStatus(int buttonIndex, out float value, int mode);
@@ -286,10 +290,12 @@ VoicemeeterRemote.MacroButtonSetStatus(int buttonIndex, float value, int mode);
 | Mode | Beschreibung |
 |---|---|
 | 1 | State (Zustand: 0=aus, 1=an) |
-| 2 | State + Trigger (wie physischer Klick) |
+| 2 | State + Trigger (wie physischer Klick) — **Implementiert** |
 | 3 | Display (Anzeige-LED) |
 
-Implementierungsidee: REC-Buttons auf Macro-Buttons 0-7 mappen.
+**Implementiert**: Master-Buttons können als Macro-Button-Trigger konfiguriert werden
+(Aktionstyp `TriggerMacroButton` mit Index 0–79 im Mapping-Editor).
+Zusätzlich möglich: REC-Buttons auf Macro-Buttons 0-7 mappen.
 
 ### Dirty Flags / Polling
 

@@ -48,7 +48,7 @@ services.AddSingleton<IVoicemeeterService, VoicemeeterService>();
 services.AddSingleton<IScreenLockDetector, ScreenLockDetector>();
 services.AddHostedService<AudioDeviceMonitorService>(); // Hintergrund-Thread + X-Touch Reconnect
 services.AddHostedService<VoicemeeterBridge>();          // 100ms Polling-Loop
-services.AddSingleton<MasterButtonActionService>();      // Master-Button → Programm/Keys/Text
+services.AddSingleton<MasterButtonActionService>();      // Master-Button → Programm/Keys/Text/VM-Commands/Macro
 services.AddHostedService<SegmentDisplayService>();      // 7-Segment-Display (Uhrzeit etc.)
 services.AddSingleton<TrayIconService>();
 ```
@@ -591,6 +591,7 @@ reagiert auf konfigurierte Buttons und führt die zugehörige Aktion aus.
 public enum MasterButtonActionType
 {
     None, VmParameter, LaunchProgram, SendKeys, SendText,
+    CycleChannelView, RestartAudioEngine, ShowVoicemeeter, LockGui, TriggerMacroButton,
     HttpRequest  // NEU
 }
 ```
@@ -613,8 +614,29 @@ case MasterButtonActionType.HttpRequest:
     break;
 ```
 
-5. **Editor** in `XTouchPanelWindow.xaml` ein neues Sub-Panel einfügen
-   und in `.xaml.cs` die `UpdateMasterActionSubPanels`-Methode erweitern.
+5. **Editor** in `XTouchPanelWindow.MappingEditor.cs`:
+   - ComboBox-Eintrag hinzufügen in `ShowMasterButtonMappingPanel()`
+   - Sub-Panel in `XTouchPanelWindow.xaml` einfügen
+   - Visibility in `UpdateMasterActionSubPanels()` steuern
+   - Speichern/Laden in `OnMasterActionSave()` / `OnMasterActionClear()`
+
+### LED-Feedback
+
+Jede Master-Button-Aktion hat einen konfigurierbaren LED-Feedback-Modus:
+
+```csharp
+public enum LedFeedbackMode
+{
+    Blink,     // LED blinkt 150ms auf
+    Toggle,    // LED wechselt An/Aus bei jedem Druck
+    Blinking   // LED blinkt dauerhaft (Hardware-Blink via Mackie Protocol Velocity 2)
+}
+```
+
+Die `MasterButtonActionConfig` enthält das Feld `LedFeedback` (Default: `Blink`).
+Der `MasterButtonActionService` verwaltet Toggle-/Blink-States in einem `Dictionary<int, bool>`.
+Der Blinking-Modus nutzt den nativen Hardware-Blink des Mackie-Protokolls (`LedState.Blink = 2`)
+und benötigt keine Software-Timer — erneutes Drücken toggelt zwischen Blinken und Aus.
 
 ### Note-Nummern (Master Section)
 

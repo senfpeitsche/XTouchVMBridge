@@ -1,6 +1,40 @@
 # Changelog
 
-## [Unreleased] - 2025-02-06
+## [Unreleased] - 2025-02-09
+
+### Master-Button-Aktionen: Neue Aktionstypen
+- **Neu**: VM Audio Engine neu starten (`RestartAudioEngine`)
+- **Neu**: VM-Fenster anzeigen (`ShowVoicemeeter`) — bringt Voicemeeter in den Vordergrund via `Command.Show`
+- **Neu**: VM-GUI sperren/entsperren (`LockGui`) — toggelt `Command.Lock`
+- **Neu**: Voicemeeter Macro-Button auslösen (`TriggerMacroButton`) — triggert Macro-Buttons 0–79 via `MacroButton_SetStatus`
+- **Neu**: Macro-Button Index-Eingabefeld (0–79) im Mapping-Editor
+
+### LED-Feedback für Master-Buttons
+- **Neu**: Konfigurierbarer LED-Feedback-Modus pro Master-Button-Aktion
+  - **Blink** (Standard): LED blinkt 150ms auf als Bestätigung
+  - **Toggle**: LED wechselt bei jedem Druck zwischen An und Aus (1. Druck = an, 2. Druck = aus)
+  - **Blinking** (Dauerhaft): LED blinkt dauerhaft via Hardware-Blink (Mackie Protocol Velocity 2), erneutes Drücken stoppt das Blinken
+- **Neu**: LED-Feedback-ComboBox im Mapping-Editor (sichtbar bei aktiver Aktion)
+- **Neu**: LED-Feedback wird in `config.json` gespeichert (`"ledFeedback": "Blink"` / `"Toggle"` / `"Blinking"`)
+
+### 7-Segment-Display: Cycle-Button geändert
+- **Änderung**: Standard-Cycle-Button von SMPTE (Note 113) auf NAME/VALUE (Note 52) geändert
+- **Verbesserung**: LED-Feedback für den Cycle-Button (LED an wenn nicht im Time-Modus)
+- **Fix**: Thread-Safety mit `volatile` für Display-Mode-Felder
+
+### Voicemeeter API-Erweiterungen
+- **Neu**: `IVoicemeeterService.ShowVoicemeeter()` — `Command.Show = 1`
+- **Neu**: `IVoicemeeterService.LockGui(bool)` — `Command.Lock` setzen/aufheben
+- **Neu**: `IVoicemeeterService.TriggerMacroButton(int)` — `MacroButton_SetStatus(index, 1, mode=2)`
+
+### Code-Qualität: File-Splitting in Partial Classes
+- **Refactoring**: Große Dateien in Partial Classes aufgeteilt:
+  - `XTouchPanelWindow` → `.MasterSection.cs`, `.ChannelStrips.cs`, `.MainFader.cs`, `.Templates.cs`, `.DetailPanels.cs`, `.EncoderInteraction.cs`, `.MappingEditor.cs`
+  - `VoicemeeterBridge` → `.Sync.cs`, `.Callbacks.cs`
+  - `XTouchDevice` → `.Input.cs`, `.Output.cs`
+  - `MidiMessageDecoder` → `.SysEx.cs`
+
+## [Previous] - 2025-02-06
 
 ### X-Touch Panel: Encoder-Steuerung per Maus
 - **Neu**: Strg+Klick auf Encoder cycled durch die zugewiesenen Funktionen (identisch mit Hardware-Drücken)

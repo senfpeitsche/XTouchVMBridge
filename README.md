@@ -67,7 +67,7 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 {
   "voicemeeterApiType": "potato",
   "enableXTouch": true,
-  "segmentDisplayCycleButton": 113,
+  "segmentDisplayCycleButton": 52,
   "channels": {
     "0": { "name": "WaveMIC", "type": "Hardware Input 1", "color": "green" },
     "1": { "name": "RiftMIC", "type": "Hardware Input 2", "color": "green" },
@@ -129,8 +129,16 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
   - Media-Keys senden (MediaPlay, MediaNext, MediaPrev, MediaStop)
   - Text senden (via Zwischenablage + Ctrl+V)
   - Voicemeeter-Parameter toggeln
+  - VM Audio Engine neu starten
+  - VM-Fenster anzeigen (in den Vordergrund bringen)
+  - VM-GUI sperren/entsperren (Toggle)
+  - Voicemeeter Macro-Button auslösen (Index 0–79)
+- **LED-Feedback**: Jede Master-Button-Aktion hat einen konfigurierbaren LED-Modus:
+  - **Blink**: LED blinkt kurz (150ms) als Bestätigung
+  - **Toggle**: LED wechselt bei jedem Druck zwischen An und Aus
+  - **Blinking**: LED blinkt dauerhaft (Hardware-Blink via Mackie Protocol), erneutes Drücken stoppt das Blinken
 - **7-Segment-Display**: Timecode-Anzeige zeigt Uhrzeit, Datum oder Speicherverbrauch.
-  SMPTE-Button (Note 113) schaltet zwischen Modi um.
+  Cycle-Button (konfigurierbar, Standard: Note 52 / NAME) schaltet zwischen Modi um.
 
 ## MIDI Debug Monitor
 
@@ -225,6 +233,10 @@ Mapping-Editor mit folgenden Aktionstypen:
 | **Programm starten** | Windows-Programm ausführen | Programmpfad + optionale Argumente |
 | **Tastenkombination** | Keyboard-Shortcut simulieren | Kombination (z.B. `Ctrl+Shift+M`, `Alt+F4`, `F5`) |
 | **Text senden** | Text via Zwischenablage einfügen | Beliebiger Text |
+| **VM Audio Engine neu starten** | Voicemeeter Audio Engine restarten | — |
+| **VM-Fenster anzeigen** | Voicemeeter in den Vordergrund bringen | — |
+| **VM-GUI sperren/entsperren** | GUI-Lock toggeln | — |
+| **Macro-Button auslösen** | Voicemeeter Macro-Button triggern | Macro-Button Index (0–79) |
 
 Unterstützte Modifier: `Ctrl`, `Alt`, `Shift`, `Win`. Unterstützte Sondertasten: `F1`-`F24`,
 `Enter`, `Escape`, `Tab`, `Space`, `Delete`, `Home`, `End`, `PageUp`, `PageDown`, Pfeiltasten,
@@ -234,15 +246,33 @@ In der `config.json` unter `masterButtonActions` (Key = MIDI Note-Nummer):
 
 ```json
 "masterButtonActions": {
-  "54": { "actionType": "LaunchProgram", "programPath": "C:\\Windows\\notepad.exe", "programArgs": "" },
-  "55": { "actionType": "SendKeys", "keyCombination": "Ctrl+Shift+M" },
-  "56": { "actionType": "SendText", "text": "Hallo Welt" },
-  "57": { "actionType": "VmParameter", "vmParameter": "Strip[0].Mute" }
+  "54": { "actionType": "LaunchProgram", "programPath": "C:\\Windows\\notepad.exe", "programArgs": "", "ledFeedback": "Blink" },
+  "55": { "actionType": "SendKeys", "keyCombination": "Ctrl+Shift+M", "ledFeedback": "Toggle" },
+  "56": { "actionType": "SendText", "text": "Hallo Welt", "ledFeedback": "Blinking" },
+  "57": { "actionType": "VmParameter", "vmParameter": "Strip[0].Mute" },
+  "58": { "actionType": "RestartAudioEngine" },
+  "59": { "actionType": "ShowVoicemeeter" },
+  "60": { "actionType": "LockGui", "ledFeedback": "Toggle" },
+  "61": { "actionType": "TriggerMacroButton", "macroButtonIndex": 0 }
 }
 ```
 
 Note-Nummern für Function-Buttons: F1=54, F2=55, ..., F8=61.
 Transport-Buttons: REW=91, FF=92, STOP=93, PLAY=94, REC=95.
+
+### LED-Feedback
+
+Jede Aktion kann über `ledFeedback` bestimmen, wie die Button-LED reagiert:
+
+| Modus | Beschreibung |
+|---|---|
+| `Blink` (Standard) | LED blinkt 150ms auf als Bestätigung |
+| `Toggle` | LED wechselt bei jedem Druck: 1× drücken = an, 2× drücken = aus |
+| `Blinking` | LED blinkt dauerhaft (Hardware-Blink via Mackie Protocol), erneutes Drücken stoppt das Blinken |
+
+Der Toggle-Modus eignet sich besonders für Lock/Unlock-Aktionen oder um den aktiven Status
+eines Programms visuell auf dem X-Touch darzustellen. Der Blinking-Modus nutzt den nativen
+Hardware-Blink des Mackie-Protokolls (Velocity 2) und benötigt keine Software-Timer.
 
 ### Media-Fernbedienung (z.B. YouTube in Vivaldi/Chrome)
 
@@ -263,7 +293,7 @@ Die Media-Keys werden vom Betriebssystem an den aktiven Mediaplayer weitergeleit
 ## 7-Segment-Display (Timecode-Anzeige)
 
 Das 12-stellige 7-Segment-Display auf dem X-Touch zeigt standardmäßig die **Uhrzeit** an.
-Per SMPTE-Button (Note 113) kann zwischen folgenden Modi gewechselt werden:
+Per Cycle-Button (Standard: NAME/VALUE, Note 52) kann zwischen folgenden Modi gewechselt werden:
 
 | Modus | Anzeige | Update-Intervall |
 |---|---|---|
@@ -275,10 +305,11 @@ Per SMPTE-Button (Note 113) kann zwischen folgenden Modi gewechselt werden:
 Der Cycle-Button kann in der Config angepasst werden:
 
 ```json
-"segmentDisplayCycleButton": 113
+"segmentDisplayCycleButton": 52
 ```
 
-`0` = Cycle-Funktion deaktiviert. Das Display kommuniziert über Behringer-eigene SysEx-Nachrichten
+Standard ist Note 52 (NAME/VALUE Button). `0` = Cycle-Funktion deaktiviert.
+Das Display kommuniziert über Behringer-eigene SysEx-Nachrichten
 (`F0 00 20 32 dd 37 ...`) mit automatischer Device-ID-Erkennung (X-Touch=0x14, Ext=0x15).
 
 ## Credits & Danksagung

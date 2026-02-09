@@ -1,6 +1,21 @@
 namespace XTouchVMBridge.Core.Models;
 
 /// <summary>
+/// LED-Feedback-Modus nach Ausführung einer Master-Button-Aktion.
+/// </summary>
+public enum LedFeedbackMode
+{
+    /// <summary>LED blinkt kurz auf (150ms) als Bestätigung.</summary>
+    Blink,
+
+    /// <summary>LED toggelt: 1. Druck → an, 2. Druck → aus.</summary>
+    Toggle,
+
+    /// <summary>LED blinkt dauerhaft (Hardware-Blink via Mackie Protocol).</summary>
+    Blinking
+}
+
+/// <summary>
 /// Aktionstypen für Master-Section-Buttons.
 /// </summary>
 public enum MasterButtonActionType
@@ -66,4 +81,7 @@ public class MasterButtonActionConfig
 
     /// <summary>Macro-Button Index 0-79 (für ActionType = TriggerMacroButton).</summary>
     public int? MacroButtonIndex { get; set; }
+
+    /// <summary>LED-Feedback-Modus: Blink (kurz aufleuchten) oder Toggle (an/aus wechseln).</summary>
+    public LedFeedbackMode LedFeedback { get; set; } = LedFeedbackMode.Blink;
 }

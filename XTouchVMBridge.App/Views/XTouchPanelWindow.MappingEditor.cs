@@ -266,6 +266,19 @@ public partial class XTouchPanelWindow
             MasterTextBox.Text = actionConfig?.Text ?? "";
             MasterMacroButtonIndexBox.Text = actionConfig?.MacroButtonIndex?.ToString() ?? "0";
 
+            // LED-Feedback-ComboBox befüllen
+            MasterLedFeedbackCombo.Items.Clear();
+            MasterLedFeedbackCombo.Items.Add(new ComboBoxItem { Content = "Kurz aufblinken", Tag = LedFeedbackMode.Blink });
+            MasterLedFeedbackCombo.Items.Add(new ComboBoxItem { Content = "An/Aus (Toggle)", Tag = LedFeedbackMode.Toggle });
+            MasterLedFeedbackCombo.Items.Add(new ComboBoxItem { Content = "Dauerhaft blinken", Tag = LedFeedbackMode.Blinking });
+            var activeLedMode = actionConfig?.LedFeedback ?? LedFeedbackMode.Blink;
+            MasterLedFeedbackCombo.SelectedIndex = activeLedMode switch
+            {
+                LedFeedbackMode.Toggle => 1,
+                LedFeedbackMode.Blinking => 2,
+                _ => 0
+            };
+
             // VM-Parameter-Dropdowns initialisieren
             InitMasterVmParamDropdowns(actionConfig?.VmParameter);
 
@@ -290,6 +303,9 @@ public partial class XTouchPanelWindow
         MasterSendKeysPanel.Visibility = type == MasterButtonActionType.SendKeys ? Visibility.Visible : Visibility.Collapsed;
         MasterSendTextPanel.Visibility = type == MasterButtonActionType.SendText ? Visibility.Visible : Visibility.Collapsed;
         MasterMacroButtonPanel.Visibility = type == MasterButtonActionType.TriggerMacroButton ? Visibility.Visible : Visibility.Collapsed;
+
+        // LED-Feedback-Auswahl anzeigen wenn eine Aktion gewählt ist
+        MasterLedFeedbackPanel.Visibility = type != MasterButtonActionType.None ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Aktionstyp-ComboBox geändert.</summary>
@@ -338,6 +354,13 @@ public partial class XTouchPanelWindow
                 macroIndex = Math.Clamp(parsedIndex, 0, 79);
             }
 
+            var ledMode = LedFeedbackMode.Blink;
+            if (MasterLedFeedbackCombo.SelectedItem is ComboBoxItem ledItem &&
+                ledItem.Tag is LedFeedbackMode mode)
+            {
+                ledMode = mode;
+            }
+
             _config.MasterButtonActions[_selectedMasterButtonNote] = new MasterButtonActionConfig
             {
                 ActionType = selectedType,
@@ -346,7 +369,8 @@ public partial class XTouchPanelWindow
                 ProgramArgs = selectedType == MasterButtonActionType.LaunchProgram ? MasterProgramArgsBox.Text.Trim() : null,
                 KeyCombination = selectedType == MasterButtonActionType.SendKeys ? MasterKeyCombinationBox.Text.Trim() : null,
                 Text = selectedType == MasterButtonActionType.SendText ? MasterTextBox.Text : null,
-                MacroButtonIndex = macroIndex
+                MacroButtonIndex = macroIndex,
+                LedFeedback = ledMode
             };
         }
 
@@ -368,6 +392,8 @@ public partial class XTouchPanelWindow
         MasterKeyCombinationBox.Text = "";
         MasterTextBox.Text = "";
         MasterMacroButtonIndexBox.Text = "0";
+        if (MasterLedFeedbackCombo.Items.Count > 0)
+            MasterLedFeedbackCombo.SelectedIndex = 0;
         UpdateMasterActionSubPanels(MasterButtonActionType.None);
         _suppressMappingEvents = false;
 
