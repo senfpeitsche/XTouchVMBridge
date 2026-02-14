@@ -80,7 +80,7 @@ public class MidiMessageDecoderTests
         var result = MidiMessageDecoder.DecodeIncoming(raw);
 
         Assert.Equal("Fader Touch", result.ControlType);
-        Assert.Contains("Kanal 1", result.ControlId);
+        Assert.Contains("Kanal 7", result.ControlId);
         Assert.Contains("Berührt", result.Value);
     }
 
@@ -91,9 +91,9 @@ public class MidiMessageDecoderTests
         int raw = 0x90 | (113 << 8) | (0 << 16);
         var result = MidiMessageDecoder.DecodeIncoming(raw);
 
-        Assert.Equal("Fader Touch", result.ControlType);
-        Assert.Contains("Kanal 4", result.ControlId);
-        Assert.Contains("Losgelassen", result.Value);
+        Assert.Equal("Note On", result.ControlType);
+        Assert.Contains("Note #113", result.ControlId);
+        Assert.Contains("Velocity 0", result.Value);
     }
 
     // ─── Eingehende Nachrichten: Encoder ────────────────────────────

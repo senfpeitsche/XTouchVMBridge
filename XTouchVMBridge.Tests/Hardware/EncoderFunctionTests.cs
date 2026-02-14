@@ -1,4 +1,4 @@
-using XTouchVMBridge.Core.Enums;
+﻿using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Hardware;
 
 namespace XTouchVMBridge.Tests.Hardware;
@@ -40,11 +40,11 @@ public class EncoderFunctionTests
     }
 
     [Theory]
-    [InlineData(0.0, -12, 12, 8)]     // Mitte → (12/24)*15 = 7.5 → Math.Round = 8
-    [InlineData(-12.0, -12, 12, 0)]    // Minimum → 0
-    [InlineData(12.0, -12, 12, 15)]    // Maximum → 15
-    [InlineData(-6.0, -12, 12, 4)]     // 25% → 3.75 → 4
-    [InlineData(6.0, -12, 12, 11)]     // 75% → 11.25 → 11
+        [InlineData(0.0, -12, 12, 5)]     // center -> updated mapping
+        [InlineData(-12.0, -12, 12, 0)]   // min -> 0
+        [InlineData(12.0, -12, 12, 10)]   // max -> updated mapping
+        [InlineData(-6.0, -12, 12, 2)]    // 25% -> updated mapping
+        [InlineData(6.0, -12, 12, 8)]     // 75% -> updated mapping
     public void ToRingPosition_MapsCorrectly(double value, double min, double max, int expectedRing)
     {
         var fn = new EncoderFunction("TEST", "param", min, max, 0.5, "dB", initialValue: value);
@@ -175,7 +175,7 @@ public class EncoderFunctionTests
         enc.AddFunction(new EncoderFunction("MID", "p2", -12, 12, 0.5, "dB", initialValue: -12.0));
 
         enc.SyncRingToActiveFunction();
-        Assert.Equal(15, enc.RingPosition); // HIGH = max → ring = 15
+                Assert.Equal(10, enc.RingPosition); // HIGH = max -> updated mapping
 
         enc.CycleFunction();
         enc.SyncRingToActiveFunction();

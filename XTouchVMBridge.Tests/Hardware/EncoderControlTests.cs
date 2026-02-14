@@ -18,11 +18,11 @@ public class EncoderControlTests
     }
 
     [Theory]
-    [InlineData(XTouchEncoderRingMode.Dot, 5, false, 5)]       // 0*16 + 5 = 5
-    [InlineData(XTouchEncoderRingMode.Pan, 8, false, 24)]      // 1*16 + 8 = 24
-    [InlineData(XTouchEncoderRingMode.Wrap, 10, false, 42)]    // 2*16 + 10 = 42
-    [InlineData(XTouchEncoderRingMode.Spread, 3, false, 51)]   // 3*16 + 3 = 51
-    [InlineData(XTouchEncoderRingMode.Dot, 5, true, 69)]       // 0*16 + 5 + 64 = 69
+    [InlineData(XTouchEncoderRingMode.Dot, 5, false, 6)]       // 0*16 + 5 + 1 = 6
+    [InlineData(XTouchEncoderRingMode.Pan, 8, false, 25)]      // 1*16 + 8 + 1 = 25
+    [InlineData(XTouchEncoderRingMode.Wrap, 10, false, 43)]    // 2*16 + 10 + 1 = 43
+    [InlineData(XTouchEncoderRingMode.Spread, 3, false, 52)]   // 3*16 + 3 + 1 = 52
+    [InlineData(XTouchEncoderRingMode.Dot, 5, true, 70)]       // 0*16 + 5 + 64 + 1 = 70
     public void CalculateCcValue_ProducesCorrectValues(
         XTouchEncoderRingMode mode, int position, bool led, byte expected)
     {

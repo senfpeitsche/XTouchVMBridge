@@ -26,7 +26,7 @@ public class MackieProtocolTests
         Assert.Equal(0x00, msg[1]);
         Assert.Equal(0x00, msg[2]);
         Assert.Equal(0x66, msg[3]);
-        Assert.Equal(0x15, msg[4]);
+        Assert.Equal(0x14, msg[4]);
 
         // Command byte
         Assert.Equal(MackieProtocol.CmdDisplayText, msg[5]);

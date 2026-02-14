@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -256,7 +255,7 @@ public partial class MidiDebugWindow : Window
 /// <summary>
 /// ViewModel für einen einzelnen Eintrag in der MIDI-Debug-Liste.
 /// </summary>
-public class MidiDebugEntry : INotifyPropertyChanged
+public class MidiDebugEntry
 {
     public DateTime Timestamp { get; init; }
     public MidiMessageDecoder.MidiDirection Direction { get; init; }
@@ -311,5 +310,4 @@ public class MidiDebugEntry : INotifyPropertyChanged
         };
     }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
 }
