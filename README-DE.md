@@ -7,6 +7,8 @@ System-Tray-App mit Audio-Device-Monitoring und Screen-Lock-Schutz.
 
 Portiert vom originalen Python-Projekt in ein C# .NET 8 Projekt.
 
+![X-Touch Live Panel](docs/XTouchLivePanel.png)
+
 ## Voraussetzungen
 
 - .NET 8 SDK (oder neuer)
