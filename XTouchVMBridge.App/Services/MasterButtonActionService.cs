@@ -23,8 +23,11 @@ public class MasterButtonActionService : IDisposable
     private readonly IVoicemeeterService _vm;
     private readonly VoicemeeterBridge _bridge;
     private readonly XTouchVMBridgeConfig _config;
+    private readonly MqttClientService _mqttClientService;
     private readonly InputSimulator _inputSimulator;
     private readonly Dictionary<int, bool> _toggleLedStates = new();
+    private string? _activeMqttDeviceId;
+    private string? _activeMqttDeviceTopic;
     private bool _lockGuiState; // eigener State, da Command.Lock write-only ist
     private bool _disposed;
 
@@ -38,13 +41,15 @@ public class MasterButtonActionService : IDisposable
         IMidiDevice midiDevice,
         IVoicemeeterService vm,
         VoicemeeterBridge bridge,
-        XTouchVMBridgeConfig config)
+        XTouchVMBridgeConfig config,
+        MqttClientService mqttClientService)
     {
         _logger = logger;
         _midiDevice = midiDevice;
         _vm = vm;
         _bridge = bridge;
         _config = config;
+        _mqttClientService = mqttClientService;
         _inputSimulator = new InputSimulator();
 
         // Events abonnieren
@@ -55,8 +60,11 @@ public class MasterButtonActionService : IDisposable
 
     private void OnMasterButtonChanged(object? sender, MasterButtonEventArgs e)
     {
-        // Nur bei Tastendruck (nicht beim Loslassen)
-        if (!e.IsPressed) return;
+        if (!e.IsPressed)
+        {
+            ExecuteReleaseAction(e.NoteNumber);
+            return;
+        }
 
         // Flip-Button ist fest für Channel View Cycling reserviert
         if (e.NoteNumber == FlipButtonNote)
@@ -117,10 +125,22 @@ public class MasterButtonActionService : IDisposable
                 case MasterButtonActionType.TriggerMacroButton:
                     ExecuteTriggerMacroButton(actionConfig);
                     break;
+                case MasterButtonActionType.MqttPublish:
+                    ExecuteMqttPublish(actionConfig, isPressed: true);
+                    break;
+                case MasterButtonActionType.SelectMqttDevice:
+                    ExecuteSelectMqttDevice(noteNumber, actionConfig);
+                    break;
+                case MasterButtonActionType.MqttTransport:
+                    ExecuteMqttTransport(actionConfig);
+                    break;
             }
 
-            // LED-Feedback
-            UpdateLedFeedback(noteNumber, actionConfig);
+            if (actionConfig.ActionType != MasterButtonActionType.SelectMqttDevice)
+            {
+                // LED-Feedback
+                UpdateLedFeedback(noteNumber, actionConfig);
+            }
 
             return true;
         }
@@ -129,6 +149,23 @@ public class MasterButtonActionService : IDisposable
             _logger.LogError(ex, "Fehler bei Master-Button-Aktion Note {Note} ({Action}).",
                 noteNumber, actionConfig.ActionType);
             return false;
+        }
+    }
+
+    private void ExecuteReleaseAction(int noteNumber)
+    {
+        if (!_config.MasterButtonActions.TryGetValue(noteNumber, out var actionConfig))
+            return;
+        if (actionConfig.ActionType != MasterButtonActionType.MqttPublish)
+            return;
+
+        try
+        {
+            ExecuteMqttPublish(actionConfig, isPressed: false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler bei Master-Button Release-Aktion Note {Note}.", noteNumber);
         }
     }
 
@@ -248,6 +285,86 @@ public class MasterButtonActionService : IDisposable
 
         _logger.LogInformation("Macro-Button {Index} wird ausgelöst.", config.MacroButtonIndex.Value);
         _vm.TriggerMacroButton(config.MacroButtonIndex.Value);
+    }
+
+    private void ExecuteMqttPublish(MasterButtonActionConfig config, bool isPressed)
+    {
+        if (string.IsNullOrWhiteSpace(config.MqttTopic))
+        {
+            _logger.LogWarning("MqttPublish: Kein Topic konfiguriert.");
+            return;
+        }
+
+        string payload = isPressed
+            ? (config.MqttPayloadPressed ?? "")
+            : (config.MqttPayloadReleased ?? "");
+        if (string.IsNullOrWhiteSpace(payload))
+            return;
+
+        _ = _mqttClientService.PublishAsync(
+            config.MqttTopic,
+            payload,
+            config.MqttQos,
+            config.MqttRetain);
+    }
+
+    private void ExecuteSelectMqttDevice(int noteNumber, MasterButtonActionConfig config)
+    {
+        if (string.IsNullOrWhiteSpace(config.MqttDeviceId) || string.IsNullOrWhiteSpace(config.MqttDeviceCommandTopic))
+        {
+            _logger.LogWarning("SelectMqttDevice: DeviceId oder Topic fehlt.");
+            return;
+        }
+
+        bool sameDevice = string.Equals(_activeMqttDeviceId, config.MqttDeviceId, StringComparison.OrdinalIgnoreCase);
+        if (sameDevice)
+        {
+            _activeMqttDeviceId = null;
+            _activeMqttDeviceTopic = null;
+        }
+        else
+        {
+            _activeMqttDeviceId = config.MqttDeviceId.Trim();
+            _activeMqttDeviceTopic = config.MqttDeviceCommandTopic.Trim();
+        }
+
+        UpdateMqttSelectorLeds();
+        _logger.LogInformation("MQTT Device Selection: {Device}", _activeMqttDeviceId ?? "(none)");
+    }
+
+    private void ExecuteMqttTransport(MasterButtonActionConfig config)
+    {
+        if (string.IsNullOrWhiteSpace(_activeMqttDeviceTopic))
+        {
+            _logger.LogDebug("MqttTransport: Kein aktives MQTT-Ziel geraet.");
+            return;
+        }
+
+        var command = string.IsNullOrWhiteSpace(config.MqttTransportCommand)
+            ? "play_pause"
+            : config.MqttTransportCommand.Trim().ToLowerInvariant();
+        var payload = string.IsNullOrWhiteSpace(config.MqttPayloadPressed)
+            ? command
+            : config.MqttPayloadPressed;
+
+        _ = _mqttClientService.PublishAsync(
+            _activeMqttDeviceTopic,
+            payload,
+            config.MqttQos,
+            config.MqttRetain);
+    }
+
+    private void UpdateMqttSelectorLeds()
+    {
+        foreach (var (note, action) in _config.MasterButtonActions)
+        {
+            if (action.ActionType != MasterButtonActionType.SelectMqttDevice)
+                continue;
+
+            bool isActive = !string.IsNullOrWhiteSpace(_activeMqttDeviceId) &&
+                            string.Equals(_activeMqttDeviceId, action.MqttDeviceId, StringComparison.OrdinalIgnoreCase);
+            _midiDevice.SetMasterButtonLed(note, isActive ? Core.Enums.LedState.On : Core.Enums.LedState.Off);
+        }
     }
 
     /// <summary>

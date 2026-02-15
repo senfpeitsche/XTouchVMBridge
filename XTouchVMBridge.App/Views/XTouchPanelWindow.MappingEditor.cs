@@ -41,6 +41,13 @@ public partial class XTouchPanelWindow
         {
             HideMappingSubPanels();
 
+            ButtonActionTypeCombo.Items.Clear();
+            ButtonActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM-Parameter toggeln", Tag = ButtonActionType.VmParameter });
+            ButtonActionTypeCombo.Items.Add(new ComboBoxItem { Content = "MQTT Publish", Tag = ButtonActionType.MqttPublish });
+            ButtonMqttQosCombo.ItemsSource = new[] { "0", "1", "2" };
+            ButtonMqttLedTestModeCombo.ItemsSource = new[] { "On", "Off", "Blink", "Toggle" };
+            ButtonMqttLedTestModeCombo.SelectedItem = "On";
+
             // ComboBox mit Bool-Parametern befüllen
             var boolParams = VoicemeeterParameterCatalog.GetBoolParameters(vmCh);
             ButtonParamCombo.Items.Clear();
@@ -56,12 +63,16 @@ public partial class XTouchPanelWindow
             }
 
             // Aktuellen Wert auswählen
+            ButtonMappingConfig? currentMapping = null;
             string? currentParam = null;
             if (_config.Mappings.TryGetValue(vmCh, out var mapping))
             {
                 string btnKey = buttonType.ToString();
                 if (mapping.Buttons.TryGetValue(btnKey, out var btnMap) && btnMap != null)
+                {
+                    currentMapping = btnMap;
                     currentParam = btnMap.Parameter;
+                }
             }
 
             ButtonParamCombo.SelectedIndex = 0; // Default: nicht zugewiesen
@@ -77,8 +88,28 @@ public partial class XTouchPanelWindow
                 }
             }
 
+            var actionType = currentMapping?.ActionType ?? ButtonActionType.VmParameter;
+            ButtonActionTypeCombo.SelectedIndex = actionType == ButtonActionType.MqttPublish ? 1 : 0;
+
+            var publish = currentMapping?.MqttPublish;
+            ButtonMqttTopicBox.Text = publish?.Topic ?? "";
+            ButtonMqttPayloadPressBox.Text = publish?.PayloadPressed ?? "on";
+            ButtonMqttPayloadReleaseBox.Text = publish?.PayloadReleased ?? "";
+            ButtonMqttQosCombo.SelectedItem = (publish?.Qos ?? 0).ToString();
+            ButtonMqttRetainBox.IsChecked = publish?.Retain == true;
+
+            var led = currentMapping?.MqttLedReceive;
+            ButtonMqttLedEnabledBox.IsChecked = led?.Enabled == true;
+            ButtonMqttLedTopicBox.Text = led?.Topic ?? "";
+            ButtonMqttLedOnPayloadBox.Text = led?.PayloadOn ?? "on";
+            ButtonMqttLedOffPayloadBox.Text = led?.PayloadOff ?? "off";
+            ButtonMqttLedBlinkPayloadBox.Text = led?.PayloadBlink ?? "blink";
+            ButtonMqttLedTogglePayloadBox.Text = led?.PayloadToggle ?? "toggle";
+
+            UpdateButtonActionSubPanels(actionType);
+
             ButtonMappingPanel.Visibility = Visibility.Visible;
-            MappingPanelHeader.Text = "VM-Parameter Zuweisung";
+            MappingPanelHeader.Text = "Button Mapping";
             MappingPanel.Visibility = Visibility.Visible;
         }
         finally
@@ -88,6 +119,14 @@ public partial class XTouchPanelWindow
     }
 
     /// <summary>Zeigt das Fader-Mapping-Panel für einen Kanal.</summary>
+    private void UpdateButtonActionSubPanels(ButtonActionType actionType)
+    {
+        ButtonVmParamPanel.Visibility = actionType == ButtonActionType.VmParameter
+            ? Visibility.Visible : Visibility.Collapsed;
+        ButtonMqttPublishPanel.Visibility = actionType == ButtonActionType.MqttPublish
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private void ShowFaderMappingPanel(int xtChannel)
     {
         if (_config == null || _configService == null)
@@ -241,6 +280,12 @@ public partial class XTouchPanelWindow
             MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM-Fenster anzeigen", Tag = MasterButtonActionType.ShowVoicemeeter });
             MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM-GUI sperren/entsperren", Tag = MasterButtonActionType.LockGui });
             MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "Macro-Button auslösen", Tag = MasterButtonActionType.TriggerMacroButton });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "MQTT Publish", Tag = MasterButtonActionType.MqttPublish });
+            MasterMqttQosCombo.ItemsSource = new[] { "0", "1", "2" };
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "MQTT Geraet auswaehlen", Tag = MasterButtonActionType.SelectMqttDevice });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "MQTT Transport", Tag = MasterButtonActionType.MqttTransport });
+            MasterMqttTransportQosCombo.ItemsSource = new[] { "0", "1", "2" };
+            MasterMqttTransportCommandCombo.ItemsSource = new[] { "play_pause", "play", "pause", "stop", "next", "prev" };
 
             // Aktuelle Config laden
             MasterButtonActionConfig? actionConfig = null;
@@ -265,6 +310,26 @@ public partial class XTouchPanelWindow
             MasterKeyCombinationBox.Text = actionConfig?.KeyCombination ?? "";
             MasterTextBox.Text = actionConfig?.Text ?? "";
             MasterMacroButtonIndexBox.Text = actionConfig?.MacroButtonIndex?.ToString() ?? "0";
+            MasterMqttTopicBox.Text = actionConfig?.MqttTopic ?? "";
+            MasterMqttPayloadPressBox.Text = actionConfig?.MqttPayloadPressed ?? "on";
+            MasterMqttPayloadReleaseBox.Text = actionConfig?.MqttPayloadReleased ?? "";
+            MasterMqttQosCombo.SelectedItem = actionConfig?.MqttQos.ToString() ?? "0";
+            MasterMqttRetainBox.IsChecked = actionConfig?.MqttRetain == true;
+            MasterMqttLedEnabledBox.IsChecked = actionConfig?.MqttLedEnabled == true;
+            MasterMqttLedTopicBox.Text = actionConfig?.MqttLedTopic ?? "";
+            MasterMqttLedOnPayloadBox.Text = actionConfig?.MqttLedPayloadOn ?? "on";
+            MasterMqttLedOffPayloadBox.Text = actionConfig?.MqttLedPayloadOff ?? "off";
+            MasterMqttLedBlinkPayloadBox.Text = actionConfig?.MqttLedPayloadBlink ?? "blink";
+            MasterMqttLedTogglePayloadBox.Text = actionConfig?.MqttLedPayloadToggle ?? "toggle";
+            MasterMqttDeviceIdBox.Text = actionConfig?.MqttDeviceId ?? "";
+            MasterMqttDeviceCommandTopicBox.Text = actionConfig?.MqttDeviceCommandTopic ?? "";
+            MasterMqttTransportCommandCombo.SelectedItem =
+                actionConfig?.MqttTransportCommand ??
+                GetDefaultTransportCommandForMasterNote(_selectedMasterButtonNote) ??
+                "play_pause";
+            MasterMqttTransportPayloadBox.Text = actionConfig?.MqttPayloadPressed ?? "";
+            MasterMqttTransportQosCombo.SelectedItem = actionConfig?.MqttQos.ToString() ?? "0";
+            MasterMqttTransportRetainBox.IsChecked = actionConfig?.MqttRetain == true;
 
             // LED-Feedback-ComboBox befüllen
             MasterLedFeedbackCombo.Items.Clear();
@@ -303,9 +368,15 @@ public partial class XTouchPanelWindow
         MasterSendKeysPanel.Visibility = type == MasterButtonActionType.SendKeys ? Visibility.Visible : Visibility.Collapsed;
         MasterSendTextPanel.Visibility = type == MasterButtonActionType.SendText ? Visibility.Visible : Visibility.Collapsed;
         MasterMacroButtonPanel.Visibility = type == MasterButtonActionType.TriggerMacroButton ? Visibility.Visible : Visibility.Collapsed;
+        MasterMqttPanel.Visibility = type == MasterButtonActionType.MqttPublish ? Visibility.Visible : Visibility.Collapsed;
+        MasterMqttDeviceSelectPanel.Visibility = type == MasterButtonActionType.SelectMqttDevice ? Visibility.Visible : Visibility.Collapsed;
+        MasterMqttTransportPanel.Visibility = type == MasterButtonActionType.MqttTransport ? Visibility.Visible : Visibility.Collapsed;
 
         // LED-Feedback-Auswahl anzeigen wenn eine Aktion gewählt ist
-        MasterLedFeedbackPanel.Visibility = type != MasterButtonActionType.None ? Visibility.Visible : Visibility.Collapsed;
+        MasterLedFeedbackPanel.Visibility =
+            type != MasterButtonActionType.None && type != MasterButtonActionType.SelectMqttDevice
+                ? Visibility.Visible
+                : Visibility.Collapsed;
     }
 
     /// <summary>Aktionstyp-ComboBox geändert.</summary>
@@ -316,7 +387,32 @@ public partial class XTouchPanelWindow
         if (item.Tag is not MasterButtonActionType type) return;
 
         UpdateMasterActionSubPanels(type);
+        if (type == MasterButtonActionType.MqttTransport)
+            ApplyMasterTransportPresetIfNeeded();
     }
+
+    private void ApplyMasterTransportPresetIfNeeded()
+    {
+        var preset = GetDefaultTransportCommandForMasterNote(_selectedMasterButtonNote);
+        if (string.IsNullOrWhiteSpace(preset))
+            return;
+
+        var current = MasterMqttTransportCommandCombo.SelectedItem?.ToString() ?? "";
+        if (!string.IsNullOrWhiteSpace(current) && current != "play_pause")
+            return;
+
+        MasterMqttTransportCommandCombo.SelectedItem = preset;
+    }
+
+    private static string? GetDefaultTransportCommandForMasterNote(int noteNumber) => noteNumber switch
+    {
+        91 => "prev",        // Rewind
+        92 => "next",        // Forward
+        93 => "stop",        // Stop
+        94 => "play_pause",  // Play
+        95 => "pause",       // Record button as dedicated pause preset
+        _ => null
+    };
 
     /// <summary>Programm-Pfad per Datei-Dialog auswählen.</summary>
     private void OnMasterBrowseProgram(object sender, RoutedEventArgs e)
@@ -370,6 +466,32 @@ public partial class XTouchPanelWindow
                 KeyCombination = selectedType == MasterButtonActionType.SendKeys ? MasterKeyCombinationBox.Text.Trim() : null,
                 Text = selectedType == MasterButtonActionType.SendText ? MasterTextBox.Text : null,
                 MacroButtonIndex = macroIndex,
+                MqttTopic = selectedType == MasterButtonActionType.MqttPublish ? MasterMqttTopicBox.Text.Trim() : null,
+                MqttPayloadReleased = selectedType == MasterButtonActionType.MqttPublish ? MasterMqttPayloadReleaseBox.Text : null,
+                MqttDeviceId = selectedType == MasterButtonActionType.SelectMqttDevice ? MasterMqttDeviceIdBox.Text.Trim() : null,
+                MqttDeviceCommandTopic = selectedType == MasterButtonActionType.SelectMqttDevice ? MasterMqttDeviceCommandTopicBox.Text.Trim() : null,
+                MqttTransportCommand = selectedType == MasterButtonActionType.MqttTransport
+                    ? (MasterMqttTransportCommandCombo.SelectedItem?.ToString() ?? "play_pause")
+                    : null,
+                MqttPayloadPressed = selectedType == MasterButtonActionType.MqttTransport
+                    ? MasterMqttTransportPayloadBox.Text
+                    : (selectedType == MasterButtonActionType.MqttPublish ? MasterMqttPayloadPressBox.Text : null),
+                MqttQos = selectedType == MasterButtonActionType.MqttTransport &&
+                          int.TryParse(MasterMqttTransportQosCombo.SelectedItem?.ToString(), out int transportQos)
+                    ? Math.Clamp(transportQos, 0, 2)
+                    : (selectedType == MasterButtonActionType.MqttPublish &&
+                       int.TryParse(MasterMqttQosCombo.SelectedItem?.ToString(), out int mqttQos)
+                        ? Math.Clamp(mqttQos, 0, 2)
+                        : 0),
+                MqttRetain = selectedType == MasterButtonActionType.MqttTransport
+                    ? MasterMqttTransportRetainBox.IsChecked == true
+                    : (selectedType == MasterButtonActionType.MqttPublish && MasterMqttRetainBox.IsChecked == true),
+                MqttLedEnabled = selectedType == MasterButtonActionType.MqttPublish && MasterMqttLedEnabledBox.IsChecked == true,
+                MqttLedTopic = selectedType == MasterButtonActionType.MqttPublish ? MasterMqttLedTopicBox.Text.Trim() : null,
+                MqttLedPayloadOn = selectedType == MasterButtonActionType.MqttPublish ? MasterMqttLedOnPayloadBox.Text : null,
+                MqttLedPayloadOff = selectedType == MasterButtonActionType.MqttPublish ? MasterMqttLedOffPayloadBox.Text : null,
+                MqttLedPayloadBlink = selectedType == MasterButtonActionType.MqttPublish ? MasterMqttLedBlinkPayloadBox.Text : null,
+                MqttLedPayloadToggle = selectedType == MasterButtonActionType.MqttPublish ? MasterMqttLedTogglePayloadBox.Text : null,
                 LedFeedback = ledMode
             };
         }
@@ -392,6 +514,23 @@ public partial class XTouchPanelWindow
         MasterKeyCombinationBox.Text = "";
         MasterTextBox.Text = "";
         MasterMacroButtonIndexBox.Text = "0";
+        MasterMqttTopicBox.Text = "";
+        MasterMqttPayloadPressBox.Text = "on";
+        MasterMqttPayloadReleaseBox.Text = "";
+        MasterMqttQosCombo.SelectedItem = "0";
+        MasterMqttRetainBox.IsChecked = false;
+        MasterMqttLedEnabledBox.IsChecked = false;
+        MasterMqttLedTopicBox.Text = "";
+        MasterMqttLedOnPayloadBox.Text = "on";
+        MasterMqttLedOffPayloadBox.Text = "off";
+        MasterMqttLedBlinkPayloadBox.Text = "blink";
+        MasterMqttLedTogglePayloadBox.Text = "toggle";
+        MasterMqttDeviceIdBox.Text = "";
+        MasterMqttDeviceCommandTopicBox.Text = "";
+        MasterMqttTransportCommandCombo.SelectedItem = "play_pause";
+        MasterMqttTransportPayloadBox.Text = "";
+        MasterMqttTransportQosCombo.SelectedItem = "0";
+        MasterMqttTransportRetainBox.IsChecked = false;
         if (MasterLedFeedbackCombo.Items.Count > 0)
             MasterLedFeedbackCombo.SelectedIndex = 0;
         UpdateMasterActionSubPanels(MasterButtonActionType.None);
@@ -601,10 +740,22 @@ public partial class XTouchPanelWindow
     // ═══════════════════════════════════════════════════════════════════
 
     /// <summary>Button-Parameter geändert (ComboBox SelectionChanged).</summary>
+    private void OnButtonActionTypeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressMappingEvents) return;
+        if (ButtonActionTypeCombo.SelectedItem is not ComboBoxItem item) return;
+        if (item.Tag is not ButtonActionType actionType) return;
+        UpdateButtonActionSubPanels(actionType);
+    }
+
     private void OnButtonParamChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressMappingEvents || _config == null || _configService == null) return;
         if (_selectedVmChannel < 0 || _selectedControlType != "Button") return;
+        if (ButtonActionTypeCombo.SelectedItem is not ComboBoxItem item ||
+            item.Tag is not ButtonActionType actionType ||
+            actionType != ButtonActionType.VmParameter)
+            return;
 
         var selected = ButtonParamCombo.SelectedItem as ComboBoxItem;
         string paramName = (string)(selected?.Tag ?? "");
@@ -613,16 +764,106 @@ public partial class XTouchPanelWindow
         var mapping = _config.Mappings[_selectedVmChannel];
         string btnKey = _selectedButtonType.ToString();
 
-        if (string.IsNullOrEmpty(paramName))
+        if (!mapping.Buttons.TryGetValue(btnKey, out var btnMap) || btnMap == null)
+            btnMap = new ButtonMappingConfig();
+
+        btnMap.ActionType = ButtonActionType.VmParameter;
+        btnMap.Parameter = paramName;
+        mapping.Buttons[btnKey] = string.IsNullOrWhiteSpace(paramName) ? null : btnMap;
+
+        SaveAndReload();
+    }
+
+    private void OnButtonMappingSave(object sender, RoutedEventArgs e)
+    {
+        if (_config == null || _configService == null) return;
+        if (_selectedVmChannel < 0 || _selectedControlType != "Button") return;
+        if (ButtonActionTypeCombo.SelectedItem is not ComboBoxItem item ||
+            item.Tag is not ButtonActionType actionType)
+            return;
+
+        EnsureMapping(_selectedVmChannel);
+        var mapping = _config.Mappings[_selectedVmChannel];
+        string btnKey = _selectedButtonType.ToString();
+
+        var btnMap = mapping.Buttons.TryGetValue(btnKey, out var existing) && existing != null
+            ? existing
+            : new ButtonMappingConfig();
+
+        btnMap.ActionType = actionType;
+
+        if (actionType == ButtonActionType.VmParameter)
         {
-            mapping.Buttons[btnKey] = null;
+            var selected = ButtonParamCombo.SelectedItem as ComboBoxItem;
+            btnMap.Parameter = (string)(selected?.Tag ?? "");
+            btnMap.MqttPublish = null;
         }
         else
         {
-            mapping.Buttons[btnKey] = new ButtonMappingConfig { Parameter = paramName };
+            btnMap.Parameter = "";
+            btnMap.MqttPublish = new MqttButtonPublishConfig
+            {
+                Topic = ButtonMqttTopicBox.Text.Trim(),
+                PayloadPressed = ButtonMqttPayloadPressBox.Text ?? "",
+                PayloadReleased = ButtonMqttPayloadReleaseBox.Text ?? "",
+                Qos = int.TryParse(ButtonMqttQosCombo.SelectedItem?.ToString(), out int qos) ? Math.Clamp(qos, 0, 2) : 0,
+                Retain = ButtonMqttRetainBox.IsChecked == true
+            };
         }
 
+        btnMap.MqttLedReceive = new MqttButtonLedReceiveConfig
+        {
+            Enabled = ButtonMqttLedEnabledBox.IsChecked == true,
+            Topic = ButtonMqttLedTopicBox.Text.Trim(),
+            PayloadOn = ButtonMqttLedOnPayloadBox.Text ?? "on",
+            PayloadOff = ButtonMqttLedOffPayloadBox.Text ?? "off",
+            PayloadBlink = ButtonMqttLedBlinkPayloadBox.Text ?? "blink",
+            PayloadToggle = ButtonMqttLedTogglePayloadBox.Text ?? "toggle",
+            IgnoreCase = true
+        };
+
+        mapping.Buttons[btnKey] = btnMap;
         SaveAndReload();
+    }
+
+    private async void OnButtonMqttTestPublish(object sender, RoutedEventArgs e)
+    {
+        if (_mqttClientService == null)
+            return;
+
+        var topic = ButtonMqttTopicBox.Text.Trim();
+        var payload = ButtonMqttPayloadPressBox.Text ?? "";
+        if (string.IsNullOrWhiteSpace(topic) || string.IsNullOrWhiteSpace(payload))
+            return;
+
+        await _mqttClientService.PublishAsync(
+            topic,
+            payload,
+            int.TryParse(ButtonMqttQosCombo.SelectedItem?.ToString(), out int qos) ? Math.Clamp(qos, 0, 2) : 0,
+            ButtonMqttRetainBox.IsChecked == true);
+    }
+
+    private async void OnButtonMqttTestLed(object sender, RoutedEventArgs e)
+    {
+        if (_mqttClientService == null)
+            return;
+
+        var topic = ButtonMqttLedTopicBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(topic))
+            return;
+
+        var mode = ButtonMqttLedTestModeCombo.SelectedItem?.ToString() ?? "On";
+        var payload = mode switch
+        {
+            "Off" => ButtonMqttLedOffPayloadBox.Text,
+            "Blink" => ButtonMqttLedBlinkPayloadBox.Text,
+            "Toggle" => ButtonMqttLedTogglePayloadBox.Text,
+            _ => ButtonMqttLedOnPayloadBox.Text
+        };
+        if (string.IsNullOrWhiteSpace(payload))
+            return;
+
+        await _mqttClientService.PublishAsync(topic, payload, 0, false);
     }
 
     /// <summary>Button-Zuweisung entfernen (Clear-Button Click).</summary>
@@ -636,7 +877,21 @@ public partial class XTouchPanelWindow
         _config.Mappings[_selectedVmChannel].Buttons[btnKey] = null;
 
         _suppressMappingEvents = true;
+        ButtonActionTypeCombo.SelectedIndex = 0;
         ButtonParamCombo.SelectedIndex = 0;
+        ButtonMqttTopicBox.Text = "";
+        ButtonMqttPayloadPressBox.Text = "on";
+        ButtonMqttPayloadReleaseBox.Text = "";
+        ButtonMqttQosCombo.SelectedItem = "0";
+        ButtonMqttRetainBox.IsChecked = false;
+        ButtonMqttLedEnabledBox.IsChecked = false;
+        ButtonMqttLedTopicBox.Text = "";
+        ButtonMqttLedOnPayloadBox.Text = "on";
+        ButtonMqttLedOffPayloadBox.Text = "off";
+        ButtonMqttLedBlinkPayloadBox.Text = "blink";
+        ButtonMqttLedTogglePayloadBox.Text = "toggle";
+        ButtonMqttLedTestModeCombo.SelectedItem = "On";
+        UpdateButtonActionSubPanels(ButtonActionType.VmParameter);
         _suppressMappingEvents = false;
 
         SaveAndReload();

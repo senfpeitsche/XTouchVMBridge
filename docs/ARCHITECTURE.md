@@ -48,8 +48,11 @@ services.AddSingleton<IVoicemeeterService, VoicemeeterService>();
 services.AddSingleton<IScreenLockDetector, ScreenLockDetector>();
 services.AddHostedService<AudioDeviceMonitorService>(); // Hintergrund-Thread + X-Touch Reconnect
 services.AddHostedService<VoicemeeterBridge>();          // 100ms Polling-Loop
-services.AddSingleton<MasterButtonActionService>();      // Master-Button → Programm/Keys/Text/VM-Commands/Macro
+services.AddSingleton<MasterButtonActionService>();      // Master-Button -> Programm/Keys/Text/VM/MQTT
 services.AddHostedService<SegmentDisplayService>();      // 7-Segment-Display (Uhrzeit etc.)
+services.AddSingleton<MqttClientService>();              // MQTT Client (connect/publish/subscribe)
+services.AddHostedService(sp => sp.GetRequiredService<MqttClientService>());
+services.AddSingleton<MqttButtonIntegrationService>();   // MQTT <-> Button Mapping/LEDs
 services.AddSingleton<TrayIconService>();
 ```
 
@@ -584,6 +587,11 @@ Der Toggle-State wird in `_masterButtonLedState` im PanelView gespeichert.
 Master-Section-Buttons (Notes 40+) feuern das `MasterButtonChanged`-Event. Der `MasterButtonActionService`
 reagiert auf konfigurierte Buttons und führt die zugehörige Aktion aus.
 
+Aktuelle MQTT-bezogene Aktionstypen:
+- `MqttPublish` (Press/Release Publish + optional LED per MQTT)
+- `SelectMqttDevice` (aktives Zielgerät wählen, Selector-LED zeigt Status)
+- `MqttTransport` (Transport-Command an aktuell gewähltes Zielgerät senden)
+
 ### Neuen Aktionstyp hinzufügen
 
 1. **Enum erweitern** in `Core/Models/MasterButtonActionConfig.cs`:
@@ -862,3 +870,4 @@ Diese Skripte erfordern `mido` und helfen beim Debugging von MIDI-Kommunikation.
 | Serilog + Sinks | App | Strukturiertes Logging in Datei + Console |
 | Microsoft.Extensions.Logging.Abstractions | Midi, Voicemeeter | ILogger<T> Interface |
 | Microsoft.Extensions.Hosting.Abstractions | Voicemeeter | BackgroundService |
+

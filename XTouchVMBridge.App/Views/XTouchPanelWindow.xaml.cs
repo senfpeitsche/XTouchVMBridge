@@ -44,6 +44,7 @@ public partial class XTouchPanelWindow : Window
     private readonly VoicemeeterBridge? _bridge;
     private readonly IVoicemeeterService? _vm;
     private readonly MasterButtonActionService? _masterButtonActionService;
+    private readonly MqttClientService? _mqttClientService;
     private readonly DispatcherTimer _refreshTimer;
 
     // ─── UI-Referenzen: 8 Kanalstreifen ──────────────────────────────
@@ -93,11 +94,12 @@ public partial class XTouchPanelWindow : Window
     private readonly Dictionary<(int Channel, XTouchButtonType Type), bool> _manualLedState = new();
     private readonly Dictionary<int, bool> _masterButtonLedState = new();
 
-    public XTouchPanelWindow() : this(null, null, null, null, null, null) { }
+    public XTouchPanelWindow() : this(null, null, null, null, null, null, null) { }
 
     public XTouchPanelWindow(IMidiDevice? device, XTouchVMBridgeConfig? config,
         IConfigurationService? configService = null, VoicemeeterBridge? bridge = null,
-        IVoicemeeterService? vm = null, MasterButtonActionService? masterButtonActionService = null)
+        IVoicemeeterService? vm = null, MasterButtonActionService? masterButtonActionService = null,
+        MqttClientService? mqttClientService = null)
     {
         InitializeComponent();
         _device = device;
@@ -106,6 +108,7 @@ public partial class XTouchPanelWindow : Window
         _bridge = bridge;
         _vm = vm;
         _masterButtonActionService = masterButtonActionService;
+        _mqttClientService = mqttClientService;
 
         BuildChannelStrips();
         BuildMainFader();
@@ -379,6 +382,17 @@ public partial class XTouchPanelWindow : Window
         if (_config == null || _configService == null) return;
 
         var dialog = new ChannelViewEditorDialog(_config, _configService, _bridge, _vm)
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+    }
+
+    private void OnOpenMqttConfig(object sender, RoutedEventArgs e)
+    {
+        if (_config == null || _configService == null) return;
+
+        var dialog = new MqttConfigDialog(_config, _configService, _mqttClientService)
         {
             Owner = this
         };

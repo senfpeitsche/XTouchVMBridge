@@ -1,5 +1,31 @@
 # Changelog
 
+## [Unreleased] - 2026-02-15
+
+### MQTT: Mapping-Editor und Runtime erweitert
+- **Neu**: Button-Mapping kann jetzt zwischen `VM-Parameter` und `MQTT Publish` umschalten
+- **Neu**: MQTT-LED-Empfang fuer Channel-Buttons (`On/Off/Blink/Toggle` per Topic+Payload)
+- **Neu**: Test-Funktionen im Button-Mapping:
+  - `Test Publish` fuer den aktuell konfigurierten MQTT-Publish
+  - `Test LED` fuer den aktuell konfigurierten MQTT-LED-Topic/Payload
+
+### Master-Buttons: MQTT erweitert
+- **Neu**: Master-Aktionstyp `MqttPublish` (Press/Release Payload, QoS, Retain)
+- **Neu**: `LED per MQTT steuern` auch in der Master-Section fuer `MqttPublish`
+- **Neu**: Master-Aktionstyp `SelectMqttDevice`:
+  - waehlt ein aktives MQTT-Zielgeraet (`DeviceId` + `CommandTopic`)
+  - Selector-LEDs zeigen aktive Auswahl (genau ein aktiv)
+- **Neu**: Master-Aktionstyp `MqttTransport`:
+  - sendet `play_pause/play/pause/stop/next/prev` an das aktive Zielgeraet
+  - optionales Payload-Override, QoS, Retain
+- **Neu**: Transport-Presets im Editor je nach Transport-Button:
+  - Rewind -> `prev`, Forward -> `next`, Stop -> `stop`, Play -> `play_pause`, Record -> `pause`
+
+### MQTT-Subscription
+- **Neu**: MQTT-Client abonniert automatisch LED-Topics aus:
+  - Channel-Button `MqttLedReceive`
+  - Master-Button `MqttLed*`
+
 ## [Unreleased] - 2025-02-09
 
 ### Master-Button-Aktionen: Neue Aktionstypen

@@ -44,4 +44,7 @@ public class XTouchVMBridgeConfig
     /// Default: 52 (NAME/VALUE-Button). 0 = deaktiviert.
     /// </summary>
     public int SegmentDisplayCycleButton { get; set; } = 52;
+
+    /// <summary>MQTT Client-Konfiguration.</summary>
+    public MqttConfig Mqtt { get; set; } = new();
 }

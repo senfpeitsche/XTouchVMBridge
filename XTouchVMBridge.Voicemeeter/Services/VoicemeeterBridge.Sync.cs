@@ -1,5 +1,6 @@
 using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Hardware;
+using XTouchVMBridge.Core.Models;
 
 namespace XTouchVMBridge.Voicemeeter.Services;
 
@@ -91,6 +92,13 @@ public partial class VoicemeeterBridge
                 var btnMap = GetButtonMapping(vmCh, btnType);
                 if (btnMap != null)
                 {
+                    if (btnMap.ActionType == ButtonActionType.MqttPublish)
+                        continue;
+                    if (btnMap.MqttLedReceive?.Enabled == true)
+                        continue;
+                    if (string.IsNullOrWhiteSpace(btnMap.Parameter))
+                        continue;
+
                     float val = _vm.GetParameter(btnMap.Parameter);
                     _xtouch.SetButtonLed(xtCh, btnType,
                         val > 0.5f ? LedState.On : LedState.Off);

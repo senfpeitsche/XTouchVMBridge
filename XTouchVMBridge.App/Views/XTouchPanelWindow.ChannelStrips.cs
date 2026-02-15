@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Interfaces;
+using XTouchVMBridge.Core.Models;
 using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
 using Color = System.Windows.Media.Color;
@@ -280,11 +281,30 @@ public partial class XTouchPanelWindow
                 string btnKey = type.ToString();
                 if (mapping.Buttons.TryGetValue(btnKey, out var btnMap) && btnMap != null)
                 {
-                    // Bool-Parameter toggeln
-                    float currentValue = _vm.GetParameter(btnMap.Parameter);
-                    float newValue = currentValue > 0.5f ? 0f : 1f;
-                    _vm.SetParameter(btnMap.Parameter, newValue);
-                    hasMapping = true;
+                    if (btnMap.ActionType == ButtonActionType.MqttPublish)
+                    {
+                        var publish = btnMap.MqttPublish;
+                        if (_mqttClientService != null &&
+                            publish != null &&
+                            !string.IsNullOrWhiteSpace(publish.Topic) &&
+                            !string.IsNullOrWhiteSpace(publish.PayloadPressed))
+                        {
+                            _ = _mqttClientService.PublishAsync(
+                                publish.Topic,
+                                publish.PayloadPressed,
+                                publish.Qos,
+                                publish.Retain);
+                            hasMapping = true;
+                        }
+                    }
+                    else if (!string.IsNullOrWhiteSpace(btnMap.Parameter))
+                    {
+                        // Bool-Parameter toggeln
+                        float currentValue = _vm.GetParameter(btnMap.Parameter);
+                        float newValue = currentValue > 0.5f ? 0f : 1f;
+                        _vm.SetParameter(btnMap.Parameter, newValue);
+                        hasMapping = true;
+                    }
                 }
             }
         }

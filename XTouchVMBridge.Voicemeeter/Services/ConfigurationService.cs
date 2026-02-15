@@ -186,6 +186,9 @@ public class ConfigurationService : IConfigurationService
 
     private void ValidateConfig(XTouchVMBridgeConfig config)
     {
+        config.Mqtt ??= new MqttConfig();
+        config.Mqtt.Normalize();
+
         foreach (var (key, channel) in config.Channels)
         {
             // Name auf 7 Zeichen begrenzen
@@ -240,6 +243,32 @@ public class ConfigurationService : IConfigurationService
                     if (fn.Label.Length > 7)
                         fn.Label = fn.Label[..7];
                 }
+
+                foreach (var (_, buttonMapping) in mapping.Buttons)
+                {
+                    if (buttonMapping == null)
+                        continue;
+
+                    if (!Enum.IsDefined(buttonMapping.ActionType))
+                        buttonMapping.ActionType = ButtonActionType.VmParameter;
+
+                    if (buttonMapping.MqttPublish != null)
+                    {
+                        buttonMapping.MqttPublish.Topic = buttonMapping.MqttPublish.Topic?.Trim() ?? "";
+                        buttonMapping.MqttPublish.PayloadPressed ??= "";
+                        buttonMapping.MqttPublish.PayloadReleased ??= "";
+                        buttonMapping.MqttPublish.Qos = Math.Clamp(buttonMapping.MqttPublish.Qos, 0, 2);
+                    }
+
+                    if (buttonMapping.MqttLedReceive != null)
+                    {
+                        buttonMapping.MqttLedReceive.Topic = buttonMapping.MqttLedReceive.Topic?.Trim() ?? "";
+                        buttonMapping.MqttLedReceive.PayloadOn ??= "on";
+                        buttonMapping.MqttLedReceive.PayloadOff ??= "off";
+                        buttonMapping.MqttLedReceive.PayloadBlink ??= "blink";
+                        buttonMapping.MqttLedReceive.PayloadToggle ??= "toggle";
+                    }
+                }
             }
         }
 
@@ -278,6 +307,24 @@ public class ConfigurationService : IConfigurationService
                 if (view.MainFaderChannel.HasValue)
                     view.MainFaderChannel = Math.Clamp(view.MainFaderChannel.Value, 0, 15);
             }
+        }
+
+        foreach (var (_, action) in config.MasterButtonActions)
+        {
+            action.MqttQos = Math.Clamp(action.MqttQos, 0, 2);
+            action.MqttTopic = action.MqttTopic?.Trim();
+            action.MqttPayloadPressed ??= "";
+            action.MqttPayloadReleased ??= "";
+            action.MqttDeviceId = action.MqttDeviceId?.Trim();
+            action.MqttDeviceCommandTopic = action.MqttDeviceCommandTopic?.Trim();
+            action.MqttTransportCommand = string.IsNullOrWhiteSpace(action.MqttTransportCommand)
+                ? "play_pause"
+                : action.MqttTransportCommand.Trim().ToLowerInvariant();
+            action.MqttLedTopic = action.MqttLedTopic?.Trim();
+            action.MqttLedPayloadOn ??= "on";
+            action.MqttLedPayloadOff ??= "off";
+            action.MqttLedPayloadBlink ??= "blink";
+            action.MqttLedPayloadToggle ??= "toggle";
         }
     }
 }

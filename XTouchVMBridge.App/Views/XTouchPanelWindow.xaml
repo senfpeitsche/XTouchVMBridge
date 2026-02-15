@@ -269,6 +269,11 @@
                     ToolTip="Klick: Channel Views bearbeiten&#x0a;Wechsel über Fader Bank ◄ ►"
                     FontFamily="Consolas" FontSize="12" MinWidth="120"
                     Foreground="Black" Background="#888"/>
+            <Button x:Name="MqttConfigButton" Content="MQTT" Style="{StaticResource MasterButton}"
+                    Padding="10,4" Click="OnOpenMqttConfig"
+                    ToolTip="MQTT Server konfigurieren"
+                    FontFamily="Consolas" FontSize="12" MinWidth="80"
+                    Foreground="#DDD" Background="#2D2D30" Margin="8,0,0,0"/>
         </StackPanel>
 
         <!-- Hauptbereich: 8 Kanäle + Master Section -->
@@ -549,21 +554,73 @@
                         <TextBlock x:Name="MappingPanelHeader" Text="VM-Parameter Zuweisung" Foreground="#569CD6"
                                    FontFamily="Consolas" FontSize="11" FontWeight="Bold" Margin="0,0,0,6"/>
 
-                        <!-- Button-Mapping: ComboBox -->
+                        <!-- Button-Mapping: VM oder MQTT -->
                         <StackPanel x:Name="ButtonMappingPanel" Visibility="Collapsed">
-                            <TextBlock Text="Parameter:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <ComboBox x:Name="ButtonParamCombo" Grid.Column="0"
-                                          SelectionChanged="OnButtonParamChanged"/>
-                                <Button Grid.Column="1" Content="✕" Width="24" Height="24" Margin="4,0,0,0"
-                                        Background="#3C0F0F" Foreground="#FF6666" FontWeight="Bold"
-                                        BorderThickness="0" Cursor="Hand" Click="OnButtonMappingClear"
+                            <TextBlock Text="Aktion:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                            <ComboBox x:Name="ButtonActionTypeCombo" SelectionChanged="OnButtonActionTypeChanged"/>
+
+                            <StackPanel x:Name="ButtonVmParamPanel" Margin="0,6,0,0">
+                                <TextBlock Text="VM-Parameter:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <ComboBox x:Name="ButtonParamCombo" SelectionChanged="OnButtonParamChanged"/>
+                            </StackPanel>
+
+                            <StackPanel x:Name="ButtonMqttPublishPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="MQTT Topic:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox x:Name="ButtonMqttTopicBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                <TextBlock Text="Payload Press:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <TextBox x:Name="ButtonMqttPayloadPressBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                <TextBlock Text="Payload Release (optional):" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <TextBox x:Name="ButtonMqttPayloadReleaseBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="QoS:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="ButtonMqttQosCombo" Width="60" Margin="6,0,0,0"/>
+                                    <CheckBox x:Name="ButtonMqttRetainBox" Content="Retain" Margin="10,0,0,0"
+                                              Foreground="#DDD" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center"/>
+                                    <Button Content="Test Publish" Padding="6,2" Margin="10,0,0,0" Cursor="Hand"
+                                            Background="#2D2D30" Foreground="#DDD" FontFamily="Consolas" FontSize="10"
+                                            BorderThickness="0" Click="OnButtonMqttTestPublish"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel x:Name="ButtonMqttLedPanel" Margin="0,8,0,0">
+                                <CheckBox x:Name="ButtonMqttLedEnabledBox" Content="LED per MQTT steuern"
+                                          Foreground="#DDD" FontFamily="Consolas" FontSize="10"/>
+                                <TextBlock Text="LED Topic:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <TextBox x:Name="ButtonMqttLedTopicBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                <TextBlock Text="Payload On / Off / Blink / Toggle:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox x:Name="ButtonMqttLedOnPayloadBox" Width="68" Background="#222" Foreground="#DDD"
+                                             FontFamily="Consolas" FontSize="10" BorderBrush="#444" Margin="0,0,4,0"/>
+                                    <TextBox x:Name="ButtonMqttLedOffPayloadBox" Width="68" Background="#222" Foreground="#DDD"
+                                             FontFamily="Consolas" FontSize="10" BorderBrush="#444" Margin="0,0,4,0"/>
+                                    <TextBox x:Name="ButtonMqttLedBlinkPayloadBox" Width="68" Background="#222" Foreground="#DDD"
+                                             FontFamily="Consolas" FontSize="10" BorderBrush="#444" Margin="0,0,4,0"/>
+                                    <TextBox x:Name="ButtonMqttLedTogglePayloadBox" Width="68" Background="#222" Foreground="#DDD"
+                                             FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="LED Test:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="ButtonMqttLedTestModeCombo" Width="80" Margin="6,0,0,0"/>
+                                    <Button Content="Test LED" Padding="6,2" Margin="8,0,0,0" Cursor="Hand"
+                                            Background="#2D2D30" Foreground="#DDD" FontFamily="Consolas" FontSize="10"
+                                            BorderThickness="0" Click="OnButtonMqttTestLed"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Content="Speichern" Padding="8,3" Cursor="Hand"
+                                        Background="#1E3A1E" Foreground="#6CBF6C" FontFamily="Consolas" FontSize="10"
+                                        BorderThickness="0" Click="OnButtonMappingSave"
+                                        ToolTip="Button-Mapping speichern"/>
+                                <Button Content="Entfernen" Padding="8,3" Margin="6,0,0,0" Cursor="Hand"
+                                        Background="#3C0F0F" Foreground="#FF6666" FontFamily="Consolas" FontSize="10"
+                                        BorderThickness="0" Click="OnButtonMappingClear"
                                         ToolTip="Zuweisung entfernen"/>
-                            </Grid>
+                            </StackPanel>
                         </StackPanel>
 
                         <!-- Fader-Mapping: ComboBox + Min/Max -->
@@ -690,6 +747,68 @@
                                 <TextBox x:Name="MasterMacroButtonIndexBox" Background="#222" Foreground="#DDD"
                                          FontFamily="Consolas" FontSize="10" BorderBrush="#444" Width="60" HorizontalAlignment="Left"
                                          ToolTip="Index des Voicemeeter Macro-Buttons (0–79)"/>
+                            </StackPanel>
+
+                            <StackPanel x:Name="MasterMqttDeviceSelectPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="Device ID:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox x:Name="MasterMqttDeviceIdBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                         ToolTip="Eindeutige Geraete-ID (z.B. tv, player2)"/>
+                                <TextBlock Text="Command Topic:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <TextBox x:Name="MasterMqttDeviceCommandTopicBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                         ToolTip="Topic fuer Transport-Befehle dieses Geraets"/>
+                            </StackPanel>
+
+                            <StackPanel x:Name="MasterMqttTransportPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="Transport Command:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <ComboBox x:Name="MasterMqttTransportCommandCombo"
+                                          Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"/>
+                                <TextBlock Text="Payload Override (optional):" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <TextBox x:Name="MasterMqttTransportPayloadBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"
+                                         ToolTip="Leer = Command-Text als Payload"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="QoS:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="MasterMqttTransportQosCombo" Width="60" Margin="6,0,0,0"/>
+                                    <CheckBox x:Name="MasterMqttTransportRetainBox" Content="Retain" Margin="10,0,0,0"
+                                              Foreground="#DDD" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel x:Name="MasterMqttPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                                <TextBlock Text="MQTT Topic:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox x:Name="MasterMqttTopicBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                <TextBlock Text="Payload Press:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <TextBox x:Name="MasterMqttPayloadPressBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                <TextBlock Text="Payload Release (optional):" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <TextBox x:Name="MasterMqttPayloadReleaseBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="QoS:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="MasterMqttQosCombo" Width="60" Margin="6,0,0,0"/>
+                                    <CheckBox x:Name="MasterMqttRetainBox" Content="Retain" Margin="10,0,0,0"
+                                              Foreground="#DDD" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <CheckBox x:Name="MasterMqttLedEnabledBox" Content="LED per MQTT steuern"
+                                          Foreground="#DDD" FontFamily="Consolas" FontSize="10" Margin="0,6,0,0"/>
+                                <TextBlock Text="LED Topic:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <TextBox x:Name="MasterMqttLedTopicBox" Background="#222" Foreground="#DDD"
+                                         FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                <TextBlock Text="Payload On / Off / Blink / Toggle:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox x:Name="MasterMqttLedOnPayloadBox" Width="68" Background="#222" Foreground="#DDD"
+                                             FontFamily="Consolas" FontSize="10" BorderBrush="#444" Margin="0,0,4,0"/>
+                                    <TextBox x:Name="MasterMqttLedOffPayloadBox" Width="68" Background="#222" Foreground="#DDD"
+                                             FontFamily="Consolas" FontSize="10" BorderBrush="#444" Margin="0,0,4,0"/>
+                                    <TextBox x:Name="MasterMqttLedBlinkPayloadBox" Width="68" Background="#222" Foreground="#DDD"
+                                             FontFamily="Consolas" FontSize="10" BorderBrush="#444" Margin="0,0,4,0"/>
+                                    <TextBox x:Name="MasterMqttLedTogglePayloadBox" Width="68" Background="#222" Foreground="#DDD"
+                                             FontFamily="Consolas" FontSize="10" BorderBrush="#444"/>
+                                </StackPanel>
                             </StackPanel>
 
                             <!-- Speichern / Entfernen Buttons -->

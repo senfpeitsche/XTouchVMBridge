@@ -50,7 +50,7 @@ XTouchVMBridgeCSharp/
 │
 ├── XTouchVMBridge.App/                  # WPF-Anwendung (Entry Point)
 │   ├── Services/                      # TrayIcon, AudioDeviceMonitor, ScreenLock,
-│   │                                  # MasterButtonActionService, SegmentDisplayService
+│   │                                  # MasterButtonActionService, SegmentDisplayService, MQTT
 │   └── Views/                         # LogWindow, MidiDebugWindow, XTouchPanelWindow
 │
 └── XTouchVMBridge.Tests/                # xUnit Tests
@@ -114,6 +114,8 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
     Ohne konfigurierte Aktion wird die LED getoggelt (On/Off) und die MIDI-Note ans X-Touch gesendet.
   - **Strg+Klick auf Kanal-Buttons** (REC/SOLO/MUTE/SELECT): Toggelt den zugeordneten Voicemeeter-Parameter.
     Nicht-zugewiesene Buttons toggeln ihre LED direkt (On/Off).
+  - **MQTT-Button-Mapping im Editor**: pro Kanal-Button zwischen VM-Parameter und MQTT Publish umschaltbar,
+    inkl. `Test Publish` und `Test LED`.
   - **Strg+Klick auf Encoder**: Schaltet durch die Funktionsliste (z.B. HIGH → MID → LOW → PAN → GAIN).
   - **Mausrad auf Encoder**: Ändert den Wert der aktiven Funktion. Strg+Mausrad = 5× gröbere Schritte.
   - **Strg+Klick auf Fader**: Fader per Mausbewegung steuern (Drag), Wert wird in Echtzeit an Voicemeeter gesendet.
@@ -123,6 +125,11 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 - **X-Touch Geräteauswahl**: Unterstützung für X-Touch und X-Touch Extender, wählbar im Tray-Menu
 - **Auto-Reconnect**: Automatische Wiederverbindung bei Gerätetrennung (alle 5 Sekunden)
 - **Verbindungsstatus**: Anzeige im Tray-Tooltip und Kontextmenü ("X-Touch: Verbunden/Getrennt")
+- **MQTT**:
+  - Globaler MQTT-Client mit Config-Dialog
+  - Channel-Button Mapping: VM-Parameter oder MQTT Publish
+  - MQTT LED-Steuerung für Channel-Buttons und Master-Buttons
+  - Mapping-Editor: `Test Publish` und `Test LED`
 - **Master-Button-Aktionen**: F1-F8 und andere Master-Buttons können konfiguriert werden für:
   - Windows-Programme starten (mit Argumenten)
   - Tastenkombinationen senden (z.B. Ctrl+Shift+M, Alt+F4)
@@ -133,6 +140,9 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
   - VM-Fenster anzeigen (in den Vordergrund bringen)
   - VM-GUI sperren/entsperren (Toggle)
   - Voicemeeter Macro-Button auslösen (Index 0–79)
+  - MQTT Publish (Topic, Payload Press/Release, QoS, Retain)
+  - MQTT Gerät auswählen (DeviceId + CommandTopic)
+  - MQTT Transport zum aktiven Gerät (play/pause/stop/next/prev/play_pause)
 - **LED-Feedback**: Jede Master-Button-Aktion hat einen konfigurierbaren LED-Modus:
   - **Blink**: LED blinkt kurz (150ms) als Bestätigung
   - **Toggle**: LED wechselt bei jedem Druck zwischen An und Aus
@@ -237,6 +247,9 @@ Mapping-Editor mit folgenden Aktionstypen:
 | **VM-Fenster anzeigen** | Voicemeeter in den Vordergrund bringen | — |
 | **VM-GUI sperren/entsperren** | GUI-Lock toggeln | — |
 | **Macro-Button auslösen** | Voicemeeter Macro-Button triggern | Macro-Button Index (0–79) |
+| **MQTT Publish** | MQTT Nachricht beim Drücken/Loslassen senden | Topic, Payload Press/Release, QoS, Retain |
+| **MQTT Gerät auswählen** | Aktives MQTT-Zielgerät wählen | DeviceId, CommandTopic |
+| **MQTT Transport** | Transport-Befehl an aktives Zielgerät senden | Command, Payload-Override (optional), QoS, Retain |
 
 Unterstützte Modifier: `Ctrl`, `Alt`, `Shift`, `Win`. Unterstützte Sondertasten: `F1`-`F24`,
 `Enter`, `Escape`, `Tab`, `Space`, `Delete`, `Home`, `End`, `PageUp`, `PageDown`, Pfeiltasten,
@@ -253,12 +266,38 @@ In der `config.json` unter `masterButtonActions` (Key = MIDI Note-Nummer):
   "58": { "actionType": "RestartAudioEngine" },
   "59": { "actionType": "ShowVoicemeeter" },
   "60": { "actionType": "LockGui", "ledFeedback": "Toggle" },
-  "61": { "actionType": "TriggerMacroButton", "macroButtonIndex": 0 }
+  "61": { "actionType": "TriggerMacroButton", "macroButtonIndex": 0 },
+  "84": { "actionType": "SelectMqttDevice", "mqttDeviceId": "deviceA", "mqttDeviceCommandTopic": "media/deviceA/cmd" },
+  "85": { "actionType": "SelectMqttDevice", "mqttDeviceId": "deviceB", "mqttDeviceCommandTopic": "media/deviceB/cmd" },
+  "91": { "actionType": "MqttTransport", "mqttTransportCommand": "prev", "mqttQos": 0 },
+  "92": { "actionType": "MqttTransport", "mqttTransportCommand": "next", "mqttQos": 0 },
+  "93": { "actionType": "MqttTransport", "mqttTransportCommand": "stop", "mqttQos": 0 },
+  "94": { "actionType": "MqttTransport", "mqttTransportCommand": "play_pause", "mqttQos": 0 }
 }
 ```
 
 Note-Nummern für Function-Buttons: F1=54, F2=55, ..., F8=61.
 Transport-Buttons: REW=91, FF=92, STOP=93, PLAY=94, REC=95.
+
+### MQTT Device Select + Transport (ohne Home Assistant)
+
+Mit den Aktionstypen `MQTT Gerät auswählen` und `MQTT Transport` kann die Master-Section zwei oder mehr Geräte direkt per MQTT steuern:
+
+- **Selector-Buttons** (z.B. MARKER/NUDGE):
+  - Aktionstyp `MQTT Gerät auswählen`
+  - Felder: `DeviceId`, `CommandTopic`
+  - Verhalten: nur ein Gerät ist aktiv; aktiver Selector leuchtet
+- **Transport-Buttons** (z.B. REW/FF/STOP/PLAY):
+  - Aktionstyp `MQTT Transport`
+  - sendet den gewählten Command an das aktuell aktive Gerät
+  - optionales Payload-Override; sonst wird der Command-Text als Payload gesendet
+
+Preset-Commands im Editor für Transport-Buttons:
+- Rewind (91) -> `prev`
+- Forward (92) -> `next`
+- Stop (93) -> `stop`
+- Play (94) -> `play_pause`
+- Record (95) -> `pause`
 
 ### LED-Feedback
 
@@ -273,6 +312,8 @@ Jede Aktion kann über `ledFeedback` bestimmen, wie die Button-LED reagiert:
 Der Toggle-Modus eignet sich besonders für Lock/Unlock-Aktionen oder um den aktiven Status
 eines Programms visuell auf dem X-Touch darzustellen. Der Blinking-Modus nutzt den nativen
 Hardware-Blink des Mackie-Protokolls (Velocity 2) und benötigt keine Software-Timer.
+
+Hinweis: `LED per MQTT steuern` im Master-Editor ist nur beim Aktionstyp `MQTT Publish` verfügbar.
 
 ### Media-Fernbedienung (z.B. YouTube in Vivaldi/Chrome)
 

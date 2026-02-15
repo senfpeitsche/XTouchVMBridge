@@ -48,7 +48,10 @@ public enum MasterButtonActionType
     LockGui,
 
     /// <summary>Voicemeeter Macro-Button auslösen (per Index).</summary>
-    TriggerMacroButton
+    TriggerMacroButton,
+    MqttPublish,
+    SelectMqttDevice,
+    MqttTransport
 }
 
 /// <summary>
@@ -81,6 +84,22 @@ public class MasterButtonActionConfig
 
     /// <summary>Macro-Button Index 0-79 (für ActionType = TriggerMacroButton).</summary>
     public int? MacroButtonIndex { get; set; }
+
+    public string? MqttTopic { get; set; }
+    public string? MqttPayloadPressed { get; set; }
+    public string? MqttPayloadReleased { get; set; }
+    public int MqttQos { get; set; } = 0;
+    public bool MqttRetain { get; set; } = false;
+    public string? MqttDeviceId { get; set; }
+    public string? MqttDeviceCommandTopic { get; set; }
+    public string? MqttTransportCommand { get; set; }
+
+    public bool MqttLedEnabled { get; set; } = false;
+    public string? MqttLedTopic { get; set; }
+    public string? MqttLedPayloadOn { get; set; }
+    public string? MqttLedPayloadOff { get; set; }
+    public string? MqttLedPayloadBlink { get; set; }
+    public string? MqttLedPayloadToggle { get; set; }
 
     /// <summary>LED-Feedback-Modus: Blink (kurz aufleuchten) oder Toggle (an/aus wechseln).</summary>
     public LedFeedbackMode LedFeedback { get; set; } = LedFeedbackMode.Blink;

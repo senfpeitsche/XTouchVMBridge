@@ -92,7 +92,9 @@ public partial class VoicemeeterBridge
         int vmCh = CurrentChannelMapping[e.Channel];
         var btnMap = GetButtonMapping(vmCh, e.ButtonType);
 
-        if (btnMap != null)
+        if (btnMap != null &&
+            btnMap.ActionType == ButtonActionType.VmParameter &&
+            !string.IsNullOrWhiteSpace(btnMap.Parameter))
         {
             // Generisch: Bool-Parameter toggeln
             float current = _vm.GetParameter(btnMap.Parameter);

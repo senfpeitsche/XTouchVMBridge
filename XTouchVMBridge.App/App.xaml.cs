@@ -77,6 +77,11 @@ public partial class App : Application
                     // Segment-Display (7-Segment Timecode-Anzeige)
                     services.AddHostedService<SegmentDisplayService>();
 
+                    // MQTT Client
+                    services.AddSingleton<MqttClientService>();
+                    services.AddHostedService(sp => sp.GetRequiredService<MqttClientService>());
+                    services.AddSingleton<MqttButtonIntegrationService>();
+
                     // WPF-spezifisch
                     services.AddSingleton<TrayIconService>();
                 })
@@ -100,6 +105,7 @@ public partial class App : Application
 
             // Master-Button-Aktionen initialisieren (registriert sich auf MasterButtonChanged)
             _host.Services.GetRequiredService<MasterButtonActionService>();
+            _host.Services.GetRequiredService<MqttButtonIntegrationService>();
 
             // Tray Icon starten
             var trayIcon = _host.Services.GetRequiredService<TrayIconService>();

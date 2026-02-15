@@ -48,6 +48,41 @@ public class ButtonMappingConfig
 {
     /// <summary>Voicemeeter-Parametername (z.B. "Strip[0].Mute").</summary>
     public string Parameter { get; set; } = "";
+
+    /// <summary>Aktionstyp des Buttons (VM-Parameter oder MQTT Publish).</summary>
+    public ButtonActionType ActionType { get; set; } = ButtonActionType.VmParameter;
+
+    /// <summary>MQTT Publish-Konfiguration (bei ActionType=MqttPublish).</summary>
+    public MqttButtonPublishConfig? MqttPublish { get; set; }
+
+    /// <summary>MQTT Empfangs-Konfiguration fuer LED-Steuerung.</summary>
+    public MqttButtonLedReceiveConfig? MqttLedReceive { get; set; }
+}
+
+public enum ButtonActionType
+{
+    VmParameter = 0,
+    MqttPublish = 1
+}
+
+public class MqttButtonPublishConfig
+{
+    public string Topic { get; set; } = "";
+    public string PayloadPressed { get; set; } = "on";
+    public string PayloadReleased { get; set; } = "";
+    public int Qos { get; set; } = 0;
+    public bool Retain { get; set; } = false;
+}
+
+public class MqttButtonLedReceiveConfig
+{
+    public bool Enabled { get; set; } = false;
+    public string Topic { get; set; } = "";
+    public string PayloadOn { get; set; } = "on";
+    public string PayloadOff { get; set; } = "off";
+    public string PayloadBlink { get; set; } = "blink";
+    public string PayloadToggle { get; set; } = "toggle";
+    public bool IgnoreCase { get; set; } = true;
 }
 
 /// <summary>
