@@ -1,4 +1,5 @@
 using System.Windows;
+using Microsoft.Win32;
 using Application = System.Windows.Application;
 using XTouchVMBridge.App.Views;
 using XTouchVMBridge.Core.Interfaces;
@@ -15,6 +16,9 @@ namespace XTouchVMBridge.App.Services;
 /// </summary>
 public class TrayIconService : IDisposable
 {
+    private const string AutoStartRegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string AutoStartValueName = "XTouchVMBridge";
+
     private readonly ILogger<TrayIconService> _logger;
     private readonly IVoicemeeterService _vm;
     private readonly IMidiDevice _midiDevice;
@@ -121,6 +125,33 @@ public class TrayIconService : IDisposable
 
         menu.Items.Add(new System.Windows.Controls.Separator());
 
+        var autoStartItem = new System.Windows.Controls.MenuItem
+        {
+            Header = "Mit Windows starten",
+            IsCheckable = true,
+            IsChecked = IsAutoStartEnabled()
+        };
+        autoStartItem.Click += (_, _) =>
+        {
+            try
+            {
+                SetAutoStartEnabled(autoStartItem.IsChecked);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Autostart konnte nicht geändert werden.");
+                System.Windows.MessageBox.Show(
+                    $"Autostart konnte nicht geändert werden: {ex.Message}",
+                    "Autostart",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+                autoStartItem.IsChecked = IsAutoStartEnabled();
+            }
+        };
+        menu.Items.Add(autoStartItem);
+
+        menu.Items.Add(new System.Windows.Controls.Separator());
+
         var restartVm = new System.Windows.Controls.MenuItem { Header = "Voicemeeter neustarten" };
         restartVm.Click += (_, _) =>
         {
@@ -148,6 +179,7 @@ public class TrayIconService : IDisposable
         {
             statusItem.Header = GetConnectionStatusText();
             RefreshDeviceMenu(deviceMenu);
+            autoStartItem.IsChecked = IsAutoStartEnabled();
         };
 
         return menu;
@@ -285,6 +317,56 @@ public class TrayIconService : IDisposable
         }
         Application.Current.Shutdown();
     }
+
+    private static bool IsAutoStartEnabled()
+    {
+        string? configured = GetAutoStartValue();
+        if (string.IsNullOrWhiteSpace(configured))
+            return false;
+
+        string? expected = BuildAutoStartCommand();
+        if (string.IsNullOrWhiteSpace(expected))
+            return false;
+
+        return string.Equals(configured.Trim(), expected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void SetAutoStartEnabled(bool enabled)
+    {
+        string? command = BuildAutoStartCommand();
+        if (string.IsNullOrWhiteSpace(command))
+            throw new InvalidOperationException("Konnte den Anwendungspfad nicht bestimmen.");
+
+        using var key = Registry.CurrentUser.CreateSubKey(AutoStartRegistryPath, writable: true)
+            ?? throw new InvalidOperationException("Run-Registry-Key konnte nicht geöffnet werden.");
+
+        if (enabled)
+        {
+            key.SetValue(AutoStartValueName, command, RegistryValueKind.String);
+            _logger.LogInformation("Autostart aktiviert.");
+        }
+        else
+        {
+            key.DeleteValue(AutoStartValueName, throwOnMissingValue: false);
+            _logger.LogInformation("Autostart deaktiviert.");
+        }
+    }
+
+    private static string? GetAutoStartValue()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(AutoStartRegistryPath, writable: false);
+        return key?.GetValue(AutoStartValueName) as string;
+    }
+
+    private static string? BuildAutoStartCommand()
+    {
+        string? exePath = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(exePath))
+            return null;
+
+        return $"\"{exePath}\"";
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

@@ -1,60 +1,62 @@
+[English](CHANGELOG.md) | [Deutsch](CHANGELOG-DE.md)
+
 # Changelog
 
 ## [Unreleased] - 2026-02-15
 
-### MQTT: Mapping-Editor und Runtime erweitert
-- **Neu**: Button-Mapping kann jetzt zwischen `VM-Parameter` und `MQTT Publish` umschalten
-- **Neu**: MQTT-LED-Empfang fuer Channel-Buttons (`On/Off/Blink/Toggle` per Topic+Payload)
-- **Neu**: Test-Funktionen im Button-Mapping:
-  - `Test Publish` fuer den aktuell konfigurierten MQTT-Publish
-  - `Test LED` fuer den aktuell konfigurierten MQTT-LED-Topic/Payload
+### MQTT: Mapping editor and runtime expanded
+- **New**: Button mapping can now switch between `VM-Parameter` and `MQTT Publish`
+- **New**: MQTT LED reception for channel buttons (`On/Off/Blink/Toggle` per topic+payload)
+- **New**: Test functions in button mapping:
+  - `Test Publish` for the currently configured MQTT publish
+  - `Test LED` for the currently configured MQTT LED topic/payload
 
-### Master-Buttons: MQTT erweitert
-- **Neu**: Master-Aktionstyp `MqttPublish` (Press/Release Payload, QoS, Retain)
-- **Neu**: `LED per MQTT steuern` auch in der Master-Section fuer `MqttPublish`
-- **Neu**: Master-Aktionstyp `SelectMqttDevice`:
-  - waehlt ein aktives MQTT-Zielgeraet (`DeviceId` + `CommandTopic`)
-  - Selector-LEDs zeigen aktive Auswahl (genau ein aktiv)
-- **Neu**: Master-Aktionstyp `MqttTransport`:
-  - sendet `play_pause/play/pause/stop/next/prev` an das aktive Zielgeraet
-  - optionales Payload-Override, QoS, Retain
-- **Neu**: Transport-Presets im Editor je nach Transport-Button:
+### Master buttons: MQTT expanded
+- **New**: Master action type `MqttPublish` (Press/Release Payload, QoS, Retain)
+- **New**: `LED per MQTT steuern` also in the master section for `MqttPublish`
+- **New**: Master action type `SelectMqttDevice`:
+  - selects an active MQTT target device (`DeviceId` + `CommandTopic`)
+  - Selector LEDs show active selection (exactly one active)
+- **New**: Master action type `MqttTransport`:
+  - sends `play_pause/play/pause/stop/next/prev` to the active target device
+  - optional payload override, QoS, retain
+- **New**: Transport presets in the editor depending on the transport button:
   - Rewind -> `prev`, Forward -> `next`, Stop -> `stop`, Play -> `play_pause`, Record -> `pause`
 
-### MQTT-Subscription
-- **Neu**: MQTT-Client abonniert automatisch LED-Topics aus:
-  - Channel-Button `MqttLedReceive`
-  - Master-Button `MqttLed*`
+### MQTT subscription
+- **New**: MQTT client automatically subscribes to LED topics from:
+  - Channel button `MqttLedReceive`
+  - Master button `MqttLed*`
 
 ## [Unreleased] - 2025-02-09
 
-### Master-Button-Aktionen: Neue Aktionstypen
-- **Neu**: VM Audio Engine neu starten (`RestartAudioEngine`)
-- **Neu**: VM-Fenster anzeigen (`ShowVoicemeeter`) — bringt Voicemeeter in den Vordergrund via `Command.Show`
-- **Neu**: VM-GUI sperren/entsperren (`LockGui`) — toggelt `Command.Lock`
-- **Neu**: Voicemeeter Macro-Button auslösen (`TriggerMacroButton`) — triggert Macro-Buttons 0–79 via `MacroButton_SetStatus`
-- **Neu**: Macro-Button Index-Eingabefeld (0–79) im Mapping-Editor
+### Master Button Actions: New action types
+- **New**: Restart VM Audio Engine (`RestartAudioEngine`)
+- **New**: Show VM window (`ShowVoicemeeter`) — brings Voicemeeter to the foreground via `Command.Show`
+- **New**: Lock/unlock VM GUI (`LockGui`) — toggle `Command.Lock`
+- **New**: Trigger Voicemeeter macro button (`TriggerMacroButton`) — triggers macro buttons 0–79 via `MacroButton_SetStatus`
+- **New**: Macro button index input field (0-79) in the mapping editor
 
-### LED-Feedback für Master-Buttons
-- **Neu**: Konfigurierbarer LED-Feedback-Modus pro Master-Button-Aktion
-  - **Blink** (Standard): LED blinkt 150ms auf als Bestätigung
-  - **Toggle**: LED wechselt bei jedem Druck zwischen An und Aus (1. Druck = an, 2. Druck = aus)
-  - **Blinking** (Dauerhaft): LED blinkt dauerhaft via Hardware-Blink (Mackie Protocol Velocity 2), erneutes Drücken stoppt das Blinken
-- **Neu**: LED-Feedback-ComboBox im Mapping-Editor (sichtbar bei aktiver Aktion)
-- **Neu**: LED-Feedback wird in `config.json` gespeichert (`"ledFeedback": "Blink"` / `"Toggle"` / `"Blinking"`)
+### LED feedback for master buttons
+- **New**: Configurable LED feedback mode per master button action
+  - **Blink** (default): LED flashes for 150ms as confirmation
+  - **Toggle**: LED switches between on and off with each press (1st press = on, 2nd press = off)
+  - **Blinking** (Continuous): LED flashes continuously via hardware flashing (Mackie Protocol Velocity 2), pressing again stops flashing
+- **New**: LED feedback combo box in the mapping editor (visible when the action is active)
+- **New**: LED feedback is stored in `config.json` (`"ledFeedback": "Blink"` / `"Toggle"` / `"Blinking"`)
 
-### 7-Segment-Display: Cycle-Button geändert
-- **Änderung**: Standard-Cycle-Button von SMPTE (Note 113) auf NAME/VALUE (Note 52) geändert
-- **Verbesserung**: LED-Feedback für den Cycle-Button (LED an wenn nicht im Time-Modus)
-- **Fix**: Thread-Safety mit `volatile` für Display-Mode-Felder
+### 7-segment display: Cycle button changed
+- **Change**: Changed default cycle button from SMPTE (Note 113) to NAME/VALUE (Note 52).
+- **Improvement**: LED feedback for the cycle button (LED on when not in time mode)
+- **Fix**: Thread safety with `volatile` for display mode fields
 
-### Voicemeeter API-Erweiterungen
-- **Neu**: `IVoicemeeterService.ShowVoicemeeter()` — `Command.Show = 1`
-- **Neu**: `IVoicemeeterService.LockGui(bool)` — `Command.Lock` setzen/aufheben
-- **Neu**: `IVoicemeeterService.TriggerMacroButton(int)` — `MacroButton_SetStatus(index, 1, mode=2)`
+### Voicemeeter API Extensions
+- **New**: `IVoicemeeterService.ShowVoicemeeter()` — `Command.Show = 1`
+- **New**: `IVoicemeeterService.LockGui(bool)` — set/unset `Command.Lock`
+- **New**: `IVoicemeeterService.TriggerMacroButton(int)` — `MacroButton_SetStatus(index, 1, mode=2)`
 
-### Code-Qualität: File-Splitting in Partial Classes
-- **Refactoring**: Große Dateien in Partial Classes aufgeteilt:
+### Code quality: File splitting into partial classes
+- **Refactoring**: Large files divided into partial classes:
   - `XTouchPanelWindow` → `.MasterSection.cs`, `.ChannelStrips.cs`, `.MainFader.cs`, `.Templates.cs`, `.DetailPanels.cs`, `.EncoderInteraction.cs`, `.MappingEditor.cs`
   - `VoicemeeterBridge` → `.Sync.cs`, `.Callbacks.cs`
   - `XTouchDevice` → `.Input.cs`, `.Output.cs`
@@ -62,65 +64,65 @@
 
 ## [Previous] - 2025-02-06
 
-### X-Touch Panel: Encoder-Steuerung per Maus
-- **Neu**: Strg+Klick auf Encoder cycled durch die zugewiesenen Funktionen (identisch mit Hardware-Drücken)
-- **Neu**: Mausrad auf Encoder ändert den Wert der aktiven Funktion (±1 Step pro Notch)
-- **Neu**: Strg+Mausrad auf Encoder für grobe Steuerung (±5 Steps pro Notch)
-- **Neu**: ToolTip auf Encoder-Knobs zeigt Bedienungshinweise
+### X-Touch Panel: Encoder control via mouse
+- **New**: Ctrl+click on encoder cycled through assigned functions (identical to hardware presses)
+- **New**: Mouse wheel on encoder changes the value of the active function (±1 step per notch)
+- **New**: Ctrl+mouse wheel on encoder for rough control (±5 steps per notch)
+- **New**: ToolTip on encoder knobs shows operating instructions
 
-### X-Touch Panel: Button-LED-Toggle für alle Buttons
-- **Neu**: Strg+Klick auf nicht-zugewiesene Kanal-Buttons (REC/SELECT) toggelt die LED direkt (On/Off)
-- **Neu**: Strg+Klick auf Master-Buttons toggelt die LED (On/Off) wenn keine Aktion konfiguriert ist
-- **Fix**: LED-Toggle funktioniert jetzt zuverlässig (eigener State-Speicher im PanelView)
-- **Fix**: VoicemeeterBridge überschreibt nicht-zugewiesene Button-LEDs nicht mehr auf Off
+### X-Touch Panel: Button LED toggle for all buttons
+- **New**: Ctrl+click on unassigned channel buttons (REC/SELECT) toggles the LED directly (On/Off)
+- **New**: Ctrl+click on master buttons toggle the LED (On/Off) if no action is configured
+- **Fix**: LED toggle now works reliably (own state memory in PanelView)
+- **Fix**: VoicemeeterBridge no longer overwrites unassigned button LEDs to Off
 
-### X-Touch Initialisierung
-- **Fix**: Master-Section-Buttons (Notes 40–103) werden beim Start zurückgesetzt
-  (vorher nur Channel-Buttons Notes 0–31)
+### X-Touch initialization
+- **Fix**: Master Section buttons (Notes 40-103) are reset on startup
+  (previously only channel buttons Notes 0–31)
 
 ## [Previous] - 2025-02-04
 
-### LCD-Displays
-- **Fix**: LCD-Displays funktionieren jetzt korrekt
-  - SysEx-Prefix von 0x15 (MCU Extended) auf 0x14 (MCU Main) geändert
-  - Handshake-Nachricht bei Initialisierung hinzugefügt (`F0 00 00 66 14 13 00 F7`)
+### LCD displays
+- **Fix**: LCD displays now work correctly
+  - SysEx prefix changed from 0x15 (MCU Extended) to 0x14 (MCU Main).
+  - Added handshake message upon initialization (`F0 00 00 66 14 13 00 F7`)
 
-### 7-Segment-Display
-- **Fix**: 7-Segment-Display funktioniert jetzt korrekt
-  - Von Behringer SysEx auf Mackie Control CC (CC 64-75) umgestellt
-  - Reihenfolge korrigiert (rechts nach links)
-  - ASCII-Zeichenkonvertierung angepasst
+### 7 segment display
+- **Fix**: 7-segment display now works correctly
+  - Switched from Behringer SysEx to Mackie Control CC (CC 64-75).
+  - Order corrected (right to left)
+  - ASCII character conversion adjusted
 
-### Encoder LED-Ringe
-- **Fix**: LED-Ringe zeigen jetzt die korrekte Position an
-  - CC-Wert-Mapping empirisch ermittelt und implementiert
-  - Position 0-10 statt 0-15 (entspricht den 11 nutzbaren LEDs)
-  - Mode-spezifische Wertebereiche: Dot=1-11, Pan=17-27, Wrap=33-43, Spread=49-54
+### Encoder LED rings
+- **Fix**: LED rings now show correct position
+  - CC value mapping empirically determined and implemented
+  - Position 0-10 instead of 0-15 (corresponds to the 11 usable LEDs)
+  - Mode-specific value ranges: Dot=1-11, Pan=17-27, Wrap=33-43, Spread=49-54
 
-### Encoder-Funktionen
-- **Verbesserung**: Encoder-Funktionen werden bei View-Wechsel neu registriert
-- **Verbesserung**: Encoder-Ringe werden bei jedem Parameter-Update synchronisiert
-- **Verbesserung**: Display zeigt Parameter-Name (oben) und Wert (unten) bei Encoder-Bedienung
-- **Verbesserung**: Automatisches Zurückschalten auf Kanalname nach 5 Sekunden
+### Encoder functions
+- **Improvement**: Encoder functions are re-registered when changing views
+- **Improvement**: Encoder rings are synchronized with every parameter update
+- **Improvement**: Display shows parameter name (top) and value (bottom) when operating the encoder
+- **Improvement**: Automatically switch back to channel name after 5 seconds
 
 ### Channel View Cycling
-- **Änderung**: Flip-Button (Note 50) ist jetzt für Channel View Cycling reserviert
-- **Änderung**: Fader Bank Left/Right (Notes 46-47) sind jetzt frei zuweisbare Buttons
+- **Change**: Flip button (Note 50) is now reserved for Channel View Cycling
+- **Change**: Fader Bank Left/Right (Notes 46-47) are now freely assignable buttons
 
-### Encoder 0 Speziallogik
-- **Entfernt**: Encoder 0 verhält sich jetzt wie alle anderen Encoder (keine Sonderbehandlung)
+### Encoder 0 special logic
+- **Removed**: Encoder 0 now behaves like all other encoders (no special treatment)
 
-### Bug Fixes
-- **Fix**: MIDI Debug Window NullReferenceException beim Öffnen behoben
+### Bug fixes
+- **Fix**: Fixed MIDI Debug Window NullReferenceException when opening
 
-### Test-Skripte
-- **Neu**: `test_lcd.py` - LCD-Display Protokoll-Tests
-- **Neu**: `test_segment.py` - 7-Segment-Display Protokoll-Tests
-- **Neu**: `test_encoder_ring.py` - Encoder LED-Ring Protokoll-Tests (CC 48-55 Mapping)
+### Test scripts
+- **New**: `test_lcd.py` - LCD display protocol tests
+- **New**: `test_segment.py` - 7-segment display protocol tests
+- **New**: `test_encoder_ring.py` - Encoder LED ring protocol tests (CC 48-55 mapping)
 
-### Dokumentation
-- **Aktualisiert**: ARCHITECTURE.md mit X-Touch MIDI-Protokoll-Details
-  - Encoder LED-Ring Mapping (empirisch ermittelt)
-  - 7-Segment-Display CC-Protokoll
-  - LCD-Display SysEx-Format
-  - Handshake-Nachricht
+### Documentation
+- **Updated**: ARCHITECTURE.md with X-Touch MIDI protocol details
+  - Encoder LED ring mapping (determined empirically)
+  - 7 segment display CC protocol
+  - LCD display SysEx format
+  - Handshake message

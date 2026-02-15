@@ -1,8 +1,9 @@
 [English](ARCHITECTURE.md) | [Deutsch](ARCHITECTURE-DE.md)
 
-# Architecture & Extensibility
+# Architektur & Erweiterbarkeit
 
-## Overview
+## Übersicht
+
 ```
                     ┌─────────────────────────────────────────────┐
                     │         XTouchVMBridge.App (WPF)              │
@@ -25,7 +26,9 @@
         │               │   │ Native P/Invoke   │   │ Events           │
         └──────────────┘   └──────────────────┘   └──────────────────┘
 ```
-## Dependencies between projects
+
+## Abhängigkeiten zwischen den Projekten
+
 ```
 XTouchVMBridge.Core       ← keine Abhängigkeiten (Fundament)
 XTouchVMBridge.Midi       ← Core
@@ -33,12 +36,14 @@ XTouchVMBridge.Voicemeeter← Core
 XTouchVMBridge.App        ← Core, Midi, Voicemeeter
 XTouchVMBridge.Tests      ← Core, Midi, Voicemeeter
 ```
-The direction is always "downward": App knows everything, Core knows nobody.
-Midi and Voicemeeter do not know each other - the connection runs via interfaces from Core.
+
+Die Richtung ist immer "nach unten": App kennt alles, Core kennt niemanden.
+Midi und Voicemeeter kennen sich gegenseitig nicht — die Verbindung läuft über Interfaces aus Core.
 
 ## Dependency Injection
 
-All services are registered in `App.xaml.cs`:
+In `App.xaml.cs` werden alle Services registriert:
+
 ```csharp
 services.AddSingleton<IMidiDevice, XTouchDevice>();    // Core-Interface → Midi-Implementierung
 services.AddSingleton<IVoicemeeterService, VoicemeeterService>();
@@ -52,10 +57,12 @@ services.AddHostedService(sp => sp.GetRequiredService<MqttClientService>());
 services.AddSingleton<MqttButtonIntegrationService>();   // MQTT <-> Button Mapping/LEDs
 services.AddSingleton<TrayIconService>();
 ```
-To use another MIDI device: write your own class that implements `IMidiDevice`,
-and exchange in the DI registry.
 
-## Hardware controls hierarchy
+Um ein anderes MIDI-Gerät zu verwenden: eigene Klasse schreiben die `IMidiDevice` implementiert,
+und in der DI-Registrierung austauschen.
+
+## Hardware-Controls Hierarchie
+
 ```
 HardwareControlBase (abstrakt)
 ├── FaderControl          — motorisierter Fader mit dB-Konvertierung
@@ -65,14 +72,16 @@ HardwareControlBase (abstrakt)
 ├── DisplayControl        — LCD-Display (7×2 Zeichen + Farbe)
 └── LevelMeterControl     — Pegelanzeige (0–13 Stufen)
 ```
-Each control type knows its channel index and a unique `ControlId`.
-All controls of a channel are bundled in `XTouchChannel`.
 
-### Encoder function list
+Jeder Control-Typ kennt seinen Kanal-Index und eine eindeutige `ControlId`.
+Alle Controls eines Kanals sind in `XTouchChannel` gebündelt.
 
-Each `EncoderControl` can hold a list of `EncoderFunction` objects.
-Pressing the encoder cycles through the function list.
-Rotating changes the value of the active function.
+### Encoder-Funktionsliste
+
+Jeder `EncoderControl` kann eine Liste von `EncoderFunction`-Objekten halten.
+Durch Drücken des Encoders wird zyklisch durch die Funktionsliste geschaltet.
+Drehen ändert den Wert der aktiven Funktion.
+
 ```
 EncoderControl
 ├── Functions: List<EncoderFunction>    // z.B. [HIGH, MID, LOW, PAN, GAIN]
@@ -92,40 +101,42 @@ EncoderFunction
 ├── ToRingPosition() → int              // Wert → Ring-Position (0-10)
 └── FormatValue() → string              // "3.5dB" (InvariantCulture)
 ```
-Each function remembers its own value - the state is retained when switching.
 
-### Encoder display behavior
+Jede Funktion merkt sich ihren eigenen Wert — beim Umschalten bleibt der Zustand erhalten.
 
-When pressing/turning the encoder (hardware) or Ctrl+click/mouse wheel (panel):
-- **Top display line**: Shows the parameter name (e.g. "HIGH", "MID", "PAN")
-- **Bottom display line**: Shows the current value (e.g. "0.0dB", "-3.5dB")
-- **After 5 seconds**: Automatically switches back to channel name (top) and view name (bottom)
+### Encoder-Display-Verhalten
 
-### Panel encoder control
+Bei Drücken/Drehen des Encoders (Hardware) oder Strg+Klick/Mausrad (Panel):
+- **Obere Display-Zeile**: Zeigt den Parameter-Namen (z.B. "HIGH", "MID", "PAN")
+- **Untere Display-Zeile**: Zeigt den aktuellen Wert (z.B. "0.0dB", "-3.5dB")
+- **Nach 5 Sekunden**: Automatisches Zurückschalten auf Kanalname (oben) und View-Name (unten)
 
-In the X-Touch panel, encoders can be operated entirely using the mouse:
-- **Ctrl+Click**: Calls `encoder.CycleFunction()` (identical to hardware press)
-- **Mouse Wheel**: Calls `encoder.ApplyTicks(±1)` (identical to hardware rotation)
-- **Ctrl+Mouse Wheel**: `ApplyTicks(±5)` for rough control
-- Current value is read from Voicemeeter and written back after change
-- Ring position, display text and hardware are synchronized
+### Panel-Encoder-Steuerung
 
-### Encoder LED ring synchronization
+Im X-Touch Panel können Encoder vollständig per Maus bedient werden:
+- **Strg+Klick**: Ruft `encoder.CycleFunction()` auf (identisch mit Hardware-Drücken)
+- **Mausrad**: Ruft `encoder.ApplyTicks(±1)` auf (identisch mit Hardware-Drehen)
+- **Strg+Mausrad**: `ApplyTicks(±5)` für grobe Steuerung
+- Aktueller Wert wird aus Voicemeeter gelesen und nach Änderung zurückgeschrieben
+- Ring-Position, Display-Text und Hardware werden synchronisiert
 
-The encoder rings are automatically synchronized with every parameter update (`UpdateParameters()`):
-- Reads the current value from Voicemeeter
-- Calculates ring position based on min/max
-- Sends the correct CC value to the X-Touch
+### Encoder LED-Ring Synchronisation
+
+Die Encoder-Ringe werden automatisch bei jedem Parameter-Update (`UpdateParameters()`) synchronisiert:
+- Liest den aktuellen Wert aus Voicemeeter
+- Berechnet die Ring-Position basierend auf Min/Max
+- Sendet den korrekten CC-Wert an das X-Touch
 
 ---
 
-## Add new hardware control
+## Neues Hardware-Control hinzufügen
 
-### Example: Jog Wheel
+### Beispiel: Jog Wheel
 
-The X-Touch has a jog wheel (CC 88, CW=65, CCW=1), which is currently not modeled as a control.
+Das X-Touch hat ein Jog Wheel (CC 88, CW=65, CCW=1), das aktuell nicht als Control modelliert ist.
 
-#### 1. New control in `XTouchVMBridge.Core/Hardware/`
+#### 1. Neues Control in `XTouchVMBridge.Core/Hardware/`
+
 ```csharp
 // XTouchVMBridge.Core/Hardware/JogWheelControl.cs
 namespace XTouchVMBridge.Core.Hardware;
@@ -138,7 +149,9 @@ public class JogWheelControl : HardwareControlBase
     public int LastDirection { get; set; }
 }
 ```
-#### 2nd event in `XTouchVMBridge.Core/Events/`
+
+#### 2. Event in `XTouchVMBridge.Core/Events/`
+
 ```csharp
 // XTouchVMBridge.Core/Events/JogWheelEventArgs.cs
 namespace XTouchVMBridge.Core.Events;
@@ -150,12 +163,16 @@ public class JogWheelEventArgs : EventArgs
     public JogWheelEventArgs(int direction) => Direction = direction;
 }
 ```
-#### 3. Add event to `IMidiDevice` interface
+
+#### 3. Event in `IMidiDevice` Interface ergänzen
+
 ```csharp
 // In XTouchVMBridge.Core/Interfaces/IMidiDevice.cs:
 event EventHandler<JogWheelEventArgs>? JogWheelTurned;
 ```
-#### 4. Implement in `XTouchDevice`
+
+#### 4. In `XTouchDevice` implementieren
+
 ```csharp
 // In XTouchVMBridge.Midi/XTouch/XTouchDevice.cs:
 // 1. Event deklarieren:
@@ -174,7 +191,9 @@ private void HandleEncoder(byte cc, byte value)
     // ... bestehender Encoder-Code
 }
 ```
-#### 5. Use in `VoicemeeterBridge`
+
+#### 5. In `VoicemeeterBridge` nutzen
+
 ```csharp
 // In XTouchVMBridge.Voicemeeter/Services/VoicemeeterBridge.cs:
 _xtouch.JogWheelTurned += (_, e) =>
@@ -183,15 +202,17 @@ _xtouch.JogWheelTurned += (_, e) =>
     _logger.LogDebug("Jog Wheel: {Direction}", e.Direction);
 };
 ```
+
 ---
 
-## Add new button type
+## Neuen Button-Typ hinzufügen
 
-### Example: Fifth button type “Assign”
+### Beispiel: Fünfter Button-Typ "Assign"
 
-If the X-Touch is expanded to include an additional button type:
+Falls das X-Touch um einen zusätzlichen Button-Typ erweitert wird:
 
-#### 1. Expand Enum
+#### 1. Enum erweitern
+
 ```csharp
 // XTouchVMBridge.Core/Enums/XTouchButtonType.cs
 public enum XTouchButtonType : byte
@@ -203,7 +224,9 @@ public enum XTouchButtonType : byte
     Assign = 4     // NEU
 }
 ```
-That's it for code change. `XTouchChannel` automatically creates a `ButtonControl` for all enum values:
+
+Das war's an Code-Änderung. `XTouchChannel` erzeugt automatisch für alle Enum-Werte einen `ButtonControl`:
+
 ```csharp
 // In XTouchChannel constructor (bereits vorhanden):
 foreach (var buttonType in Enum.GetValues<XTouchButtonType>())
@@ -211,25 +234,29 @@ foreach (var buttonType in Enum.GetValues<XTouchButtonType>())
     buttons[buttonType] = new ButtonControl(index, buttonType);
 }
 ```
-The MIDI note number is calculated automatically: `NoteNumber = (int)buttonType * 8 + channel`.
-For Assign this would be Note 32-39 (currently Encoder Press — check collision!).
 
-If the grade calculation needs to be different, adjust the formula in `ButtonControl`:
+Die MIDI Note-Nummer berechnet sich automatisch: `NoteNumber = (int)buttonType * 8 + channel`.
+Für Assign wäre das Note 32–39 (aktuell Encoder Press — Kollision prüfen!).
+
+Falls die Note-Berechnung anders sein muss, die Formel in `ButtonControl` anpassen:
+
 ```csharp
 // XTouchVMBridge.Core/Hardware/ButtonControl.cs
 NoteNumber = buttonType == XTouchButtonType.Assign
     ? 40 + channel   // eigene Note-Range
     : (int)buttonType * 8 + channel;
 ```
+
 ---
 
-## Add new encoder function
+## Neue Encoder-Funktion hinzufügen
 
-### Example: Denoiser strength as an encoder function
+### Beispiel: Denoiser-Stärke als Encoder-Funktion
 
-To add a new controllable function to an encoder:
+Um einem Encoder eine neue steuerbare Funktion hinzuzufügen:
 
-#### 1. Add to `VoicemeeterBridge.RegisterEncoderFunctions()`
+#### 1. In `VoicemeeterBridge.RegisterEncoderFunctions()` ergänzen
+
 ```csharp
 // Bestehende Funktionen für einen Encoder:
 encoder.AddFunctions(new[]
@@ -241,12 +268,14 @@ encoder.AddFunctions(new[]
     new EncoderFunction("DENOI", $"Strip[{vmCh}].Denoiser", 0, 10, 0.5, ""),
 });
 ```
-The new function can be accessed immediately by pressing the encoder.
-The display shows the value and the encoder ring shows the position.
 
-#### 2. Optional: Own EncoderFunction subclass
+Die neue Funktion ist sofort per Drücken des Encoders erreichbar.
+Das Display zeigt den Wert, der Encoder-Ring die Position.
 
-For functions with special behavior (e.g. non-linear mapping):
+#### 2. Optional: Eigene EncoderFunction-Subklasse
+
+Für Funktionen mit speziellem Verhalten (z.B. nicht-lineares Mapping):
+
 ```csharp
 public class LogarithmicEncoderFunction : EncoderFunction
 {
@@ -261,9 +290,11 @@ public class LogarithmicEncoderFunction : EncoderFunction
     }
 }
 ```
+
 ---
 
-## Add new encoder ring mode
+## Neuen Encoder-Ring-Modus hinzufügen
+
 ```csharp
 // XTouchVMBridge.Core/Enums/XTouchEncoderRingMode.cs
 public enum XTouchEncoderRingMode : byte
@@ -275,27 +306,28 @@ public enum XTouchEncoderRingMode : byte
     // CustomMode = 4  ← Hier ergänzen
 }
 ```
-### X-Touch Encoder LED ring mapping (empirically determined)
 
-The X-Touch has 13 LEDs per encoder ring: L6 L5 L4 L3 L2 L1 [M] R1 R2 R3 R4 R5 R6
+### X-Touch Encoder LED-Ring Mapping (empirisch ermittelt)
 
-The CC values (CC 48-55) are interpreted as follows:
+Der X-Touch hat 13 LEDs pro Encoder-Ring: L6 L5 L4 L3 L2 L1 [M] R1 R2 R3 R4 R5 R6
 
-| Mode | CC area | Usable values ​​| Description |
-|-------|-----------|----------------|--------------|
-| Dot (0) | 1-11 | 11 positions | Single LED (L5..M..R5) |
-| Pan (1) | 17-27 | 11 positions | Filling from the middle (for EQ: -12dB..0..+12dB) |
-| Wrap (2) | 33-43 | 11 positions | Filling from the left (for gain: 0..100%) |
-| Spread (3) | 49-54 | 6 positions | Symmetrical from center |
+Die CC-Werte (CC 48-55) werden wie folgt interpretiert:
 
-**+64 to each value**: Additionally switches on L6 and R6 (outer LEDs).
+| Modus | CC-Bereich | Nutzbare Werte | Beschreibung |
+|-------|------------|----------------|--------------|
+| Dot (0) | 1-11 | 11 Positionen | Einzelne LED (L5..M..R5) |
+| Pan (1) | 17-27 | 11 Positionen | Von Mitte füllend (für EQ: -12dB..0..+12dB) |
+| Wrap (2) | 33-43 | 11 Positionen | Von links füllend (für Gain: 0..100%) |
+| Spread (3) | 49-54 | 6 Positionen | Symmetrisch von Mitte |
 
-#### Full CC value → LED assignment (without +64)
+**+64 auf jeden Wert**: Schaltet L6 und R6 (äußere LEDs) zusätzlich ein.
 
-**Mode 0 (Dot) - Single LED:**
-| Value | LEDs |
+#### Vollständige CC-Wert → LED Zuordnung (ohne +64)
+
+**Mode 0 (Dot) - Einzelne LED:**
+| Wert | LEDs |
 |------|------|
-| 0 | - (off) |
+| 0 | - (aus) |
 | 1 | L5 |
 | 2 | L4 |
 | 3 | L3 |
@@ -308,8 +340,8 @@ The CC values (CC 48-55) are interpreted as follows:
 | 10 | R4 |
 | 11 | R5 |
 
-**Mode 1 (Pan) - Filling from the center:**
-| Value | LEDs |
+**Mode 1 (Pan) - Von Mitte füllend:**
+| Wert | LEDs |
 |------|------|
 | 17 | L5 L4 L3 L2 L1 M |
 | 18 | L4 L3 L2 L1 M |
@@ -323,8 +355,8 @@ The CC values (CC 48-55) are interpreted as follows:
 | 26 | M R1 R2 R3 R4 |
 | 27 | M R1 R2 R3 R4 R5 |
 
-**Mode 2 (Wrap) - Filling from the left:**
-| Value | LEDs |
+**Mode 2 (Wrap) - Von links füllend:**
+| Wert | LEDs |
 |------|------|
 | 33 | L5 |
 | 34 | L5 L4 |
@@ -338,8 +370,8 @@ The CC values (CC 48-55) are interpreted as follows:
 | 42 | L5 L4 L3 L2 L1 M R1 R2 R3 R4 |
 | 43 | L5 L4 L3 L2 L1 M R1 R2 R3 R4 R5 |
 
-**Mode 3 (Spread) - Symmetrical from center:**
-| Value | LEDs |
+**Mode 3 (Spread) - Symmetrisch von Mitte:**
+| Wert | LEDs |
 |------|------|
 | 49 | M |
 | 50 | L1 M R1 |
@@ -348,21 +380,23 @@ The CC values (CC 48-55) are interpreted as follows:
 | 53 | L4 L3 L2 L1 M R1 R2 R3 R4 |
 | 54 | L5 L4 L3 L2 L1 M R1 R2 R3 R4 R5 |
 
-**With +64 (L6 and R6 also on):**
-All of the above values + 64 also turn on the outer LEDs L6 and R6.
-Example: Value 86 (= 22 + 64) = L6 M R6
+**Mit +64 (L6 und R6 zusätzlich an):**
+Alle obigen Werte + 64 schalten zusätzlich die äußeren LEDs L6 und R6 ein.
+Beispiel: Wert 86 (= 22 + 64) = L6 M R6
 
-The calculation in `EncoderControl.CalculateCcValue()`:
+Die Berechnung in `EncoderControl.CalculateCcValue()`:
 ```csharp
 case XTouchEncoderRingMode.Pan:
     baseValue = Math.Clamp(_ringPosition, 0, 10) + 17;  // Position 0-10 → Wert 17-27
     break;
 ```
+
 ---
 
-## Add new channel view
+## Neue Kanal-Ansicht hinzufügen
 
-Expand the `_channelViews` list in `VoicemeeterBridge`:
+In `VoicemeeterBridge` die `_channelViews`-Liste erweitern:
+
 ```csharp
 private readonly List<ChannelView> _channelViews = new()
 {
@@ -372,11 +406,13 @@ private readonly List<ChannelView> _channelViews = new()
     new("Custom",  new[] { 0, 3, 5, 7, 9, 11, 13, 15 }),  // NEU
 };
 ```
-The view is automatically accessible via encoder 1.
 
-### Per-view display colors
+Die Ansicht wird automatisch per Encoder 1 erreichbar.
 
-Each channel view can define its own display color per strip, which overwrites the global channel color.
+### Per-View Display-Farben
+
+Jede Channel View kann pro Strip eine eigene Display-Farbe definieren, die die globale Kanalfarbe überschreibt.
+
 ```csharp
 // In ChannelViewConfig (Core/Models/ChannelViewConfig.cs):
 public XTouchColor?[]? ChannelColors { get; set; }
@@ -388,7 +424,9 @@ public XTouchColor? GetChannelColor(int stripIndex)
     return ChannelColors[stripIndex];
 }
 ```
-The color evaluation in `VoicemeeterBridge.UpdateDisplays()`:
+
+Die Farb-Auswertung in `VoicemeeterBridge.UpdateDisplays()`:
+
 ```csharp
 // View-Farbe hat Priorität vor globaler Kanalfarbe
 var viewColor = ChannelViews[_currentViewIndex].GetChannelColor(xtCh);
@@ -397,16 +435,18 @@ if (viewColor.HasValue)
 else if (_config.Channels.TryGetValue(vmCh, out var chConfig))
     colors[xtCh] = chConfig.Color;
 ```
-The Channel View Editor (`ChannelViewEditorDialog`) shows one color combo box per strip
-with colored rectangle previews. `null` entries are represented as "—" (global color).
+
+Der Channel View Editor (`ChannelViewEditorDialog`) zeigt pro Strip eine Farb-ComboBox
+mit farbigen Rechteck-Vorschauen. `null`-Einträge werden als "—" dargestellt (globale Farbe).
 
 ---
 
-## Ctrl+click control in the X-Touch panel
+## Strg+Klick-Steuerung im X-Touch Panel
 
-The X-Touch Panel supports Ctrl+Click as direct control for all controls:
+Das X-Touch Panel unterstützt Strg+Klick als Direkt-Steuerung für alle Controls:
 
-### Master buttons
+### Master-Buttons
+
 ```csharp
 // OnMasterButtonClick: Strg+Klick → Aktion oder LED-Toggle
 if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
@@ -422,11 +462,13 @@ if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
     return;
 }
 ```
-`ExecuteAction()` returns `bool` — `true` when an action has been configured and executed.
-Without a configured action, the LED is toggled (On/Off) instead of always being set to On.
-The LED state is saved in `_masterButtonLedState` (Dictionary<int,bool>).
 
-### Channel buttons (REC/SOLO/MUTE/SELECT)
+`ExecuteAction()` gibt `bool` zurück — `true` wenn eine Aktion konfiguriert und ausgeführt wurde.
+Ohne konfigurierte Aktion wird die LED getoggelt (On/Off) statt immer auf On gesetzt.
+Der LED-State wird in `_masterButtonLedState` (Dictionary<int,bool>) gespeichert.
+
+### Kanal-Buttons (REC/SOLO/MUTE/SELECT)
+
 ```csharp
 // OnHwButtonClick: Strg+Klick → VM-Parameter toggeln oder LED toggeln
 if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
@@ -435,9 +477,11 @@ if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
     return;
 }
 ```
-`ExecuteHwButtonAction` checks whether a VM parameter is assigned:
-- **Assigned** (e.g. mute, solo): toggle VM parameters (as before)
-- **Not assigned** (e.g. Rec, Select): Toggle LED directly via `_manualLedState` Dictionary
+
+`ExecuteHwButtonAction` prüft ob ein VM-Parameter zugewiesen ist:
+- **Zugewiesen** (z.B. Mute, Solo): VM-Parameter toggeln (wie bisher)
+- **Nicht zugewiesen** (z.B. Rec, Select): LED direkt toggeln über `_manualLedState` Dictionary
+
 ```csharp
 // Kein Mapping → LED manuell toggeln (Panel + Hardware)
 if (!hasMapping)
@@ -448,7 +492,9 @@ if (!hasMapping)
     _device.SetButtonLed(ch, type, !isOn ? LedState.On : LedState.Off);
 }
 ```
-`GetEffectiveLedState()` checks in `RefreshAll()` whether a manual state exists:
+
+`GetEffectiveLedState()` prüft in `RefreshAll()` ob ein manueller State vorhanden ist:
+
 ```csharp
 private LedState GetEffectiveLedState(int ch, XTouchButtonType type, XTouchChannel xtCh)
 {
@@ -457,10 +503,12 @@ private LedState GetEffectiveLedState(int ch, XTouchButtonType type, XTouchChann
     return xtCh.GetButton(type).LedState;  // Fallback: Hardware-State
 }
 ```
-The VoicemeeterBridge no longer overwrites unassigned buttons to Off
-(the else branch in `UpdateParameters()` was removed).
 
-### Encoder (Ctrl+click+mouse wheel)
+Die VoicemeeterBridge überschreibt nicht-zugewiesene Buttons nicht mehr auf Off
+(der else-Zweig in `UpdateParameters()` wurde entfernt).
+
+### Encoder (Strg+Klick + Mausrad)
+
 ```csharp
 // OnEncoderClick: Strg+Klick → nächste Funktion durchschalten
 if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
@@ -484,10 +532,12 @@ _device.SetEncoderRing(ch, ...);           // Ring aktualisieren
 _device.SetDisplayText(ch, 0, fn.Name);    // Display: Funktionsname
 _device.SetDisplayText(ch, 1, fn.FormatValue());  // Display: Wert
 ```
-### Fader (Transparent Overlay Pattern)
 
-WPF sliders with `IsEnabled = false` do not receive mouse events (not even preview/tunneling).
-Solution: A transparent `Border` overlay over the slider in the same `Grid`:
+### Fader (Transparentes Overlay-Pattern)
+
+WPF-Slider mit `IsEnabled = false` empfangen keine Maus-Events (auch nicht Preview/Tunneling).
+Lösung: Ein transparentes `Border`-Overlay über dem Slider im selben `Grid`:
+
 ```
 Grid (faderHost)
 ├── Slider (IsEnabled=false, IsHitTestVisible=false)  ← visuell
@@ -504,16 +554,18 @@ faderOverlay.MouseMove += (_, e) => OnFaderMouseMove(ch, e);
 faderOverlay.MouseLeftButtonUp += (_, _) => OnFaderMouseUp(ch);
 faderHost.Children.Add(faderOverlay);    // Overlay (empfängt Maus-Events)
 ```
-When Ctrl+click, the mouse position is converted into a fader value (`SetFaderFromMousePosition`),
-the slider value is set directly and the dB value is sent to Voicemeeter.
-Mouse capture is on the overlay so that drag movements can also be tracked outside of it.
-`RefreshAll()` skips the fader while `_draggingFaderChannel` is active.
+
+Bei Strg+Klick wird die Mausposition in einen Fader-Wert umgerechnet (`SetFaderFromMousePosition`),
+der Slider-Value direkt gesetzt und der dB-Wert an Voicemeeter gesendet.
+Mouse-Capture liegt auf dem Overlay, damit Drag-Bewegungen auch außerhalb verfolgt werden.
+`RefreshAll()` überspringt den Fader während `_draggingFaderChannel` aktiv ist.
 
 ---
 
-## SetMasterButtonLed (MIDI output)
+## SetMasterButtonLed (MIDI-Ausgabe)
 
-New method in `IMidiDevice` / `XTouchDevice` to send note-on to master section buttons:
+Neue Methode in `IMidiDevice` / `XTouchDevice` zum Senden von Note-On an Master-Section-Buttons:
+
 ```csharp
 // IMidiDevice:
 void SetMasterButtonLed(int noteNumber, LedState state);
@@ -525,23 +577,25 @@ public void SetMasterButtonLed(int noteNumber, LedState state)
     SendShortMessage(0x90, (byte)noteNumber, velocity);
 }
 ```
-Used in the panel for Ctrl+click on unconfigured master buttons,
-to toggle the LED and send the MIDI note to the device.
-The toggle state is stored in `_masterButtonLedState` in the PanelView.
+
+Wird im Panel für Strg+Klick auf nicht-konfigurierte Master-Buttons verwendet,
+um die LED zu toggeln und die MIDI-Note ans Gerät zu senden.
+Der Toggle-State wird in `_masterButtonLedState` im PanelView gespeichert.
 
 ---
 
-## Master button actions
+## Master-Button-Aktionen
 
-Master section buttons (Notes 40+) fire the `MasterButtonChanged` event. The `MasterButtonActionService`
-reacts to configured buttons and carries out the associated action.
+Master-Section-Buttons (Notes 40+) feuern das `MasterButtonChanged`-Event. Der `MasterButtonActionService`
+reagiert auf konfigurierte Buttons und führt die zugehörige Aktion aus.
 
-Current MQTT related action types:
-- `MqttPublish` (Press/Release Publish + optional LED via MQTT)
-- `SelectMqttDevice` (select active target device, selector LED shows status)
-- `MqttTransport` (send transport command to currently selected target device)
+Aktuelle MQTT-bezogene Aktionstypen:
+- `MqttPublish` (Press/Release Publish + optional LED per MQTT)
+- `SelectMqttDevice` (aktives Zielgerät wählen, Selector-LED zeigt Status)
+- `MqttTransport` (Transport-Command an aktuell gewähltes Zielgerät senden)
 
-### MQTT Device Select -> Transport (Sequence)
+### MQTT Device Select -> Transport (Sequenz)
+
 ```mermaid
 sequenceDiagram
     participant HW as X-Touch Master Button
@@ -558,9 +612,10 @@ sequenceDiagram
     Svc->>Mqtt: Publish(topic=activeCommandTopic, payload=play_pause)
     Mqtt->>Dev: MQTT Nachricht
 ```
-### Add new action type
 
-1. **Expand Enum** in `Core/Models/MasterButtonActionConfig.cs`:
+### Neuen Aktionstyp hinzufügen
+
+1. **Enum erweitern** in `Core/Models/MasterButtonActionConfig.cs`:
 ```csharp
 public enum MasterButtonActionType
 {
@@ -569,30 +624,35 @@ public enum MasterButtonActionType
     HttpRequest  // NEU
 }
 ```
-2. **Add config fields** in `MasterButtonActionConfig`:
+
+2. **Config-Felder ergänzen** in `MasterButtonActionConfig`:
 ```csharp
 public string? HttpUrl { get; set; }
 public string? HttpMethod { get; set; }
 ```
-3. Add **Execute method** in `MasterButtonActionService.cs`:
+
+3. **Execute-Methode** in `MasterButtonActionService.cs` hinzufügen:
 ```csharp
 private async Task ExecuteHttpRequest(MasterButtonActionConfig config) { ... }
 ```
-4. Call **In the switch case**:
+
+4. **Im Switch-Case** aufrufen:
 ```csharp
 case MasterButtonActionType.HttpRequest:
     ExecuteHttpRequest(actionConfig);
     break;
 ```
+
 5. **Editor** in `XTouchPanelWindow.MappingEditor.cs`:
-   - Add ComboBox entry in `ShowMasterButtonMappingPanel()`
-   - Insert sub-panel in `XTouchPanelWindow.xaml`
-   - Control visibility in `UpdateMasterActionSubPanels()`
-   - Save/load to `OnMasterActionSave()` / `OnMasterActionClear()`
+   - ComboBox-Eintrag hinzufügen in `ShowMasterButtonMappingPanel()`
+   - Sub-Panel in `XTouchPanelWindow.xaml` einfügen
+   - Visibility in `UpdateMasterActionSubPanels()` steuern
+   - Speichern/Laden in `OnMasterActionSave()` / `OnMasterActionClear()`
 
-### LED feedback
+### LED-Feedback
 
-Each master button action has a configurable LED feedback mode:
+Jede Master-Button-Aktion hat einen konfigurierbaren LED-Feedback-Modus:
+
 ```csharp
 public enum LedFeedbackMode
 {
@@ -601,63 +661,64 @@ public enum LedFeedbackMode
     Blinking   // LED blinkt dauerhaft (Hardware-Blink via Mackie Protocol Velocity 2)
 }
 ```
-The `MasterButtonActionConfig` contains the field `LedFeedback` (default: `Blink`).
-The `MasterButtonActionService` manages toggle/blink states in a `Dictionary<int, bool>`.
-Blinking mode uses the Mackie Protocol's native hardware blinking (`LedState.Blink = 2`)
-and requires no software timers — pressing it again toggle between flashing and off.
 
-### Note numbers (Master Section)
+Die `MasterButtonActionConfig` enthält das Feld `LedFeedback` (Default: `Blink`).
+Der `MasterButtonActionService` verwaltet Toggle-/Blink-States in einem `Dictionary<int, bool>`.
+Der Blinking-Modus nutzt den nativen Hardware-Blink des Mackie-Protokolls (`LedState.Blink = 2`)
+und benötigt keine Software-Timer — erneutes Drücken toggelt zwischen Blinken und Aus.
 
-| Section | Notes | Examples |
+### Note-Nummern (Master Section)
+
+| Sektion | Notes | Beispiele |
 |---|---|---|
-| Fader Bank | 46-47 | BANK LEFT=46, BANK RIGHT=47 (freely assignable) |
+| Fader Bank | 46-47 | BANK LEFT=46, BANK RIGHT=47 (frei zuweisbar) |
 | Channel | 48-49 | CHANNEL LEFT=48, CHANNEL RIGHT=49 |
 | Flip | 50 | **Hardcoded: Channel View Cycling** |
 | Encoder Assign | 40-45 | TRACK=40, SEND=41, PAN=42, PLUG-IN=43, EQ=44, INST=45 |
 | NAME/VALUE | 52-53 | NAME=52, VALUE=53 |
 | Function Keys | 54-61 | F1=54, F2=55, ..., F8=61 |
 | Global View | 62-69 | MIDI=62, INPUTS=63, AUDIO=64, ... |
-| Transportation | 91-95 | REW=91, FF=92, STOP=93, PLAY=94, REC=95 |
+| Transport | 91-95 | REW=91, FF=92, STOP=93, PLAY=94, REC=95 |
 | SMPTE/BEATS | 113-114 | SMPTE=113, BEATS=114 |
 
-### Flip button for Channel View Cycling
+### Flip-Button für Channel View Cycling
 
-The **Flip button (Note 50)** is reserved for switching through the channel views:
-- Pressing switches to the next view (Home → Outputs → Inputs → ...)
-- The LED flashes briefly to confirm
-- When the view changes, the encoder functions are re-registered for the new channels
+Der **Flip-Button (Note 50)** ist fest für das Durchschalten der Channel Views reserviert:
+- Drücken wechselt zur nächsten View (Home → Outputs → Inputs → ...)
+- Die LED blinkt kurz zur Bestätigung
+- Bei View-Wechsel werden die Encoder-Funktionen für die neuen Kanäle neu registriert
 
-The Fader Bank Left/Right Buttons (Notes 46-47) can therefore be freely assigned for other actions.
+Die Fader Bank Left/Right Buttons (Notes 46-47) sind dadurch für andere Aktionen frei zuweisbar.
 
 ---
 
-## 7-segment display (SegmentDisplayService)
+## 7-Segment-Display (SegmentDisplayService)
 
-The `SegmentDisplayService` is a `BackgroundService` that controls the 12-digit 7-segment display.
+Der `SegmentDisplayService` ist ein `BackgroundService` der das 12-stellige 7-Segment-Display ansteuert.
 
-### X-Touch 7-Segment Protocol
+### X-Touch 7-Segment Protokoll
 
-The X-Touch in MCU mode uses **Mackie Control CC messages** for the 7 segment display:
+Das X-Touch im MCU-Modus verwendet **Mackie Control CC-Nachrichten** für das 7-Segment-Display:
 
-| CC | Digit position |
+| CC | Digit-Position |
 |----|----------------|
-| 64 | Rightmost digit (12) |
+| 64 | Rechtestes Digit (12) |
 | 65-74 | Digits 11-2 |
-| 75 | Leftmost digit (1) |
+| 75 | Linkestes Digit (1) |
 
-**CC value format:**
-- Bits 0-5: ASCII characters (lower 6 bits only)
-- Bit 6 (0x40): Decimal point active
+**CC-Wert-Format:**
+- Bits 0-5: ASCII-Zeichen (nur untere 6 Bits)
+- Bit 6 (0x40): Dezimalpunkt aktiv
 
-Example: `'5'` (ASCII 0x35) → CC value 0x35 & 0x3F = 0x35
-Example with point: `'5.'` → CC value 0x35 | 0x40 = 0x75
+Beispiel: `'5'` (ASCII 0x35) → CC-Wert 0x35 & 0x3F = 0x35
+Beispiel mit Punkt: `'5.'` → CC-Wert 0x35 | 0x40 = 0x75
 
-The order is **right to left** — the first character in the string goes to CC 75 (left),
-the last one at CC 64 (right).
+Die Reihenfolge ist **rechts nach links** — das erste Zeichen im String geht an CC 75 (links),
+das letzte an CC 64 (rechts).
 
-### Add new display mode
+### Neuen Anzeige-Modus hinzufügen
 
-1. **Expand Enum** in `SegmentDisplayService.cs`:
+1. **Enum erweitern** in `SegmentDisplayService.cs`:
 ```csharp
 public enum SegmentDisplayMode
 {
@@ -665,7 +726,8 @@ public enum SegmentDisplayMode
     IpAddress  // NEU
 }
 ```
-2. Add **Format Method**:
+
+2. **Format-Methode** hinzufügen:
 ```csharp
 private static string FormatIpAddress()
 {
@@ -673,152 +735,160 @@ private static string FormatIpAddress()
     return "192.168.1.42";
 }
 ```
-3. Call **In the switch case**:
+
+3. **Im Switch-Case** aufrufen:
 ```csharp
 SegmentDisplayMode.IpAddress => FormatIpAddress(),
 ```
-The mode is automatically accessed using the cycle button.
 
-### 7 segment font
+Der Modus wird automatisch per Cycle-Button erreichbar.
 
-The font in `MackieProtocol.SegmentFont` maps characters to segment bit patterns.
-Supports: 0-9, A-F, H, J, L, P, S, U, Y, n, o, r, t, h, b, c, d, u, -, _, space, °.
+### 7-Segment-Font
 
-Periods (`.`) and colons (`:`) in strings are automatically set as a dot on the previous digit.
+Der Font in `MackieProtocol.SegmentFont` mappt Zeichen auf Segment-Bitmuster.
+Unterstützt: 0-9, A-F, H, J, L, P, S, U, Y, n, o, r, t, h, b, c, d, u, -, _, Leerzeichen, °.
 
----
-
-## New MIDI message in the Debug Monitor
-
-The `MidiMessageDecoder` decodes all messages. To add a new type:
-
-1. Add a new case in `DecodeControlChange()` (for CC) or `DecodeNoteOn()` (for Notes).
-2. The decoder always returns a `DecodedMidiMessage` record with all fields.
-3. The `MidiDebugWindow` displays it automatically — no change necessary.
-4. Add filter in XAML (new `ComboBoxItem` in `ControlTypeFilter`).
+Punkte (`.`) und Doppelpunkte (`:`) in Strings werden automatisch als Dot auf dem vorherigen Digit gesetzt.
 
 ---
 
-## Design patterns in the project
+## Neue MIDI-Nachricht im Debug Monitor
 
-| Pattern | Where | Purpose |
+Der `MidiMessageDecoder` dekodiert alle Nachrichten. Um einen neuen Typ hinzuzufügen:
+
+1. In `DecodeControlChange()` (für CC) oder `DecodeNoteOn()` (für Notes) einen neuen Case hinzufügen.
+2. Der Decoder gibt immer ein `DecodedMidiMessage` Record zurück mit allen Feldern.
+3. Das `MidiDebugWindow` zeigt es automatisch an — keine Änderung nötig.
+4. Filter im XAML ergänzen (neuer `ComboBoxItem` in `ControlTypeFilter`).
+
+---
+
+## Design Patterns im Projekt
+
+| Pattern | Wo | Zweck |
 |---|---|---|
-| **Dependency Injection** | `App.xaml.cs` | All services interchangeable, testable |
-| **BackgroundService** | `VoicemeeterBridge`, `AudioDeviceMonitorService`, `SegmentDisplayService` | Managed Threading with CancellationToken |
-| **Observer (Events)** | `IMidiDevice` Events, `MasterButtonChanged`, `ConnectionStateChanged` | Decoupling MIDI input → business logic |
-| **Strategy** | `ChannelView`, `ShortcutMode`, `EncoderFunction` | Switchable channel assignments / encoder functions |
-| **State Cycling** | `EncoderControl.CycleFunction()` | Cyclic switching of encoder functions |
-| **Factory** | `XTouchChannel` Constructor | Automatic button creation via Enum |
-| **Adapter** | `VoicemeeterService` | Abstracts P/Invoke calls |
-| **Template Method** | `HardwareControlBase` | Common basis for all controls |
-| **Scheduler** | `TaskScheduler` (in Bridge) | Delayed actions (display reset) |
-| **Transparent Overlay** | `XTouchPanelWindow` Faders | Intercept mouse events via deactivated WPF control |
-| **Fallback Chain** | `OnMasterButtonClick` | Action → LED Toggle → Detail Panel |
+| **Dependency Injection** | `App.xaml.cs` | Alle Services austauschbar, testbar |
+| **BackgroundService** | `VoicemeeterBridge`, `AudioDeviceMonitorService`, `SegmentDisplayService` | Managed Threading mit CancellationToken |
+| **Observer (Events)** | `IMidiDevice` Events, `MasterButtonChanged`, `ConnectionStateChanged` | Entkopplung MIDI-Input → Business-Logic |
+| **Strategy** | `ChannelView`, `ShortcutMode`, `EncoderFunction` | Umschaltbare Kanal-Zuordnungen / Encoder-Funktionen |
+| **State Cycling** | `EncoderControl.CycleFunction()` | Zyklisches Durchschalten von Encoder-Funktionen |
+| **Factory** | `XTouchChannel` Constructor | Automatische Button-Erzeugung per Enum |
+| **Adapter** | `VoicemeeterService` | Abstrahiert P/Invoke-Aufrufe |
+| **Template Method** | `HardwareControlBase` | Gemeinsame Basis für alle Controls |
+| **Scheduler** | `TaskScheduler` (in Bridge) | Verzögerte Aktionen (Display-Reset) |
+| **Transparent Overlay** | `XTouchPanelWindow` Fader | Maus-Events über deaktiviertem WPF-Control abfangen |
+| **Fallback Chain** | `OnMasterButtonClick` | Aktion → LED-Toggle → Detail-Panel |
 
-## Voicemeeter API parameters
+## Voicemeeter API Parameter
 
-A complete reference of all Voicemeeter Remote API parameters -- implemented and still
-expandable -- can be found in [VOICEMEETER-API.md](VOICEMEETER-API.md).
+Eine vollstandige Referenz aller Voicemeeter Remote API Parameter -- implementiert und noch
+erweiterbar -- findet sich in [VOICEMEETER-API-DE.md](VOICEMEETER-API-DE.md).
 
-Documented there:
-- All currently used parameters with file:line references
-- All parameters that have not yet been implemented (Strip, Bus, Gate, Comp, Denoiser, FX, Routing, Modes)
-- Recommended X-Touch mappings and implementation priority
-- Step-by-step instructions for extension (EncoderFunction, button mapping)
-- X-Touch capacity vs. used parameters (free REC/SELECT buttons)
+Dort dokumentiert:
+- Alle aktuell genutzten Parameter mit Datei:Zeile-Referenzen
+- Alle noch nicht implementierten Parameter (Strip, Bus, Gate, Comp, Denoiser, FX, Routing, Modes)
+- Empfohlene X-Touch-Zuordnungen und Implementierungsprioritat
+- Schritt-fur-Schritt-Anleitungen zur Erweiterung (EncoderFunction, Button-Mapping)
+- X-Touch Kapazitat vs. genutzte Parameter (freie REC/SELECT-Buttons)
 
 ---
 
-## X-Touch MIDI protocol (empirically determined)
+## X-Touch MIDI-Protokoll (empirisch ermittelt)
 
-The X-Touch in **MCU mode** (Mackie Control Universal) uses the following protocols:
+Das X-Touch im **MCU-Modus** (Mackie Control Universal) verwendet folgende Protokolle:
 
-### SysEx prefix
+### SysEx-Prefix
+
 ```
 Mackie Control Main:     F0 00 00 66 14 ...
 Mackie Control Extended: F0 00 00 66 15 ...
 ```
-The X-Touch (not extender) uses device ID **0x14** (MCU Main).
 
-### Handshake (important for initialization)
+Das X-Touch (nicht Extender) verwendet Device-ID **0x14** (MCU Main).
 
-A handshake must be sent when connecting:
+### Handshake (wichtig für Initialisierung)
+
+Beim Verbinden muss ein Handshake gesendet werden:
 ```
 F0 00 00 66 14 13 00 F7
 ```
-Without this handshake, LCDs and other displays may not respond.
 
-### Initialization (SendInitialization)
+Ohne diesen Handshake reagieren LCDs und andere Displays möglicherweise nicht.
 
-When connecting, all controls are set to a defined initial state:
+### Initialisierung (SendInitialization)
+
+Beim Verbinden werden alle Controls auf einen definierten Ausgangszustand gesetzt:
 
 1. **Handshake** (SysEx)
-2. **Faders** in middle position
-3. Delete **encoder rings** (CC 48-55 → 0)
-4. **Channel button LEDs** off (Notes 0–31 → velocity 0)
-5. **Master Section Button LEDs** off (Notes 40–103 → velocity 0)
-6. **Display Colors** on White
-7. **Delete display text**
+2. **Faders** auf Mittelposition
+3. **Encoder-Ringe** löschen (CC 48-55 → 0)
+4. **Channel-Button-LEDs** aus (Notes 0–31 → velocity 0)
+5. **Master-Section-Button-LEDs** aus (Notes 40–103 → velocity 0)
+6. **Display-Farben** auf Weiß
+7. **Display-Text** löschen
 
-Notes 32-39 (Encoder Press) and 104+ (Fader Touch) are not reset,
-since these are only input events and have no LEDs.
+Notes 32–39 (Encoder Press) und 104+ (Fader Touch) werden nicht resettet,
+da diese nur Input-Events sind und keine LEDs haben.
 
-### LCD displays (8 × 2 lines of 7 characters each)
+### LCD-Displays (8 × 2 Zeilen à 7 Zeichen)
 
-**Mackie Control Format (works reliably):**
+**Mackie Control Format (funktioniert zuverlässig):**
 ```
 F0 00 00 66 14 12 [offset] [ASCII-Daten...] F7
 ```
-- Offset 0-55: Top line (8 channels × 7 characters)
-- Offset 56-111: Bottom line
+- Offset 0-55: Obere Zeile (8 Kanäle × 7 Zeichen)
+- Offset 56-111: Untere Zeile
 
-**Display Colors:**
+**Display-Farben:**
 ```
 F0 00 00 66 14 72 [c0] [c1] [c2] [c3] [c4] [c5] [c6] [c7] F7
 ```
-- Colors 0-7: Black, Red, Green, Yellow, Blue, Magenta, Cyan, White
+- Farben 0-7: Black, Red, Green, Yellow, Blue, Magenta, Cyan, White
 
-### Encoder LED rings (CC 48-55)
+### Encoder LED-Ringe (CC 48-55)
 
-See “X-Touch Encoder LED-Ring Mapping” section above.
+Siehe Abschnitt "X-Touch Encoder LED-Ring Mapping" oben.
 
-### 7-segment display (CC 64-75)
+### 7-Segment-Display (CC 64-75)
 
-See “X-Touch 7-Segment Protocol” section above.
+Siehe Abschnitt "X-Touch 7-Segment Protokoll" oben.
 
 ### Level Meter (Channel Aftertouch)
+
 ```
 D0 [channel << 4 | level]
 ```
-- Channel: 0-7 (upper 4 bits)
-- Level: 0-13 (lower 4 bits)
+- Channel: 0-7 (obere 4 Bits)
+- Level: 0-13 (untere 4 Bits)
 
-### Fader (pitch bend)
+### Fader (Pitchbend)
+
 ```
 E[channel] [LSB] [MSB]
 ```
-- 14-bit value, signed: -8192 to +8191
-- Channel 0-7: Strip fader, Channel 8: Main fader
+- 14-Bit Wert, signiert: -8192 bis +8191
+- Channel 0-7: Strip-Fader, Channel 8: Main Fader
 
-### Test scripts
+### Test-Skripte
 
-There are Python test scripts for protocol analysis in the project directory:
-- `test_lcd.py` - LCD display tests
-- `test_segment.py` - 7-segment display tests
-- `test_encoder_ring.py` - Encoder LED ring tests
+Im Projektverzeichnis befinden sich Python-Testskripte zur Protokoll-Analyse:
+- `test_lcd.py` - LCD-Display Tests
+- `test_segment.py` - 7-Segment-Display Tests
+- `test_encoder_ring.py` - Encoder LED-Ring Tests
 
-These scripts require `mido` and help debug MIDI communications.
+Diese Skripte erfordern `mido` und helfen beim Debugging von MIDI-Kommunikation.
 
 ---
 
-## NuGet dependencies
+## NuGet-Abhängigkeiten
 
-| Package | Project | Purpose |
+| Paket | Projekt | Zweck |
 |---|---|---|
-| NAudio 2.2.1 | Midi, App | MIDI I/O, audio device enumeration |
-| Hardcodet.NotifyIcon.Wpf 1.1.0 | App | System tray icon |
-| InputSimulatorCore 1.0.5 | App | Keyboard simulation (SendKeys, SendText) |
+| NAudio 2.2.1 | Midi, App | MIDI I/O, Audio-Device-Enumeration |
+| Hardcodet.NotifyIcon.Wpf 1.1.0 | App | System-Tray-Icon |
+| InputSimulatorCore 1.0.5 | App | Keyboard-Simulation (SendKeys, SendText) |
 | Microsoft.Extensions.Hosting 8.0.1 | App | DI, BackgroundService, Logging |
-| Serilog + Sinks | App | Structured logging in file + console |
+| Serilog + Sinks | App | Strukturiertes Logging in Datei + Console |
 | Microsoft.Extensions.Logging.Abstractions | Midi, Voicemeeter | ILogger<T> Interface |
 | Microsoft.Extensions.Hosting.Abstractions | Voicemeeter | BackgroundService |
+
