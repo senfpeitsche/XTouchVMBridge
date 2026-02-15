@@ -17,6 +17,7 @@ public partial class MqttConfigDialog : Window
     public MqttConfigDialog(XTouchVMBridgeConfig config, IConfigurationService configService, MqttClientService? mqttClientService)
     {
         InitializeComponent();
+        Icon = AppIconFactory.CreateWindowIcon();
         _config = config;
         _configService = configService;
         _mqttClientService = mqttClientService;

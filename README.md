@@ -95,6 +95,7 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) -- Projektstruktur, DI, Design Patterns, Erweiterbarkeit
 - [VOICEMEETER-API.md](docs/VOICEMEETER-API.md) -- Vollstandige Voicemeeter Remote API Parameter-Referenz (implementiert + erweiterbar)
 - [MIGRATION.md](docs/MIGRATION.md) -- Zuordnung Python-Original zu C#-Implementierung
+- [MQTT.md](docs/MQTT.md) -- MQTT Setup, Topic-Schema, Master Device Select + Transport
 
 ## Features
 

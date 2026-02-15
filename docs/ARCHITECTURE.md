@@ -592,6 +592,25 @@ Aktuelle MQTT-bezogene Aktionstypen:
 - `SelectMqttDevice` (aktives Zielgerät wählen, Selector-LED zeigt Status)
 - `MqttTransport` (Transport-Command an aktuell gewähltes Zielgerät senden)
 
+### MQTT Device Select -> Transport (Sequenz)
+
+```mermaid
+sequenceDiagram
+    participant HW as X-Touch Master Button
+    participant Svc as MasterButtonActionService
+    participant Mqtt as MqttClientService
+    participant Dev as MQTT Zielgeraet
+
+    HW->>Svc: Note 84 (SelectMqttDevice)
+    Svc->>Svc: activeDeviceId + activeCommandTopic setzen
+    Svc->>HW: Selector-LEDs aktualisieren (nur aktiver On)
+
+    HW->>Svc: Note 94 (MqttTransport)
+    Svc->>Svc: activeCommandTopic lesen
+    Svc->>Mqtt: Publish(topic=activeCommandTopic, payload=play_pause)
+    Mqtt->>Dev: MQTT Nachricht
+```
+
 ### Neuen Aktionstyp hinzufügen
 
 1. **Enum erweitern** in `Core/Models/MasterButtonActionConfig.cs`:

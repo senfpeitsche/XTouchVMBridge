@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using XTouchVMBridge.App.Services;
 
 namespace XTouchVMBridge.App.Views;
 
@@ -27,6 +28,7 @@ public partial class LogWindow : Window
     public LogWindow(string logFilePath = "logfile.log")
     {
         InitializeComponent();
+        Icon = AppIconFactory.CreateWindowIcon();
 
         // Log-Datei suchen
         var today = DateTime.Now.ToString("yyyyMMdd");

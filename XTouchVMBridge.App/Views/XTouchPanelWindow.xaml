@@ -551,8 +551,16 @@
                 <Border Grid.Column="2" BorderBrush="#333" BorderThickness="1,0,0,0"
                         Padding="12,0,0,0" MinWidth="320">
                     <StackPanel x:Name="MappingPanel" Visibility="Collapsed">
-                        <TextBlock x:Name="MappingPanelHeader" Text="VM-Parameter Zuweisung" Foreground="#569CD6"
-                                   FontFamily="Consolas" FontSize="11" FontWeight="Bold" Margin="0,0,0,6"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <Viewbox Width="12" Height="12" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Canvas Width="16" Height="16">
+                                    <Path Stroke="#569CD6" StrokeThickness="1.4"
+                                          Data="M2,12 L4,14 L14,4 L12,2 Z M10.8,3.2 L12.8,5.2"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock x:Name="MappingPanelHeader" Text="VM-Parameter Zuweisung" Foreground="#569CD6"
+                                       FontFamily="Consolas" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
 
                         <!-- Button-Mapping: VM oder MQTT -->
                         <StackPanel x:Name="ButtonMappingPanel" Visibility="Collapsed">

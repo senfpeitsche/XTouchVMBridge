@@ -102,6 +102,7 @@ public partial class XTouchPanelWindow : Window
         MqttClientService? mqttClientService = null)
     {
         InitializeComponent();
+        Icon = AppIconFactory.CreateWindowIcon();
         _device = device;
         _config = config;
         _configService = configService;

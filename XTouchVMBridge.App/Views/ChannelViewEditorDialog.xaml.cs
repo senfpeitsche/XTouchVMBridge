@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using XTouchVMBridge.App.Services;
 using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Interfaces;
 using XTouchVMBridge.Core.Models;
@@ -47,6 +48,7 @@ public partial class ChannelViewEditorDialog : Window
         _vm = vm;
 
         InitializeComponent();
+        Icon = AppIconFactory.CreateWindowIcon();
         BuildChannelGrid();
         PopulateViewList();
     }

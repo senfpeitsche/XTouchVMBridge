@@ -1,5 +1,3 @@
-using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Windows;
 using Application = System.Windows.Application;
 using XTouchVMBridge.App.Views;
@@ -63,7 +61,7 @@ public class TrayIconService : IDisposable
     {
         _trayIcon = new TaskbarIcon
         {
-            Icon = CreateIcon(),
+            Icon = AppIconFactory.CreateTrayIcon(),
             ToolTipText = BuildTooltip(),
             ContextMenu = CreateContextMenu()
         };
@@ -287,29 +285,6 @@ public class TrayIconService : IDisposable
         }
         Application.Current.Shutdown();
     }
-
-    /// <summary>
-    /// Erzeugt ein 64×64 Icon mit "AM" Text.
-    /// Entspricht create_image() aus dem Python-Original.
-    /// </summary>
-    private static Icon CreateIcon()
-    {
-        using var bmp = new Bitmap(64, 64);
-        using var g = Graphics.FromImage(bmp);
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.Clear(Color.FromArgb(30, 30, 30));
-
-        using var font = new Font("Segoe UI", 22, System.Drawing.FontStyle.Bold);
-        using var brush = new SolidBrush(Color.FromArgb(0, 180, 255));
-        var size = g.MeasureString("XV", font);
-        float x = (64 - size.Width) / 2;
-        float y = (64 - size.Height) / 2;
-        g.DrawString("XV", font, brush, x, y);
-
-        IntPtr hIcon = bmp.GetHicon();
-        return Icon.FromHandle(hIcon);
-    }
-
     public void Dispose()
     {
         if (_disposed) return;
@@ -323,3 +298,5 @@ public class TrayIconService : IDisposable
         GC.SuppressFinalize(this);
     }
 }
+
+

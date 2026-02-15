@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using XTouchVMBridge.App.Services;
 using XTouchVMBridge.Core.Events;
 using XTouchVMBridge.Core.Interfaces;
 using XTouchVMBridge.Midi.XTouch;
@@ -33,6 +34,7 @@ public partial class MidiDebugWindow : Window
     public MidiDebugWindow(IMidiDevice? device)
     {
         InitializeComponent();
+        Icon = AppIconFactory.CreateWindowIcon();
         _device = device;
         MessageList.ItemsSource = _filteredMessages;
 
