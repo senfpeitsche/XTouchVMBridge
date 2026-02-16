@@ -45,6 +45,11 @@ Im Master-Mapping-Editor stehen MQTT-bezogene Aktionstypen zur Verfuegung:
 - `SelectMqttDevice`
 - `MqttTransport`
 
+Zusaetzlich (nicht-MQTT-Aktion):
+- `VmParameter` unterstuetzt `vmLedSource`:
+  - `ManualFeedback` (Standard): LED folgt `ledFeedback`
+  - `VoicemeeterState`: LED folgt dem echten VM-Parameterzustand (On/Off)
+
 ### 1) MqttPublish
 
 Felder:

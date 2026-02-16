@@ -606,6 +606,19 @@ The `MasterButtonActionService` manages toggle/blink states in a `Dictionary<int
 Blinking mode uses the Mackie Protocol's native hardware blinking (`LedState.Blink = 2`)
 and requires no software timers — pressing it again toggle between flashing and off.
 
+For `VmParameter` actions, there is an additional LED source option:
+
+```csharp
+public enum MasterVmLedSource
+{
+    ManualFeedback,  // LED follows ledFeedback
+    VoicemeeterState // LED follows VM parameter state (On/Off)
+}
+```
+
+When `vmLedSource = VoicemeeterState`, LED feedback mode is ignored for this button and
+the LED is synchronized in the polling loop from the current Voicemeeter parameter value.
+
 ### Note numbers (Master Section)
 
 | Section | Notes | Examples |

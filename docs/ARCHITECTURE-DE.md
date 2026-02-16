@@ -667,6 +667,19 @@ Der `MasterButtonActionService` verwaltet Toggle-/Blink-States in einem `Diction
 Der Blinking-Modus nutzt den nativen Hardware-Blink des Mackie-Protokolls (`LedState.Blink = 2`)
 und benötigt keine Software-Timer — erneutes Drücken toggelt zwischen Blinken und Aus.
 
+Für `VmParameter`-Aktionen gibt es zusätzlich die LED-Quellen-Auswahl:
+
+```csharp
+public enum MasterVmLedSource
+{
+    ManualFeedback,  // LED folgt ledFeedback
+    VoicemeeterState // LED folgt VM-Parameterzustand (On/Off)
+}
+```
+
+Wenn `vmLedSource = VoicemeeterState` gesetzt ist, wird der LED-Feedback-Modus für diesen Button ignoriert
+und die LED im Polling-Loop aus dem aktuellen Voicemeeter-Parameterwert synchronisiert.
+
 ### Note-Nummern (Master Section)
 
 | Sektion | Notes | Beispiele |
@@ -891,4 +904,3 @@ Diese Skripte erfordern `mido` und helfen beim Debugging von MIDI-Kommunikation.
 | Serilog + Sinks | App | Strukturiertes Logging in Datei + Console |
 | Microsoft.Extensions.Logging.Abstractions | Midi, Voicemeeter | ILogger<T> Interface |
 | Microsoft.Extensions.Hosting.Abstractions | Voicemeeter | BackgroundService |
-

@@ -150,6 +150,7 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
   - MQTT Publish (Topic, Payload Press/Release, QoS, Retain)
   - MQTT Gerät auswählen (DeviceId + CommandTopic)
   - MQTT Transport zum aktiven Gerät (play/pause/stop/next/prev/play_pause)
+  - Für `VmParameter`: LED-Quelle wählbar (`ManualFeedback` oder `VoicemeeterState`)
 - **LED-Feedback**: Jede Master-Button-Aktion hat einen konfigurierbaren LED-Modus:
   - **Blink**: LED blinkt kurz (150ms) als Bestätigung
   - **Toggle**: LED wechselt bei jedem Druck zwischen An und Aus
@@ -246,7 +247,7 @@ Mapping-Editor mit folgenden Aktionstypen:
 
 | Aktionstyp | Beschreibung | Konfigurationsfelder |
 |---|---|---|
-| **VM-Parameter toggeln** | Bool-Parameter in Voicemeeter umschalten | VM-Parameter (z.B. `Strip[0].Mute`) |
+| **VM-Parameter toggeln** | Bool-Parameter in Voicemeeter umschalten | VM-Parameter (z.B. `Strip[0].Mute`), optional `vmLedSource` (`ManualFeedback` / `VoicemeeterState`) |
 | **Programm starten** | Windows-Programm ausführen | Programmpfad + optionale Argumente |
 | **Tastenkombination** | Keyboard-Shortcut simulieren | Kombination (z.B. `Ctrl+Shift+M`, `Alt+F4`, `F5`) |
 | **Text senden** | Text via Zwischenablage einfügen | Beliebiger Text |
@@ -269,7 +270,7 @@ In der `config.json` unter `masterButtonActions` (Key = MIDI Note-Nummer):
   "54": { "actionType": "LaunchProgram", "programPath": "C:\\Windows\\notepad.exe", "programArgs": "", "ledFeedback": "Blink" },
   "55": { "actionType": "SendKeys", "keyCombination": "Ctrl+Shift+M", "ledFeedback": "Toggle" },
   "56": { "actionType": "SendText", "text": "Hallo Welt", "ledFeedback": "Blinking" },
-  "57": { "actionType": "VmParameter", "vmParameter": "Strip[0].Mute" },
+  "57": { "actionType": "VmParameter", "vmParameter": "Strip[0].Mute", "vmLedSource": "VoicemeeterState" },
   "58": { "actionType": "RestartAudioEngine" },
   "59": { "actionType": "ShowVoicemeeter" },
   "60": { "actionType": "LockGui", "ledFeedback": "Toggle" },
@@ -319,6 +320,10 @@ Jede Aktion kann über `ledFeedback` bestimmen, wie die Button-LED reagiert:
 Der Toggle-Modus eignet sich besonders für Lock/Unlock-Aktionen oder um den aktiven Status
 eines Programms visuell auf dem X-Touch darzustellen. Der Blinking-Modus nutzt den nativen
 Hardware-Blink des Mackie-Protokolls (Velocity 2) und benötigt keine Software-Timer.
+
+Für `VmParameter`-Aktionen kann optional `vmLedSource` gesetzt werden:
+- `ManualFeedback` (Standard): LED folgt `ledFeedback`
+- `VoicemeeterState`: LED folgt dem echten VM-Parameterzustand (On/Off), auch bei externen Änderungen in Voicemeeter
 
 Hinweis: `LED per MQTT steuern` im Master-Editor ist nur beim Aktionstyp `MQTT Publish` verfügbar.
 
