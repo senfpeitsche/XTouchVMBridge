@@ -118,7 +118,24 @@ public partial class VoicemeeterBridge
         if (!_gainCacheInitialized)
             _gainCacheInitialized = true;
 
+        UpdateMasterButtonVmLedStates();
         UpdateDisplays();
+    }
+
+    private void UpdateMasterButtonVmLedStates()
+    {
+        foreach (var (note, action) in _config.MasterButtonActions)
+        {
+            if (action.ActionType != MasterButtonActionType.VmParameter)
+                continue;
+            if (action.VmLedSource != MasterVmLedSource.VoicemeeterState)
+                continue;
+            if (string.IsNullOrWhiteSpace(action.VmParameter))
+                continue;
+
+            float val = _vm.GetParameter(action.VmParameter);
+            _xtouch.SetMasterButtonLed(note, val > 0.5f ? LedState.On : LedState.Off);
+        }
     }
 
     private void SyncMainFader(bool anyFaderActive)

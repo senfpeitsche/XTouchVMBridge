@@ -108,7 +108,7 @@ public class MasterButtonActionService : IDisposable
                     ExecuteSendText(actionConfig);
                     break;
                 case MasterButtonActionType.VmParameter:
-                    ExecuteVmParameter(actionConfig);
+                    ExecuteVmParameter(noteNumber, actionConfig);
                     break;
                 case MasterButtonActionType.CycleChannelView:
                     CycleChannelView();
@@ -136,7 +136,9 @@ public class MasterButtonActionService : IDisposable
                     break;
             }
 
-            if (actionConfig.ActionType != MasterButtonActionType.SelectMqttDevice)
+            bool vmLedFromVoicemeeter = actionConfig.ActionType == MasterButtonActionType.VmParameter &&
+                                        actionConfig.VmLedSource == MasterVmLedSource.VoicemeeterState;
+            if (actionConfig.ActionType != MasterButtonActionType.SelectMqttDevice && !vmLedFromVoicemeeter)
             {
                 // LED-Feedback
                 UpdateLedFeedback(noteNumber, actionConfig);
@@ -239,7 +241,7 @@ public class MasterButtonActionService : IDisposable
             VirtualKeyCode.VK_V);
     }
 
-    private void ExecuteVmParameter(MasterButtonActionConfig config)
+    private void ExecuteVmParameter(int noteNumber, MasterButtonActionConfig config)
     {
         if (string.IsNullOrWhiteSpace(config.VmParameter))
         {
@@ -253,6 +255,13 @@ public class MasterButtonActionService : IDisposable
         float currentValue = _vm.GetParameter(config.VmParameter);
         float newValue = currentValue > 0.5f ? 0f : 1f;
         _vm.SetParameter(config.VmParameter, newValue);
+
+        if (config.VmLedSource == MasterVmLedSource.VoicemeeterState)
+        {
+            _midiDevice.SetMasterButtonLed(noteNumber, newValue > 0.5f
+                ? Core.Enums.LedState.On
+                : Core.Enums.LedState.Off);
+        }
     }
 
     private void ExecuteRestartAudioEngine()

@@ -16,6 +16,17 @@ public enum LedFeedbackMode
 }
 
 /// <summary>
+/// Quelle fuer den LED-Zustand bei Master-Buttons mit VM-Parameter.
+/// </summary>
+public enum MasterVmLedSource
+{
+    /// <summary>LED wird ueber LED-Feedback (Blink/Toggle/Blinking) gesteuert.</summary>
+    ManualFeedback,
+
+    /// <summary>LED zeigt den aktuellen Zustand des Voicemeeter-Parameters.</summary>
+    VoicemeeterState
+}
+/// <summary>
 /// Aktionstypen für Master-Section-Buttons.
 /// </summary>
 public enum MasterButtonActionType
@@ -66,6 +77,7 @@ public class MasterButtonActionConfig
 
     /// <summary>Voicemeeter-Parametername (für ActionType = VmParameter).</summary>
     public string? VmParameter { get; set; }
+    public MasterVmLedSource VmLedSource { get; set; } = MasterVmLedSource.ManualFeedback;
 
     /// <summary>Pfad zum Programm (für ActionType = LaunchProgram).</summary>
     public string? ProgramPath { get; set; }
@@ -104,3 +116,4 @@ public class MasterButtonActionConfig
     /// <summary>LED-Feedback-Modus: Blink (kurz aufleuchten) oder Toggle (an/aus wechseln).</summary>
     public LedFeedbackMode LedFeedback { get; set; } = LedFeedbackMode.Blink;
 }
+

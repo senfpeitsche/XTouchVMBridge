@@ -311,6 +311,8 @@ public class ConfigurationService : IConfigurationService
 
         foreach (var (_, action) in config.MasterButtonActions)
         {
+            if (!Enum.IsDefined(typeof(MasterVmLedSource), action.VmLedSource))
+                action.VmLedSource = MasterVmLedSource.ManualFeedback;
             action.MqttQos = Math.Clamp(action.MqttQos, 0, 2);
             action.MqttTopic = action.MqttTopic?.Trim();
             action.MqttPayloadPressed ??= "";

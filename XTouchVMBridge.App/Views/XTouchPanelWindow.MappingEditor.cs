@@ -331,6 +331,12 @@ public partial class XTouchPanelWindow
             MasterMqttTransportQosCombo.SelectedItem = actionConfig?.MqttQos.ToString() ?? "0";
             MasterMqttTransportRetainBox.IsChecked = actionConfig?.MqttRetain == true;
 
+            MasterVmLedSourceCombo.Items.Clear();
+            MasterVmLedSourceCombo.Items.Add(new ComboBoxItem { Content = "Manuell (LED-Feedback)", Tag = MasterVmLedSource.ManualFeedback });
+            MasterVmLedSourceCombo.Items.Add(new ComboBoxItem { Content = "Aus Voicemeeter-Status", Tag = MasterVmLedSource.VoicemeeterState });
+            var activeVmLedSource = actionConfig?.VmLedSource ?? MasterVmLedSource.ManualFeedback;
+            MasterVmLedSourceCombo.SelectedIndex = activeVmLedSource == MasterVmLedSource.VoicemeeterState ? 1 : 0;
+
             // LED-Feedback-ComboBox befüllen
             MasterLedFeedbackCombo.Items.Clear();
             MasterLedFeedbackCombo.Items.Add(new ComboBoxItem { Content = "Kurz aufblinken", Tag = LedFeedbackMode.Blink });
@@ -372,11 +378,7 @@ public partial class XTouchPanelWindow
         MasterMqttDeviceSelectPanel.Visibility = type == MasterButtonActionType.SelectMqttDevice ? Visibility.Visible : Visibility.Collapsed;
         MasterMqttTransportPanel.Visibility = type == MasterButtonActionType.MqttTransport ? Visibility.Visible : Visibility.Collapsed;
 
-        // LED-Feedback-Auswahl anzeigen wenn eine Aktion gewählt ist
-        MasterLedFeedbackPanel.Visibility =
-            type != MasterButtonActionType.None && type != MasterButtonActionType.SelectMqttDevice
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+        RefreshMasterLedFeedbackPanelVisibility(type);
     }
 
     /// <summary>Aktionstyp-ComboBox geändert.</summary>
@@ -457,10 +459,13 @@ public partial class XTouchPanelWindow
                 ledMode = mode;
             }
 
+            var vmLedSource = GetSelectedMasterVmLedSource();
+
             _config.MasterButtonActions[_selectedMasterButtonNote] = new MasterButtonActionConfig
             {
                 ActionType = selectedType,
                 VmParameter = selectedType == MasterButtonActionType.VmParameter ? MasterVmParamBox.Text.Trim() : null,
+                VmLedSource = selectedType == MasterButtonActionType.VmParameter ? vmLedSource : MasterVmLedSource.ManualFeedback,
                 ProgramPath = selectedType == MasterButtonActionType.LaunchProgram ? MasterProgramPathBox.Text.Trim() : null,
                 ProgramArgs = selectedType == MasterButtonActionType.LaunchProgram ? MasterProgramArgsBox.Text.Trim() : null,
                 KeyCombination = selectedType == MasterButtonActionType.SendKeys ? MasterKeyCombinationBox.Text.Trim() : null,
@@ -531,6 +536,8 @@ public partial class XTouchPanelWindow
         MasterMqttTransportPayloadBox.Text = "";
         MasterMqttTransportQosCombo.SelectedItem = "0";
         MasterMqttTransportRetainBox.IsChecked = false;
+        if (MasterVmLedSourceCombo.Items.Count > 0)
+            MasterVmLedSourceCombo.SelectedIndex = 0;
         if (MasterLedFeedbackCombo.Items.Count > 0)
             MasterLedFeedbackCombo.SelectedIndex = 0;
         UpdateMasterActionSubPanels(MasterButtonActionType.None);
@@ -733,6 +740,32 @@ public partial class XTouchPanelWindow
     {
         if (_suppressMappingEvents) return;
         UpdateMasterVmResultParam();
+    }
+
+    private void OnMasterVmLedSourceChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressMappingEvents) return;
+        if (MasterActionTypeCombo.SelectedItem is not ComboBoxItem item) return;
+        if (item.Tag is not MasterButtonActionType type) return;
+        RefreshMasterLedFeedbackPanelVisibility(type);
+    }
+
+    private MasterVmLedSource GetSelectedMasterVmLedSource()
+    {
+        if (MasterVmLedSourceCombo.SelectedItem is ComboBoxItem item &&
+            item.Tag is MasterVmLedSource source)
+            return source;
+        return MasterVmLedSource.ManualFeedback;
+    }
+
+    private void RefreshMasterLedFeedbackPanelVisibility(MasterButtonActionType type)
+    {
+        bool hideForVmStateLed = type == MasterButtonActionType.VmParameter &&
+                                 GetSelectedMasterVmLedSource() == MasterVmLedSource.VoicemeeterState;
+        bool show = type != MasterButtonActionType.None &&
+                    type != MasterButtonActionType.SelectMqttDevice &&
+                    !hideForVmStateLed;
+        MasterLedFeedbackPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ═══════════════════════════════════════════════════════════════════

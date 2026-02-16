@@ -709,6 +709,11 @@
                                 <TextBox x:Name="MasterVmParamBox" Background="#222" Foreground="#DDD"
                                          FontFamily="Consolas" FontSize="10" BorderBrush="#444" IsReadOnly="True"
                                          ToolTip="Resultierender VM-Parameter (z.B. Strip[0].Mute)"/>
+
+                                <TextBlock Text="LED-Zustand:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,6,0,2"/>
+                                <ComboBox x:Name="MasterVmLedSourceCombo"
+                                          Background="#222" Foreground="#DDD" FontFamily="Consolas" FontSize="10"
+                                          SelectionChanged="OnMasterVmLedSourceChanged"/>
                             </StackPanel>
 
                             <!-- LaunchProgram -->
