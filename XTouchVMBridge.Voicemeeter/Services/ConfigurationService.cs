@@ -31,9 +31,12 @@ public class ConfigurationService : IConfigurationService
 
     public XTouchVMBridgeConfig Load()
     {
+        var resolvedConfigPath = Path.GetFullPath(_configPath);
+        _logger.LogInformation("Lade Konfiguration aus: {ConfigPath}", resolvedConfigPath);
+
         if (!File.Exists(_configPath))
         {
-            _logger.LogInformation("Keine config.json gefunden — erstelle Standardkonfiguration.");
+            _logger.LogInformation("Keine config.json gefunden unter {ConfigPath} — erstelle Standardkonfiguration.", resolvedConfigPath);
             var defaultConfig = CreateDefault();
             Save(defaultConfig);
             return defaultConfig;
@@ -65,9 +68,10 @@ public class ConfigurationService : IConfigurationService
     {
         try
         {
+            var resolvedConfigPath = Path.GetFullPath(_configPath);
             string json = JsonSerializer.Serialize(config, JsonOptions);
             File.WriteAllText(_configPath, json);
-            _logger.LogInformation("Konfiguration gespeichert.");
+            _logger.LogInformation("Konfiguration gespeichert: {ConfigPath}", resolvedConfigPath);
         }
         catch (Exception ex)
         {
