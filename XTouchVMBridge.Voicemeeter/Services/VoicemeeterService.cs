@@ -95,9 +95,28 @@ public class VoicemeeterService : IVoicemeeterService
         float linear;
         if (channel < VoicemeeterState.StripCount)
         {
-            // Strip: PostFader Level (type=1), beide Kanäle (L+R), Maximum nehmen
-            VoicemeeterRemote.GetLevel(1, channel * 2, out float left);
-            VoicemeeterRemote.GetLevel(1, channel * 2 + 1, out float right);
+            // Strip: PostFader Level (type=1), beide Kanaele (L+R), Maximum nehmen.
+            // Potato-Layout:
+            // - Strip 0..4: Stereo (je 2 Level-Slots)
+            // - Strip 5..7: Virtual 8ch (je 8 Level-Slots)
+            // Daher ist "strip * 2" fuer 5..7 falsch und liefert dort oft 0.
+            int leftIndex;
+            int rightIndex;
+            if (channel <= 4)
+            {
+                leftIndex = channel * 2;
+                rightIndex = leftIndex + 1;
+            }
+            else
+            {
+                int virtualStripOffset = 10; // 5 * 2 Slots der physischen Strips
+                int virtualStripIndex = channel - 5;
+                leftIndex = virtualStripOffset + (virtualStripIndex * 8);
+                rightIndex = leftIndex + 1;
+            }
+
+            VoicemeeterRemote.GetLevel(1, leftIndex, out float left);
+            VoicemeeterRemote.GetLevel(1, rightIndex, out float right);
             linear = Math.Max(left, right);
         }
         else
@@ -109,8 +128,8 @@ public class VoicemeeterService : IVoicemeeterService
             linear = Math.Max(left, right);
         }
 
-        // VBVMR_GetLevel gibt lineare Amplitude zurück (0.0–1.0+), nicht dB.
-        // Umrechnung: dB = 20 * log10(linear). Bei Stille (0.0) → -200 dB.
+        // VBVMR_GetLevel gibt lineare Amplitude zurueck (0.0-1.0+), nicht dB.
+        // Umrechnung: dB = 20 * log10(linear). Bei Stille (0.0) -> -200 dB.
         return linear > 0 ? 20.0 * Math.Log10(linear) : -200.0;
     }
 
@@ -241,3 +260,4 @@ public class VoicemeeterService : IVoicemeeterService
         GC.SuppressFinalize(this);
     }
 }
+

@@ -3,36 +3,39 @@
 # Architecture & Extensibility
 
 ## Overview
-```
-                    ┌─────────────────────────────────────────────┐
-                    │         XTouchVMBridge.App (WPF)              │
-                    │   TrayIcon, LogWindow, MidiDebugWindow,     │
-                    │   XTouchPanelWindow                         │
-                    │   AudioDeviceMonitor, ScreenLockDetector,    │
-                    │   MasterButtonActionService,                 │
-                    │   SegmentDisplayService                      │
-                    └──────────────┬──────────────────────────────┘
-                                   │ DI (Microsoft.Extensions.Hosting)
-                    ┌──────────────┼──────────────────────┐
-                    │              │                       │
-        ┌───────────▼──┐   ┌──────▼───────────┐   ┌──────▼───────────┐
-        │ XTouchVMBridge │   │  XTouchVMBridge     │   │  XTouchVMBridge    │
-        │    .Midi     │   │   .Voicemeeter    │   │     .Core        │
-        │              │   │                   │   │                  │
-        │ XTouchDevice │   │ VoicemeeterBridge │   │ Enums, Models    │
-        │ MackieProto  │   │ VoicemeeterSvc    │   │ Interfaces       │
-        │ MidiDecoder  │   │ ConfigService     │   │ Hardware Controls│
-        │               │   │ Native P/Invoke   │   │ Events           │
-        └──────────────┘   └──────────────────┘   └──────────────────┘
+```mermaid
+flowchart TD
+    App[XTouchVMBridge.App (WPF)\nTrayIcon, LogWindow, MidiDebugWindow,\nXTouchPanelWindow, AudioDeviceMonitor,\nScreenLockDetector, MasterButtonActionService,\nSegmentDisplayService]
+
+    DI[DI / Microsoft.Extensions.Hosting]
+    Midi[XTouchVMBridge.Midi\nXTouchDevice, MackieProtocol, MidiDecoder]
+    VM[XTouchVMBridge.Voicemeeter\nVoicemeeterBridge, VoicemeeterService,\nConfigurationService, Native P/Invoke]
+    Core[XTouchVMBridge.Core\nEnums, Models, Interfaces,\nHardware Controls, Events]
+
+    App --> DI
+    DI --> Midi
+    DI --> VM
+    DI --> Core
 ```
 ## Dependencies between projects
+```mermaid
+flowchart LR
+    Core[XTouchVMBridge.Core\n(Foundation)]
+    Midi[XTouchVMBridge.Midi]
+    VM[XTouchVMBridge.Voicemeeter]
+    App[XTouchVMBridge.App]
+    Tests[XTouchVMBridge.Tests]
+
+    Core --> Midi
+    Core --> VM
+    Core --> App
+    Core --> Tests
+    Midi --> App
+    Midi --> Tests
+    VM --> App
+    VM --> Tests
 ```
-XTouchVMBridge.Core       ← keine Abhängigkeiten (Fundament)
-XTouchVMBridge.Midi       ← Core
-XTouchVMBridge.Voicemeeter← Core
-XTouchVMBridge.App        ← Core, Midi, Voicemeeter
-XTouchVMBridge.Tests      ← Core, Midi, Voicemeeter
-```
+
 The direction is always "downward": App knows everything, Core knows nobody.
 Midi and Voicemeeter do not know each other - the connection runs via interfaces from Core.
 
@@ -56,42 +59,55 @@ To use another MIDI device: write your own class that implements `IMidiDevice`,
 and exchange in the DI registry.
 
 ## Hardware controls hierarchy
+```mermaid
+classDiagram
+    class HardwareControlBase
+    class FaderControl
+    class ButtonControl
+    class EncoderControl
+    class EncoderFunction
+    class DisplayControl
+    class LevelMeterControl
+
+    HardwareControlBase <|-- FaderControl
+    HardwareControlBase <|-- ButtonControl
+    HardwareControlBase <|-- EncoderControl
+    HardwareControlBase <|-- DisplayControl
+    HardwareControlBase <|-- LevelMeterControl
+    EncoderControl --> EncoderFunction : functions
 ```
-HardwareControlBase (abstrakt)
-├── FaderControl          — motorisierter Fader mit dB-Konvertierung
-├── ButtonControl         — Button mit LED (typisiert per XTouchButtonType)
-├── EncoderControl        — Drehencoder mit Push, LED-Ring und Funktionsliste
-│   └── EncoderFunction   — einzelne steuerbare Funktion (Name, VM-Parameter, Min/Max/Step)
-├── DisplayControl        — LCD-Display (7×2 Zeichen + Farbe)
-└── LevelMeterControl     — Pegelanzeige (0–13 Stufen)
-```
+
 Each control type knows its channel index and a unique `ControlId`.
 All controls of a channel are bundled in `XTouchChannel`.
 
 ### Encoder function list
+```mermaid
+classDiagram
+    class EncoderControl {
+      +List~EncoderFunction~ Functions
+      +int ActiveFunctionIndex
+      +XTouchEncoderRingMode RingMode
+      +CycleFunction()
+      +ApplyTicks(int ticks)
+      +SyncRingToActiveFunction()
+      +CalculateCcValue() byte
+    }
 
-Each `EncoderControl` can hold a list of `EncoderFunction` objects.
-Pressing the encoder cycles through the function list.
-Rotating changes the value of the active function.
-```
-EncoderControl
-├── Functions: List<EncoderFunction>    // z.B. [HIGH, MID, LOW, PAN, GAIN]
-├── ActiveFunctionIndex: int            // aktuell aktive Funktion
-├── RingMode: XTouchEncoderRingMode     // Anzeigemodus (Dot/Pan/Wrap/Spread)
-├── CycleFunction()                     // Drücken → nächste Funktion
-├── ApplyTicks(int ticks)               // Drehen → Wert der aktiven Funktion ändern
-├── SyncRingToActiveFunction()          // Ring-Position an Wert anpassen
-└── CalculateCcValue() → byte           // CC-Wert für X-Touch LED-Ring
+    class EncoderFunction {
+      +string Name
+      +string VmParameter
+      +double MinValue
+      +double MaxValue
+      +double StepSize
+      +double CurrentValue
+      +ApplyTicks(int ticks) double
+      +ToRingPosition() int
+      +FormatValue() string
+    }
 
-EncoderFunction
-├── Name: string                        // "HIGH", "MID", "LOW", etc.
-├── VmParameter: string                 // "Strip[0].EQGain3"
-├── MinValue / MaxValue / StepSize      // Wertebereich + Schrittweite
-├── CurrentValue: double                // aktueller Wert
-├── ApplyTicks(int ticks) → double      // Wert ändern (mit Clamping)
-├── ToRingPosition() → int              // Wert → Ring-Position (0-10)
-└── FormatValue() → string              // "3.5dB" (InvariantCulture)
+    EncoderControl --> EncoderFunction : active / list
 ```
+
 Each function remembers its own value - the state is retained when switching.
 
 ### Encoder display behavior

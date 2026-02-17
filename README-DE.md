@@ -34,37 +34,44 @@ dotnet test XTouchVMBridge.Tests
 
 Aktuell 99 Tests: Hardware-Controls, EncoderFunction/CycleLogic, MackieProtocol, MidiMessageDecoder, XTouchChannel-Model.
 
+## Installer (MSI)
+
+Es gibt jetzt ein WiX v4 Setup-Projekt fuer einen MSI-Installer:
+
+```bash
+dotnet build XTouchVMBridge.Setup/XTouchVMBridge.Setup.wixproj -c Release
+```
+
+Ausgabe:
+
+- `XTouchVMBridge.Setup/bin/x64/Release/XTouchVMBridge.Setup.msi`
+
+Hinweise:
+
+- Das Setup publisht die App automatisch und harvestet die Dateien fuer MSI.
+- Startmenu-Verknuepfung ist enthalten.
+- Desktop-Verknuepfung ist aktuell nicht enthalten (saubere ICE-Validierung fuer per-machine Install).
+
 ## Solution-Struktur
+```mermaid
+flowchart TD
+    Root[XTouchVMBridgeCSharp]
+    SLN[XTouchVMBridge.slnx\n6 Projekte]
+    Core[XTouchVMBridge.Core\nEnums, Events, Hardware, Interfaces, Models]
+    Midi[XTouchVMBridge.Midi\nXTouchDevice, MackieProtocol, MidiMessageDecoder]
+    Vm[XTouchVMBridge.Voicemeeter\nNative, Services]
+    App[XTouchVMBridge.App\nWPF App, Services, Views]
+    Setup[XTouchVMBridge.Setup\nWiX v4 MSI Installer]
+    Tests[XTouchVMBridge.Tests\nHardware-, XTouch-, Model-Tests]
 
+    Root --> SLN
+    Root --> Core
+    Root --> Midi
+    Root --> Vm
+    Root --> App
+    Root --> Setup
+    Root --> Tests
 ```
-XTouchVMBridgeCSharp/
-├── XTouchVMBridge.slnx                  # Solution (5 Projekte)
-│
-├── XTouchVMBridge.Core/                 # Shared: Enums, Interfaces, Models, Hardware
-│   ├── Enums/                         # XTouchColor, XTouchButtonType, LedState, ...
-│   ├── Events/                        # FaderEventArgs, ButtonEventArgs, ...
-│   ├── Hardware/                      # FaderControl, ButtonControl, EncoderControl, EncoderFunction, ...
-│   ├── Interfaces/                    # IMidiDevice, IVoicemeeterService, ...
-│   └── Models/                        # XTouchChannel, XTouchVMBridgeConfig, ...
-│
-├── XTouchVMBridge.Midi/                 # MIDI-Kommunikation (NAudio)
-│   └── XTouch/                        # XTouchDevice, MackieProtocol, MidiMessageDecoder
-│
-├── XTouchVMBridge.Voicemeeter/          # Voicemeeter-Integration
-│   ├── Native/                        # VoicemeeterRemote P/Invoke
-│   └── Services/                      # VoicemeeterService, VoicemeeterBridge, Config
-│
-├── XTouchVMBridge.App/                  # WPF-Anwendung (Entry Point)
-│   ├── Services/                      # TrayIcon, AudioDeviceMonitor, ScreenLock,
-│   │                                  # MasterButtonActionService, SegmentDisplayService, MQTT
-│   └── Views/                         # LogWindow, MidiDebugWindow, XTouchPanelWindow
-│
-└── XTouchVMBridge.Tests/                # xUnit Tests
-    ├── Hardware/                      # Fader, Display, Encoder, EncoderFunction, LevelMeter
-    ├── XTouch/                        # MackieProtocol, MidiMessageDecoder
-    └── Models/                        # XTouchChannel
-```
-
 ## Konfiguration
 
 Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name, Typ und Farbe definiert:

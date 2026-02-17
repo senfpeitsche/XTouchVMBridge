@@ -2,6 +2,15 @@
 
 # Changelog
 
+## [Unreleased] - 2026-02-17
+
+### Installer (WiX/MSI)
+- **New**: Added WiX v4 setup project `XTouchVMBridge.Setup`
+- **New**: MSI build via `dotnet build XTouchVMBridge.Setup/XTouchVMBridge.Setup.wixproj -c Release`
+- **New**: Automatic app publish + harvest of publish files into the MSI
+- **New**: Start menu shortcut included in installer
+- **Change**: Desktop shortcut is currently not included to keep MSI ICE validation clean for per-machine installation
+
 ## [Unreleased] - 2026-02-15
 
 ### MQTT: Mapping editor and runtime expanded

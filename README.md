@@ -30,34 +30,43 @@ dotnet test XTouchVMBridge.Tests
 ```
 Currently 99 tests: Hardware controls, EncoderFunction/CycleLogic, MackieProtocol, MidiMessageDecoder, XTouchChannel model.
 
-## Solution structure
+## Installer (MSI)
+
+A WiX v4 setup project is now included for building an MSI installer:
+
+```bash
+dotnet build XTouchVMBridge.Setup/XTouchVMBridge.Setup.wixproj -c Release
 ```
-XTouchVMBridgeCSharp/
-├── XTouchVMBridge.slnx                  # Solution (5 Projekte)
-│
-├── XTouchVMBridge.Core/                 # Shared: Enums, Interfaces, Models, Hardware
-│   ├── Enums/                         # XTouchColor, XTouchButtonType, LedState, ...
-│   ├── Events/                        # FaderEventArgs, ButtonEventArgs, ...
-│   ├── Hardware/                      # FaderControl, ButtonControl, EncoderControl, EncoderFunction, ...
-│   ├── Interfaces/                    # IMidiDevice, IVoicemeeterService, ...
-│   └── Models/                        # XTouchChannel, XTouchVMBridgeConfig, ...
-│
-├── XTouchVMBridge.Midi/                 # MIDI-Kommunikation (NAudio)
-│   └── XTouch/                        # XTouchDevice, MackieProtocol, MidiMessageDecoder
-│
-├── XTouchVMBridge.Voicemeeter/          # Voicemeeter-Integration
-│   ├── Native/                        # VoicemeeterRemote P/Invoke
-│   └── Services/                      # VoicemeeterService, VoicemeeterBridge, Config
-│
-├── XTouchVMBridge.App/                  # WPF-Anwendung (Entry Point)
-│   ├── Services/                      # TrayIcon, AudioDeviceMonitor, ScreenLock,
-│   │                                  # MasterButtonActionService, SegmentDisplayService, MQTT
-│   └── Views/                         # LogWindow, MidiDebugWindow, XTouchPanelWindow
-│
-└── XTouchVMBridge.Tests/                # xUnit Tests
-    ├── Hardware/                      # Fader, Display, Encoder, EncoderFunction, LevelMeter
-    ├── XTouch/                        # MackieProtocol, MidiMessageDecoder
-    └── Models/                        # XTouchChannel
+
+Output:
+
+- `XTouchVMBridge.Setup/bin/x64/Release/XTouchVMBridge.Setup.msi`
+
+Notes:
+
+- The setup project automatically publishes the app and harvests files for MSI packaging.
+- A Start menu shortcut is included.
+- A Desktop shortcut is currently not included (clean ICE validation for per-machine install).
+
+## Solution structure
+```mermaid
+flowchart TD
+    Root[XTouchVMBridgeCSharp]
+    SLN[XTouchVMBridge.slnx\n6 projects]
+    Core[XTouchVMBridge.Core\nEnums, Events, Hardware, Interfaces, Models]
+    Midi[XTouchVMBridge.Midi\nXTouchDevice, MackieProtocol, MidiMessageDecoder]
+    Vm[XTouchVMBridge.Voicemeeter\nNative, Services]
+    App[XTouchVMBridge.App\nWPF App, Services, Views]
+    Setup[XTouchVMBridge.Setup\nWiX v4 MSI installer]
+    Tests[XTouchVMBridge.Tests\nHardware, XTouch, Model tests]
+
+    Root --> SLN
+    Root --> Core
+    Root --> Midi
+    Root --> Vm
+    Root --> App
+    Root --> Setup
+    Root --> Tests
 ```
 ## Configuration
 

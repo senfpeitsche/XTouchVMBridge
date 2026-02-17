@@ -3,38 +3,37 @@
 # Architektur & Erweiterbarkeit
 
 ## Übersicht
+```mermaid
+flowchart TD
+    App[XTouchVMBridge.App (WPF)\nTrayIcon, LogWindow, MidiDebugWindow,\nXTouchPanelWindow, AudioDeviceMonitor,\nScreenLockDetector, MasterButtonActionService,\nSegmentDisplayService]
 
-```
-                    ┌─────────────────────────────────────────────┐
-                    │         XTouchVMBridge.App (WPF)              │
-                    │   TrayIcon, LogWindow, MidiDebugWindow,     │
-                    │   XTouchPanelWindow                         │
-                    │   AudioDeviceMonitor, ScreenLockDetector,    │
-                    │   MasterButtonActionService,                 │
-                    │   SegmentDisplayService                      │
-                    └──────────────┬──────────────────────────────┘
-                                   │ DI (Microsoft.Extensions.Hosting)
-                    ┌──────────────┼──────────────────────┐
-                    │              │                       │
-        ┌───────────▼──┐   ┌──────▼───────────┐   ┌──────▼───────────┐
-        │ XTouchVMBridge │   │  XTouchVMBridge     │   │  XTouchVMBridge    │
-        │    .Midi     │   │   .Voicemeeter    │   │     .Core        │
-        │              │   │                   │   │                  │
-        │ XTouchDevice │   │ VoicemeeterBridge │   │ Enums, Models    │
-        │ MackieProto  │   │ VoicemeeterSvc    │   │ Interfaces       │
-        │ MidiDecoder  │   │ ConfigService     │   │ Hardware Controls│
-        │               │   │ Native P/Invoke   │   │ Events           │
-        └──────────────┘   └──────────────────┘   └──────────────────┘
-```
+    DI[DI / Microsoft.Extensions.Hosting]
+    Midi[XTouchVMBridge.Midi\nXTouchDevice, MackieProtocol, MidiDecoder]
+    VM[XTouchVMBridge.Voicemeeter\nVoicemeeterBridge, VoicemeeterService,\nConfigurationService, Native P/Invoke]
+    Core[XTouchVMBridge.Core\nEnums, Models, Interfaces,\nHardware Controls, Events]
 
+    App --> DI
+    DI --> Midi
+    DI --> VM
+    DI --> Core
+```
 ## Abhängigkeiten zwischen den Projekten
+```mermaid
+flowchart LR
+    Core[XTouchVMBridge.Core\n(Fundament)]
+    Midi[XTouchVMBridge.Midi]
+    VM[XTouchVMBridge.Voicemeeter]
+    App[XTouchVMBridge.App]
+    Tests[XTouchVMBridge.Tests]
 
-```
-XTouchVMBridge.Core       ← keine Abhängigkeiten (Fundament)
-XTouchVMBridge.Midi       ← Core
-XTouchVMBridge.Voicemeeter← Core
-XTouchVMBridge.App        ← Core, Midi, Voicemeeter
-XTouchVMBridge.Tests      ← Core, Midi, Voicemeeter
+    Core --> Midi
+    Core --> VM
+    Core --> App
+    Core --> Tests
+    Midi --> App
+    Midi --> Tests
+    VM --> App
+    VM --> Tests
 ```
 
 Die Richtung ist immer "nach unten": App kennt alles, Core kennt niemanden.
@@ -62,44 +61,53 @@ Um ein anderes MIDI-Gerät zu verwenden: eigene Klasse schreiben die `IMidiDevic
 und in der DI-Registrierung austauschen.
 
 ## Hardware-Controls Hierarchie
+```mermaid
+classDiagram
+    class HardwareControlBase
+    class FaderControl
+    class ButtonControl
+    class EncoderControl
+    class EncoderFunction
+    class DisplayControl
+    class LevelMeterControl
 
-```
-HardwareControlBase (abstrakt)
-├── FaderControl          — motorisierter Fader mit dB-Konvertierung
-├── ButtonControl         — Button mit LED (typisiert per XTouchButtonType)
-├── EncoderControl        — Drehencoder mit Push, LED-Ring und Funktionsliste
-│   └── EncoderFunction   — einzelne steuerbare Funktion (Name, VM-Parameter, Min/Max/Step)
-├── DisplayControl        — LCD-Display (7×2 Zeichen + Farbe)
-└── LevelMeterControl     — Pegelanzeige (0–13 Stufen)
+    HardwareControlBase <|-- FaderControl
+    HardwareControlBase <|-- ButtonControl
+    HardwareControlBase <|-- EncoderControl
+    HardwareControlBase <|-- DisplayControl
+    HardwareControlBase <|-- LevelMeterControl
+    EncoderControl --> EncoderFunction : functions
 ```
 
 Jeder Control-Typ kennt seinen Kanal-Index und eine eindeutige `ControlId`.
 Alle Controls eines Kanals sind in `XTouchChannel` gebündelt.
 
 ### Encoder-Funktionsliste
+```mermaid
+classDiagram
+    class EncoderControl {
+      +List~EncoderFunction~ Functions
+      +int ActiveFunctionIndex
+      +XTouchEncoderRingMode RingMode
+      +CycleFunction()
+      +ApplyTicks(int ticks)
+      +SyncRingToActiveFunction()
+      +CalculateCcValue() byte
+    }
 
-Jeder `EncoderControl` kann eine Liste von `EncoderFunction`-Objekten halten.
-Durch Drücken des Encoders wird zyklisch durch die Funktionsliste geschaltet.
-Drehen ändert den Wert der aktiven Funktion.
+    class EncoderFunction {
+      +string Name
+      +string VmParameter
+      +double MinValue
+      +double MaxValue
+      +double StepSize
+      +double CurrentValue
+      +ApplyTicks(int ticks) double
+      +ToRingPosition() int
+      +FormatValue() string
+    }
 
-```
-EncoderControl
-├── Functions: List<EncoderFunction>    // z.B. [HIGH, MID, LOW, PAN, GAIN]
-├── ActiveFunctionIndex: int            // aktuell aktive Funktion
-├── RingMode: XTouchEncoderRingMode     // Anzeigemodus (Dot/Pan/Wrap/Spread)
-├── CycleFunction()                     // Drücken → nächste Funktion
-├── ApplyTicks(int ticks)               // Drehen → Wert der aktiven Funktion ändern
-├── SyncRingToActiveFunction()          // Ring-Position an Wert anpassen
-└── CalculateCcValue() → byte           // CC-Wert für X-Touch LED-Ring
-
-EncoderFunction
-├── Name: string                        // "HIGH", "MID", "LOW", etc.
-├── VmParameter: string                 // "Strip[0].EQGain3"
-├── MinValue / MaxValue / StepSize      // Wertebereich + Schrittweite
-├── CurrentValue: double                // aktueller Wert
-├── ApplyTicks(int ticks) → double      // Wert ändern (mit Clamping)
-├── ToRingPosition() → int              // Wert → Ring-Position (0-10)
-└── FormatValue() → string              // "3.5dB" (InvariantCulture)
+    EncoderControl --> EncoderFunction : active / list
 ```
 
 Jede Funktion merkt sich ihren eigenen Wert — beim Umschalten bleibt der Zustand erhalten.
