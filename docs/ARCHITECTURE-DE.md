@@ -88,10 +88,10 @@ flowchart LR
     FList[Function List]
     AFI[ActiveFunctionIndex]
     RM[RingMode]
-    CF[CycleFunction()]
-    AT[ApplyTicks(ticks)]
-    SR[SyncRingToActiveFunction()]
-    CC[CalculateCcValue()]
+    CF[CycleFunction]
+    AT[ApplyTicks]
+    SR[SyncRingToActiveFunction]
+    CC[CalculateCcValue]
 
     EF[EncoderFunction]
     N[Name]
@@ -100,9 +100,9 @@ flowchart LR
     MAX[MaxValue]
     STEP[StepSize]
     CUR[CurrentValue]
-    AFT[ApplyTicks(ticks)]
-    TRP[ToRingPosition()]
-    FV[FormatValue()]
+    AFT[ApplyTicks]
+    TRP[ToRingPosition]
+    FV[FormatValue]
 
     EC --> FList
     EC --> AFI
