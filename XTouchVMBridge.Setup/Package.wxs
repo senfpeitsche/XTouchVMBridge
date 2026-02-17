@@ -1,0 +1,41 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package
+      Name="XTouchVMBridge"
+      Manufacturer="XTouchVMBridge"
+      Version="1.0.0"
+      UpgradeCode="B9F8F1D8-6D0E-4C15-B4EC-61BEBC23F77C"
+      InstallerVersion="500"
+      Scope="perMachine"
+      Language="1033">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of XTouchVMBridge is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="XTouchVMBridge" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="XTouchVMBridge" />
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="XTouchVMBridge" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="ApplicationShortcuts" />
+    </Feature>
+
+    <Component Id="ApplicationShortcuts" Directory="ApplicationProgramsFolder" Guid="*">
+      <Shortcut Id="StartMenuShortcut"
+                Name="XTouchVMBridge"
+                Description="XTouchVMBridge"
+                Target="[INSTALLFOLDER]XTouchVMBridge.App.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+
+      <RemoveFolder Id="RemoveProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\XTouchVMBridge" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+  </Package>
+</Wix>
