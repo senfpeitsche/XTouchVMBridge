@@ -5,12 +5,11 @@
 ## Übersicht
 ```mermaid
 flowchart TD
-    App[XTouchVMBridge.App (WPF)\nTrayIcon, LogWindow, MidiDebugWindow,\nXTouchPanelWindow, AudioDeviceMonitor,\nScreenLockDetector, MasterButtonActionService,\nSegmentDisplayService]
-
-    DI[DI / Microsoft.Extensions.Hosting]
-    Midi[XTouchVMBridge.Midi\nXTouchDevice, MackieProtocol, MidiDecoder]
-    VM[XTouchVMBridge.Voicemeeter\nVoicemeeterBridge, VoicemeeterService,\nConfigurationService, Native P/Invoke]
-    Core[XTouchVMBridge.Core\nEnums, Models, Interfaces,\nHardware Controls, Events]
+    App[XTouchVMBridge App]
+    DI[Dependency Injection]
+    Midi[XTouchVMBridge Midi]
+    VM[XTouchVMBridge Voicemeeter]
+    Core[XTouchVMBridge Core]
 
     App --> DI
     DI --> Midi
@@ -20,7 +19,7 @@ flowchart TD
 ## Abhängigkeiten zwischen den Projekten
 ```mermaid
 flowchart LR
-    Core[XTouchVMBridge.Core\n(Fundament)]
+    Core[XTouchVMBridge Core]
     Midi[XTouchVMBridge.Midi]
     VM[XTouchVMBridge.Voicemeeter]
     App[XTouchVMBridge.App]
@@ -63,7 +62,7 @@ und in der DI-Registrierung austauschen.
 ## Hardware-Controls Hierarchie
 ```mermaid
 flowchart TD
-    Base[HardwareControlBase]
+    Base[Hardware Control Base]
     Fader[FaderControl]
     Button[ButtonControl]
     Encoder[EncoderControl]
@@ -86,7 +85,7 @@ Alle Controls eines Kanals sind in `XTouchChannel` gebündelt.
 ```mermaid
 flowchart LR
     EC[EncoderControl]
-    FList[Functions List]
+    FList[Function List]
     AFI[ActiveFunctionIndex]
     RM[RingMode]
     CF[CycleFunction()]
