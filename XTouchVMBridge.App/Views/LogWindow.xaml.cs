@@ -25,28 +25,37 @@ public partial class LogWindow : Window
 
     private static readonly string[] LogLevelOrder = { "DBG", "INF", "WRN", "ERR" };
 
-    public LogWindow(string logFilePath = "logfile.log")
+    public LogWindow(string? logFilePath = null)
     {
         InitializeComponent();
         Icon = AppIconFactory.CreateWindowIcon();
 
-        // Log-Datei suchen
+        // Log-Datei in %APPDATA%\XTouchVMBridge suchen
+        var appDataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "XTouchVMBridge");
         var today = DateTime.Now.ToString("yyyyMMdd");
-        var dateFile = $"logfile{today}.log";
+        var dateFile = Path.Combine(appDataDir, $"logfile{today}.log");
+        var defaultFile = Path.Combine(appDataDir, "logfile.log");
+        var configuredFile = string.IsNullOrWhiteSpace(logFilePath)
+            ? defaultFile
+            : Path.GetFullPath(logFilePath);
 
         if (File.Exists(dateFile))
             _logFilePath = dateFile;
-        else if (File.Exists(logFilePath))
-            _logFilePath = logFilePath;
+        else if (File.Exists(configuredFile))
+            _logFilePath = configuredFile;
+        else
+            _logFilePath = configuredFile;
 
         Loaded += OnWindowLoaded;
     }
 
     private async void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrEmpty(_logFilePath))
+        if (string.IsNullOrEmpty(_logFilePath) || !File.Exists(_logFilePath))
         {
-            LogTextBox.Text = "Keine Log-Datei gefunden.\n";
+            LogTextBox.Text = $"Keine Log-Datei gefunden.\nErwartet unter: {_logFilePath}\n";
             return;
         }
 
@@ -209,6 +218,12 @@ public partial class LogWindow : Window
 
     private void RefreshDisplay()
     {
+        if (string.IsNullOrEmpty(_logFilePath) || !File.Exists(_logFilePath))
+        {
+            LogTextBox.Text = $"Keine Log-Datei gefunden.\nErwartet unter: {_logFilePath}\n";
+            return;
+        }
+
         LogTextBox.Clear();
 
         var fileInfo = new FileInfo(_logFilePath);
@@ -272,7 +287,10 @@ public partial class LogWindow : Window
     private void OnClearClick(object sender, RoutedEventArgs e)
     {
         LogTextBox.Clear();
-        _lastFilePosition = new FileInfo(_logFilePath).Length;
+        if (!string.IsNullOrWhiteSpace(_logFilePath) && File.Exists(_logFilePath))
+            _lastFilePosition = new FileInfo(_logFilePath).Length;
+        else
+            LogTextBox.Text = $"Keine Log-Datei gefunden.\nErwartet unter: {_logFilePath}\n";
     }
 
     private void OnOpenInExplorerClick(object sender, RoutedEventArgs e)
@@ -285,7 +303,11 @@ public partial class LogWindow : Window
             }
             else
             {
-                Process.Start("explorer.exe", Environment.CurrentDirectory);
+                var logDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "XTouchVMBridge");
+                Directory.CreateDirectory(logDir);
+                Process.Start("explorer.exe", logDir);
             }
         }
         catch (Exception ex)

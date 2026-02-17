@@ -31,10 +31,22 @@ public static class VoicemeeterRemote
     /// damit Windows die VoicemeeterRemote64.dll findet.
     /// Muss einmalig vor dem ersten API-Aufruf aufgerufen werden.
     /// </summary>
-    /// <returns>Den gefundenen Pfad oder null wenn nicht gefunden.</returns>
-    public static string? EnsureDllSearchPath()
+    /// <param name="configuredPath">
+    /// Optionaler Pfad zu VoicemeeterRemote64.dll oder zum Voicemeeter-Installationsordner.
+    /// </param>
+    /// <returns>Den verwendeten Suchpfad oder null wenn nicht gefunden.</returns>
+    public static string? EnsureDllSearchPath(string? configuredPath = null)
     {
         if (_dllSearchPathSet) return null;
+
+        var configuredDirectory = ResolveConfiguredDirectory(configuredPath);
+        if (!string.IsNullOrWhiteSpace(configuredDirectory) &&
+            File.Exists(Path.Combine(configuredDirectory, "VoicemeeterRemote64.dll")))
+        {
+            SetDllDirectory(configuredDirectory);
+            _dllSearchPathSet = true;
+            return configuredDirectory;
+        }
 
         foreach (var path in VoicemeeterSearchPaths)
         {
@@ -45,6 +57,22 @@ public static class VoicemeeterRemote
                 return path;
             }
         }
+
+        return null;
+    }
+
+    private static string? ResolveConfiguredDirectory(string? configuredPath)
+    {
+        if (string.IsNullOrWhiteSpace(configuredPath))
+            return null;
+
+        var fullPath = Path.GetFullPath(configuredPath.Trim().Trim('"'));
+        if (Directory.Exists(fullPath))
+            return fullPath;
+
+        if (File.Exists(fullPath) &&
+            string.Equals(Path.GetFileName(fullPath), "VoicemeeterRemote64.dll", StringComparison.OrdinalIgnoreCase))
+            return Path.GetDirectoryName(fullPath);
 
         return null;
     }

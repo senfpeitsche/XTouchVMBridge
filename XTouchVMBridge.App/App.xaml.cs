@@ -1,4 +1,5 @@
 using System.Windows;
+using System.IO;
 using Application = System.Windows.Application;
 using XTouchVMBridge.App.Services;
 using XTouchVMBridge.App.Views;
@@ -27,35 +28,62 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        string logFilePath = "logfile.log";
+        try
+        {
+            var appDataDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "XTouchVMBridge");
+            Directory.CreateDirectory(appDataDir);
+            logFilePath = Path.Combine(appDataDir, "logfile.log");
+        }
+        catch
+        {
+            // Fallback auf Arbeitsverzeichnis
+        }
+
         // Serilog konfigurieren
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.Console()
-            .WriteTo.File("logfile.log",
+            .WriteTo.File(logFilePath,
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 7,
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
+        Log.Information("Log-Datei: {LogFilePath}", logFilePath);
 
         try
         {
+            // Konfiguration früh laden, damit optionale Pfade (z.B. Voicemeeter DLL) bereits verfügbar sind.
+            var configService = new ConfigurationService(
+                new LoggerFactory().CreateLogger<ConfigurationService>());
+            var config = configService.Load();
+
             // WICHTIG: DLL-Suchpfad für VoicemeeterRemote64.dll setzen BEVOR
             // irgendwelche Services gestartet werden (DllImport wird beim ersten
             // Zugriff auf die Klasse ausgelöst).
-            var vmDllPath = XTouchVMBridge.Voicemeeter.Native.VoicemeeterRemote.EnsureDllSearchPath();
+            var configuredVmDllDirectory = ResolveConfiguredVmDllDirectory(config.VoicemeeterDllPath);
+            var vmDllPath = XTouchVMBridge.Voicemeeter.Native.VoicemeeterRemote.EnsureDllSearchPath(config.VoicemeeterDllPath);
             if (vmDllPath != null)
                 Log.Information("Voicemeeter DLL-Pfad gesetzt: {Path}", vmDllPath);
             else
                 Log.Warning("Voicemeeter-Installation nicht gefunden. Prüfe ob Voicemeeter installiert ist.");
+
+            if (!string.IsNullOrWhiteSpace(config.VoicemeeterDllPath) && configuredVmDllDirectory == null)
+                Log.Warning("Konfigurierter Voicemeeter-DLL-Pfad ist ungültig: {ConfiguredPath}", config.VoicemeeterDllPath);
+            else if (!string.IsNullOrWhiteSpace(config.VoicemeeterDllPath) &&
+                     !string.IsNullOrWhiteSpace(vmDllPath) &&
+                     configuredVmDllDirectory != null &&
+                     !string.Equals(configuredVmDllDirectory, vmDllPath, StringComparison.OrdinalIgnoreCase))
+                Log.Warning("Konfigurierter Voicemeeter-DLL-Pfad ohne Treffer, Fallback verwendet. Konfiguriert: {ConfiguredPath}; Verwendet: {UsedPath}",
+                    config.VoicemeeterDllPath, vmDllPath);
 
             _host = Host.CreateDefaultBuilder()
                 .UseSerilog()
                 .ConfigureServices((context, services) =>
                 {
                     // Konfiguration
-                    var configService = new ConfigurationService(
-                        new LoggerFactory().CreateLogger<ConfigurationService>());
-                    var config = configService.Load();
                     services.AddSingleton(Options.Create(config));
                     services.AddSingleton(config); // Direkte Registrierung für TrayIconService/XTouchPanel
                     services.AddSingleton<IConfigurationService>(configService);
@@ -133,5 +161,21 @@ public partial class App : Application
 
         Log.CloseAndFlush();
         base.OnExit(e);
+    }
+
+    private static string? ResolveConfiguredVmDllDirectory(string? configuredPath)
+    {
+        if (string.IsNullOrWhiteSpace(configuredPath))
+            return null;
+
+        var fullPath = Path.GetFullPath(configuredPath.Trim().Trim('"'));
+        if (Directory.Exists(fullPath))
+            return fullPath;
+
+        if (File.Exists(fullPath) &&
+            string.Equals(Path.GetFileName(fullPath), "VoicemeeterRemote64.dll", StringComparison.OrdinalIgnoreCase))
+            return Path.GetDirectoryName(fullPath);
+
+        return null;
     }
 }

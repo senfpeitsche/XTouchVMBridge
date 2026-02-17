@@ -23,10 +23,12 @@ public class ConfigurationService : IConfigurationService
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
-    public ConfigurationService(ILogger<ConfigurationService> logger, string configPath = "config.json")
+    public ConfigurationService(ILogger<ConfigurationService> logger, string? configPath = null)
     {
         _logger = logger;
-        _configPath = configPath;
+        _configPath = Path.GetFullPath(string.IsNullOrWhiteSpace(configPath)
+            ? GetDefaultConfigPath()
+            : configPath);
     }
 
     public XTouchVMBridgeConfig Load()
@@ -68,7 +70,10 @@ public class ConfigurationService : IConfigurationService
     {
         try
         {
-            var resolvedConfigPath = Path.GetFullPath(_configPath);
+            var resolvedConfigPath = _configPath;
+            var configDirectory = Path.GetDirectoryName(resolvedConfigPath);
+            if (!string.IsNullOrWhiteSpace(configDirectory))
+                Directory.CreateDirectory(configDirectory);
             string json = JsonSerializer.Serialize(config, JsonOptions);
             File.WriteAllText(_configPath, json);
             _logger.LogInformation("Konfiguration gespeichert: {ConfigPath}", resolvedConfigPath);
@@ -188,8 +193,18 @@ public class ConfigurationService : IConfigurationService
         };
     }
 
+    private static string GetDefaultConfigPath()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        return Path.Combine(appData, "XTouchVMBridge", "config.json");
+    }
+
     private void ValidateConfig(XTouchVMBridgeConfig config)
     {
+        config.VoicemeeterDllPath = string.IsNullOrWhiteSpace(config.VoicemeeterDllPath)
+            ? null
+            : config.VoicemeeterDllPath.Trim();
+
         config.Mqtt ??= new MqttConfig();
         config.Mqtt.Normalize();
 

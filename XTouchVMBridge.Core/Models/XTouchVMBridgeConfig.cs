@@ -14,6 +14,12 @@ public class XTouchVMBridgeConfig
     /// <summary>Voicemeeter API-Typ ("potato", "banana", "basic").</summary>
     public string VoicemeeterApiType { get; set; } = "potato";
 
+    /// <summary>
+    /// Optionaler Pfad zu VoicemeeterRemote64.dll oder zum Voicemeeter-Installationsordner.
+    /// Wenn gesetzt, wird dieser Pfad beim Start zuerst verwendet.
+    /// </summary>
+    public string? VoicemeeterDllPath { get; set; }
+
     /// <summary>Intervall in ms für das Device-Monitoring.</summary>
     public int DeviceMonitorIntervalMs { get; set; } = 5000;
 
