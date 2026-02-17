@@ -60,21 +60,21 @@ and exchange in the DI registry.
 
 ## Hardware controls hierarchy
 ```mermaid
-classDiagram
-    class HardwareControlBase
-    class FaderControl
-    class ButtonControl
-    class EncoderControl
-    class EncoderFunction
-    class DisplayControl
-    class LevelMeterControl
+flowchart TD
+    Base[HardwareControlBase]
+    Fader[FaderControl]
+    Button[ButtonControl]
+    Encoder[EncoderControl]
+    Func[EncoderFunction]
+    Display[DisplayControl]
+    Meter[LevelMeterControl]
 
-    HardwareControlBase <|-- FaderControl
-    HardwareControlBase <|-- ButtonControl
-    HardwareControlBase <|-- EncoderControl
-    HardwareControlBase <|-- DisplayControl
-    HardwareControlBase <|-- LevelMeterControl
-    EncoderControl --> EncoderFunction : functions
+    Base --> Fader
+    Base --> Button
+    Base --> Encoder
+    Base --> Display
+    Base --> Meter
+    Encoder --> Func
 ```
 
 Each control type knows its channel index and a unique `ControlId`.
@@ -82,30 +82,44 @@ All controls of a channel are bundled in `XTouchChannel`.
 
 ### Encoder function list
 ```mermaid
-classDiagram
-    class EncoderControl {
-      +List~EncoderFunction~ Functions
-      +int ActiveFunctionIndex
-      +XTouchEncoderRingMode RingMode
-      +CycleFunction()
-      +ApplyTicks(int ticks)
-      +SyncRingToActiveFunction()
-      +CalculateCcValue() byte
-    }
+flowchart LR
+    EC[EncoderControl]
+    FList[Functions List]
+    AFI[ActiveFunctionIndex]
+    RM[RingMode]
+    CF[CycleFunction()]
+    AT[ApplyTicks(ticks)]
+    SR[SyncRingToActiveFunction()]
+    CC[CalculateCcValue()]
 
-    class EncoderFunction {
-      +string Name
-      +string VmParameter
-      +double MinValue
-      +double MaxValue
-      +double StepSize
-      +double CurrentValue
-      +ApplyTicks(int ticks) double
-      +ToRingPosition() int
-      +FormatValue() string
-    }
+    EF[EncoderFunction]
+    N[Name]
+    VP[VmParameter]
+    MIN[MinValue]
+    MAX[MaxValue]
+    STEP[StepSize]
+    CUR[CurrentValue]
+    AFT[ApplyTicks(ticks)]
+    TRP[ToRingPosition()]
+    FV[FormatValue()]
 
-    EncoderControl --> EncoderFunction : active / list
+    EC --> FList
+    EC --> AFI
+    EC --> RM
+    EC --> CF
+    EC --> AT
+    EC --> SR
+    EC --> CC
+    EC --> EF
+    EF --> N
+    EF --> VP
+    EF --> MIN
+    EF --> MAX
+    EF --> STEP
+    EF --> CUR
+    EF --> AFT
+    EF --> TRP
+    EF --> FV
 ```
 
 Each function remembers its own value - the state is retained when switching.
