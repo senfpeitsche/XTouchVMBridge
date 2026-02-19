@@ -177,6 +177,11 @@ public class VoicemeeterService : IVoicemeeterService
         VoicemeeterRemote.SetParameterFloat(paramName, value);
     }
 
+    public void SetParameterString(string paramName, string value)
+    {
+        VoicemeeterRemote.SetParameterStringA(paramName, value);
+    }
+
     public string GetParameterString(string paramName)
     {
         var buffer = new byte[512];

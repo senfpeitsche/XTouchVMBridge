@@ -2,6 +2,17 @@
 
 # Changelog
 
+## [Unreleased] - 2026-02-19
+
+### Channel REC Spezialaktion
+- **Fix**: REC-Spezialaktion (`Aufnahme Start/Stop (Dateiname: Kanal + Zeit)`) stoppt jetzt zuverlässig bei erneutem Druck
+- **Aenderung**: Stop erfolgt ueber `Recorder.Stop` statt nur ueber Statusabfrage
+- **Aenderung**: REC-LED folgt dem Recorder-Status der Spezialaktion
+
+### Mapping-Editor (Channel Buttons)
+- **Aenderung**: MQTT-LED-Optionen sind nur sichtbar, wenn `ActionType = MqttPublish`
+- **Neu**: Hinweistext bei REC-Spezialaktion, dass die LED automatisch dem Recorder-Status folgt
+
 ## [Unreleased] - 2026-02-17
 
 ### Installer (WiX/MSI)

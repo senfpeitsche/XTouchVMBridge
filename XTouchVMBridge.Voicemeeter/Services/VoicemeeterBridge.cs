@@ -105,6 +105,13 @@ public partial class VoicemeeterBridge : BackgroundService
     // für 3 Sekunden angezeigt. Während dieser Zeit überschreibt UpdateDisplays()
     // weder die obere noch die untere Zeile. Jede Encoder-Interaktion verlängert den Schutz.
     private readonly DateTime[] _displayEncoderUntil = new DateTime[8];
+    private bool _isRecorderActive;
+
+    /// <summary>
+    /// Interner Recorder-Status fuer Toggle/LED-Sync.
+    /// Voicemeeter liefert Recorder.Record nicht zuverlaessig als lesbaren Status.
+    /// </summary>
+    public bool IsRecorderActive => _isRecorderActive;
 
     public VoicemeeterBridge(
         ILogger<VoicemeeterBridge> logger,

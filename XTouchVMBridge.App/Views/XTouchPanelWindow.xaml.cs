@@ -93,6 +93,7 @@ public partial class XTouchPanelWindow : Window
     // ─── Manueller LED-Toggle für nicht-zugewiesene Buttons (Panel-Only) ──
     private readonly Dictionary<(int Channel, XTouchButtonType Type), bool> _manualLedState = new();
     private readonly Dictionary<int, bool> _masterButtonLedState = new();
+    private bool _panelRecorderActive;
 
     public XTouchPanelWindow() : this(null, null, null, null, null, null, null) { }
 

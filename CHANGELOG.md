@@ -2,6 +2,17 @@
 
 # Changelog
 
+## [Unreleased] - 2026-02-19
+
+### Channel REC special action
+- **Fix**: REC special action (`Record Start/Stop (filename: channel + time)`) now reliably stops on second press
+- **Change**: Stop is executed via `Recorder.Stop` instead of relying only on status reads
+- **Change**: REC LED follows recorder state for the special action
+
+### Mapping editor (channel buttons)
+- **Change**: MQTT LED options are only visible when `ActionType = MqttPublish`
+- **New**: Added hint text for REC special action that LED follows recorder state automatically
+
 ## [Unreleased] - 2026-02-17
 
 ### Installer (WiX/MSI)

@@ -1,6 +1,7 @@
 using XTouchVMBridge.Core.Events;
 using XTouchVMBridge.Core.Models;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace XTouchVMBridge.Voicemeeter.Services;
 
@@ -96,6 +97,16 @@ public partial class VoicemeeterBridge
             btnMap.ActionType == ButtonActionType.VmParameter &&
             !string.IsNullOrWhiteSpace(btnMap.Parameter))
         {
+            if (string.Equals(
+                    btnMap.Parameter,
+                    ButtonMappingConfig.ChannelRecordActionParameter,
+                    StringComparison.Ordinal))
+            {
+                HandleChannelRecordToggle(vmCh);
+                _needsFullRefresh = true;
+                return;
+            }
+
             // Generisch: Bool-Parameter toggeln
             float current = _vm.GetParameter(btnMap.Parameter);
             _vm.SetParameter(btnMap.Parameter, current > 0.5f ? 0f : 1f);
@@ -184,6 +195,84 @@ public partial class VoicemeeterBridge
         string vmLabel = GetVmLabel(vmCh);
         _xtouch.SetDisplayText(xtCh, 0, vmLabel);
         _xtouch.SetDisplayText(xtCh, 1, ChannelViews[_currentViewIndex].Name);
+    }
+
+    private void HandleChannelRecordToggle(int vmChannel)
+    {
+        try
+        {
+            if (_isRecorderActive)
+            {
+                _vm.SetParameter("Recorder.Stop", 1f);
+                _isRecorderActive = false;
+                _logger.LogInformation("Recorder gestoppt (Channel {Channel}).", vmChannel + 1);
+                return;
+            }
+
+            ArmRecorderChannel(vmChannel);
+
+            string filePath = BuildRecordingFilePath(vmChannel);
+            _vm.SetParameterString("Recorder.FileName", filePath);
+            _vm.SetParameter("Recorder.Record", 1f);
+            _isRecorderActive = true;
+
+            _logger.LogInformation("Recorder gestartet: Channel {Channel}, Datei: {FilePath}", vmChannel + 1, filePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Umschalten der Aufnahme fuer Channel {Channel}.", vmChannel + 1);
+        }
+    }
+
+    private void ArmRecorderChannel(int vmChannel)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            _vm.SetParameter($"Recorder.ArmStrip[{i}]", 0f);
+            _vm.SetParameter($"Recorder.ArmBus[{i}]", 0f);
+        }
+
+        if (vmChannel < 8)
+        {
+            _vm.SetParameter($"Recorder.ArmStrip[{vmChannel}]", 1f);
+        }
+        else
+        {
+            _vm.SetParameter($"Recorder.ArmBus[{vmChannel - 8}]", 1f);
+        }
+    }
+
+    private string BuildRecordingFilePath(int vmChannel)
+    {
+        string channelName = _config.Channels.TryGetValue(vmChannel, out var channelConfig)
+            ? channelConfig.Name
+            : $"CH{vmChannel + 1}";
+
+        string safeChannelName = SanitizeFileNamePart(channelName);
+        string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+        string fileName = $"{safeChannelName}_{timestamp}.wav";
+
+        string recordingsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "XTouchVMBridge",
+            "Recordings");
+
+        Directory.CreateDirectory(recordingsDir);
+        return Path.Combine(recordingsDir, fileName);
+    }
+
+    private static string SanitizeFileNamePart(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return "Channel";
+
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var sanitized = new string(input
+            .Trim()
+            .Select(ch => invalidChars.Contains(ch) ? '_' : ch)
+            .ToArray());
+
+        return string.IsNullOrWhiteSpace(sanitized) ? "Channel" : sanitized;
     }
 
     private void OnFaderTouched(object? sender, FaderTouchEventArgs e)

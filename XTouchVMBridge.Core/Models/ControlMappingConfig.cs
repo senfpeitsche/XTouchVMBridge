@@ -46,6 +46,13 @@ public class FaderMappingConfig
 /// </summary>
 public class ButtonMappingConfig
 {
+    /// <summary>
+    /// Spezialwert fuer <see cref="Parameter"/>:
+    /// Startet/stoppt die Voicemeeter-Aufnahme und setzt den Dateinamen
+    /// auf "Kanalname_yyyy-MM-dd_HH-mm-ss.wav".
+    /// </summary>
+    public const string ChannelRecordActionParameter = "__xtvm_record_channel__";
+
     /// <summary>Voicemeeter-Parametername (z.B. "Strip[0].Mute").</summary>
     public string Parameter { get; set; } = "";
 

@@ -53,6 +53,9 @@ public interface IVoicemeeterService : IDisposable
     /// <summary>Generischen String-Parameter lesen (z.B. "Strip[0].Label").</summary>
     string GetParameterString(string paramName);
 
+    /// <summary>Generischen String-Parameter setzen (z.B. "Recorder.FileName").</summary>
+    void SetParameterString(string paramName, string value);
+
     /// <summary>Voicemeeter-Fenster in den Vordergrund bringen (Command.Show = 1).</summary>
     void ShowVoicemeeter();
 

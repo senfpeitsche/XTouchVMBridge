@@ -32,6 +32,12 @@ In the panel mapping editor per channel button:
 - `MqttPublish`: `topic`, `payloadPressed`, `payloadReleased`, `qos`, `retain`
 - `MqttLedReceive`: `topic`, payloads for `on`, `off`, `blink`, `toggle`
 
+Notes:
+
+- MQTT LED fields (`MqttLedReceive`) are only visible in the editor when `ActionType = MqttPublish`.
+- For the REC special action `Record Start/Stop (filename: channel + time)`, LED follows recorder state.
+- First press starts recording, second press stops recording.
+
 Test functions in the editor:
 
 - `Test Publish`: sends the configured press payload

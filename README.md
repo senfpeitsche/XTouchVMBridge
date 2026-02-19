@@ -122,8 +122,10 @@ The first time it is started, `config.json` is created. The name, type and color
     Without a configured action, the LED is toggled (on/off) and the MIDI note is sent to the X-Touch.
   - **Ctrl+click on channel buttons** (REC/SOLO/MUTE/SELECT): Toggles the assigned Voicemeeter parameter.
     Unassigned buttons toggle their LED directly (On/Off).
+    For the REC special action `Record Start/Stop (filename: channel + time)`: first press starts,
+    second press stops; LED follows recorder state.
   - **MQTT button mapping in the editor**: switchable between VM parameters and MQTT publish per channel button,
-    including `Test Publish` and `Test LED`.
+    including `Test Publish` and `Test LED` (MQTT LED options are only visible for `MQTT Publish`).
   - **Ctrl+click on encoder**: Switches through the function list (e.g. HIGH → MID → LOW → PAN → GAIN).
   - **Mouse wheel on encoder**: Changes the value of the active function. Ctrl+mouse wheel = 5× coarser steps.
   - **Ctrl+click on fader**: Control fader via mouse movement (drag), value is sent to Voicemeeter in real time.
@@ -136,7 +138,7 @@ The first time it is started, `config.json` is created. The name, type and color
 - **MQTT**:
   - Global MQTT client with config dialog
   - Channel button mapping: VM parameters or MQTT publish
-- MQTT LED control for channel buttons and master buttons
+  - MQTT LED control for channel buttons and master buttons (only for action type `MQTT Publish`)
   - Mapping editor: `Test Publish` and `Test LED`
 - **Master Button Actions**: F1-F8 and other master buttons can be configured for:
   - Start Windows programs (with arguments)

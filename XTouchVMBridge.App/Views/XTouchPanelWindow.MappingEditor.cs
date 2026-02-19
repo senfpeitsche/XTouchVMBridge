@@ -52,6 +52,14 @@ public partial class XTouchPanelWindow
             var boolParams = VoicemeeterParameterCatalog.GetBoolParameters(vmCh);
             ButtonParamCombo.Items.Clear();
             ButtonParamCombo.Items.Add(new ComboBoxItem { Content = "(nicht zugewiesen)", Tag = "" });
+            if (buttonType == XTouchButtonType.Rec)
+            {
+                ButtonParamCombo.Items.Add(new ComboBoxItem
+                {
+                    Content = "Aufnahme Start/Stop (Dateiname: Kanal + Zeit)",
+                    Tag = ButtonMappingConfig.ChannelRecordActionParameter
+                });
+            }
 
             foreach (var p in boolParams)
             {
@@ -125,6 +133,25 @@ public partial class XTouchPanelWindow
             ? Visibility.Visible : Visibility.Collapsed;
         ButtonMqttPublishPanel.Visibility = actionType == ButtonActionType.MqttPublish
             ? Visibility.Visible : Visibility.Collapsed;
+        ButtonMqttLedPanel.Visibility = actionType == ButtonActionType.MqttPublish
+            ? Visibility.Visible : Visibility.Collapsed;
+        RefreshButtonVmRecHintVisibility(actionType);
+    }
+
+    private void RefreshButtonVmRecHintVisibility(ButtonActionType actionType)
+    {
+        bool showRecHint = false;
+        if (actionType == ButtonActionType.VmParameter &&
+            ButtonParamCombo.SelectedItem is ComboBoxItem selected &&
+            selected.Tag is string paramName)
+        {
+            showRecHint = string.Equals(
+                paramName,
+                ButtonMappingConfig.ChannelRecordActionParameter,
+                StringComparison.Ordinal);
+        }
+
+        ButtonVmRecHintText.Visibility = showRecHint ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ShowFaderMappingPanel(int xtChannel)
@@ -789,6 +816,8 @@ public partial class XTouchPanelWindow
             item.Tag is not ButtonActionType actionType ||
             actionType != ButtonActionType.VmParameter)
             return;
+
+        RefreshButtonVmRecHintVisibility(actionType);
 
         var selected = ButtonParamCombo.SelectedItem as ComboBoxItem;
         string paramName = (string)(selected?.Tag ?? "");

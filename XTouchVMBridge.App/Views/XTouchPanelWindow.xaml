@@ -570,6 +570,10 @@
                             <StackPanel x:Name="ButtonVmParamPanel" Margin="0,6,0,0">
                                 <TextBlock Text="VM-Parameter:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
                                 <ComboBox x:Name="ButtonParamCombo" SelectionChanged="OnButtonParamChanged"/>
+                                <TextBlock x:Name="ButtonVmRecHintText"
+                                           Text="Hinweis: LED folgt automatisch dem Voicemeeter-Status (Recorder.Record)."
+                                           Foreground="#6CBF6C" FontFamily="Consolas" FontSize="10"
+                                           TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed"/>
                             </StackPanel>
 
                             <StackPanel x:Name="ButtonMqttPublishPanel" Visibility="Collapsed" Margin="0,6,0,0">
@@ -593,7 +597,7 @@
                                 </StackPanel>
                             </StackPanel>
 
-                            <StackPanel x:Name="ButtonMqttLedPanel" Margin="0,8,0,0">
+                            <StackPanel x:Name="ButtonMqttLedPanel" Visibility="Collapsed" Margin="0,8,0,0">
                                 <CheckBox x:Name="ButtonMqttLedEnabledBox" Content="LED per MQTT steuern"
                                           Foreground="#DDD" FontFamily="Consolas" FontSize="10"/>
                                 <TextBlock Text="LED Topic:" Foreground="#AAA" FontFamily="Consolas" FontSize="10" Margin="0,4,0,2"/>

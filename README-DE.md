@@ -128,8 +128,10 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
     Ohne konfigurierte Aktion wird die LED getoggelt (On/Off) und die MIDI-Note ans X-Touch gesendet.
   - **Strg+Klick auf Kanal-Buttons** (REC/SOLO/MUTE/SELECT): Toggelt den zugeordneten Voicemeeter-Parameter.
     Nicht-zugewiesene Buttons toggeln ihre LED direkt (On/Off).
+    Bei REC-Spezialaktion `Aufnahme Start/Stop (Dateiname: Kanal + Zeit)` startet der erste Druck,
+    der zweite Druck stoppt die Aufnahme; die LED folgt dem Recorder-Status.
   - **MQTT-Button-Mapping im Editor**: pro Kanal-Button zwischen VM-Parameter und MQTT Publish umschaltbar,
-    inkl. `Test Publish` und `Test LED`.
+    inkl. `Test Publish` und `Test LED` (MQTT-LED-Option nur bei `MQTT Publish` sichtbar).
   - **Strg+Klick auf Encoder**: Schaltet durch die Funktionsliste (z.B. HIGH → MID → LOW → PAN → GAIN).
   - **Mausrad auf Encoder**: Ändert den Wert der aktiven Funktion. Strg+Mausrad = 5× gröbere Schritte.
   - **Strg+Klick auf Fader**: Fader per Mausbewegung steuern (Drag), Wert wird in Echtzeit an Voicemeeter gesendet.
@@ -142,7 +144,7 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 - **MQTT**:
   - Globaler MQTT-Client mit Config-Dialog
   - Channel-Button Mapping: VM-Parameter oder MQTT Publish
-  - MQTT LED-Steuerung für Channel-Buttons und Master-Buttons
+  - MQTT LED-Steuerung für Channel-Buttons und Master-Buttons (nur bei Aktionstyp `MQTT Publish`)
   - Mapping-Editor: `Test Publish` und `Test LED`
 - **Master-Button-Aktionen**: F1-F8 und andere Master-Buttons können konfiguriert werden für:
   - Windows-Programme starten (mit Argumenten)

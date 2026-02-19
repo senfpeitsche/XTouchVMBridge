@@ -99,7 +99,12 @@ public partial class VoicemeeterBridge
                     if (string.IsNullOrWhiteSpace(btnMap.Parameter))
                         continue;
 
-                    float val = _vm.GetParameter(btnMap.Parameter);
+                    float val = string.Equals(
+                        btnMap.Parameter,
+                        ButtonMappingConfig.ChannelRecordActionParameter,
+                        StringComparison.Ordinal)
+                        ? (_isRecorderActive ? 1f : 0f)
+                        : _vm.GetParameter(btnMap.Parameter);
                     _xtouch.SetButtonLed(xtCh, btnType,
                         val > 0.5f ? LedState.On : LedState.Off);
                 }

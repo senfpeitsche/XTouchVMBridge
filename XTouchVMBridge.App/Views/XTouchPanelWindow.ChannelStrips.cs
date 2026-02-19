@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Linq;
 using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Interfaces;
 using XTouchVMBridge.Core.Models;
@@ -299,11 +300,22 @@ public partial class XTouchPanelWindow
                     }
                     else if (!string.IsNullOrWhiteSpace(btnMap.Parameter))
                     {
-                        // Bool-Parameter toggeln
-                        float currentValue = _vm.GetParameter(btnMap.Parameter);
-                        float newValue = currentValue > 0.5f ? 0f : 1f;
-                        _vm.SetParameter(btnMap.Parameter, newValue);
-                        hasMapping = true;
+                        if (string.Equals(
+                                btnMap.Parameter,
+                                ButtonMappingConfig.ChannelRecordActionParameter,
+                                StringComparison.Ordinal))
+                        {
+                            ExecutePanelChannelRecordToggle(vmCh);
+                            hasMapping = true;
+                        }
+                        else
+                        {
+                            // Bool-Parameter toggeln
+                            float currentValue = _vm.GetParameter(btnMap.Parameter);
+                            float newValue = currentValue > 0.5f ? 0f : 1f;
+                            _vm.SetParameter(btnMap.Parameter, newValue);
+                            hasMapping = true;
+                        }
                     }
                 }
             }
@@ -320,5 +332,61 @@ public partial class XTouchPanelWindow
             if (_device != null && ch < _device.Channels.Count)
                 _device.SetButtonLed(ch, type, !isOn ? LedState.On : LedState.Off);
         }
+    }
+
+    private void ExecutePanelChannelRecordToggle(int vmChannel)
+    {
+        if (_vm == null || _config == null)
+            return;
+
+        bool isRecording = _bridge?.IsRecorderActive ?? _panelRecorderActive;
+        if (isRecording)
+        {
+            _vm.SetParameter("Recorder.Stop", 1f);
+            _panelRecorderActive = false;
+            return;
+        }
+
+        for (int i = 0; i < 8; i++)
+        {
+            _vm.SetParameter($"Recorder.ArmStrip[{i}]", 0f);
+            _vm.SetParameter($"Recorder.ArmBus[{i}]", 0f);
+        }
+
+        if (vmChannel < 8)
+            _vm.SetParameter($"Recorder.ArmStrip[{vmChannel}]", 1f);
+        else
+            _vm.SetParameter($"Recorder.ArmBus[{vmChannel - 8}]", 1f);
+
+        string channelName = _config.Channels.TryGetValue(vmChannel, out var channelConfig)
+            ? channelConfig.Name
+            : $"CH{vmChannel + 1}";
+
+        string safeChannelName = SanitizeRecordingFilePart(channelName);
+        string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+        string fileName = $"{safeChannelName}_{timestamp}.wav";
+        string recordingsDir = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "XTouchVMBridge",
+            "Recordings");
+        System.IO.Directory.CreateDirectory(recordingsDir);
+
+        _vm.SetParameterString("Recorder.FileName", System.IO.Path.Combine(recordingsDir, fileName));
+        _vm.SetParameter("Recorder.Record", 1f);
+        _panelRecorderActive = true;
+    }
+
+    private static string SanitizeRecordingFilePart(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return "Channel";
+
+        var invalidChars = System.IO.Path.GetInvalidFileNameChars();
+        var sanitized = new string(input
+            .Trim()
+            .Select(ch => invalidChars.Contains(ch) ? '_' : ch)
+            .ToArray());
+
+        return string.IsNullOrWhiteSpace(sanitized) ? "Channel" : sanitized;
     }
 }
