@@ -1,5 +1,6 @@
 using System.Windows;
 using System.IO;
+using System.Runtime.InteropServices;
 using Application = System.Windows.Application;
 using XTouchVMBridge.App.Services;
 using XTouchVMBridge.App.Views;
@@ -52,6 +53,10 @@ public partial class App : Application
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
         Log.Information("Log-Datei: {LogFilePath}", logFilePath);
+        Log.Information("App-Version: {Version}; OS: {OS}; 64BitProcess: {Is64BitProcess}",
+            typeof(App).Assembly.GetName().Version?.ToString() ?? "unknown",
+            RuntimeInformation.OSDescription,
+            Environment.Is64BitProcess);
 
         try
         {
@@ -59,6 +64,7 @@ public partial class App : Application
             var configService = new ConfigurationService(
                 new LoggerFactory().CreateLogger<ConfigurationService>());
             var config = configService.Load();
+            Log.Information("Config-Version: {ConfigVersion}", config.ConfigVersion);
 
             // WICHTIG: DLL-Suchpfad für VoicemeeterRemote64.dll setzen BEVOR
             // irgendwelche Services gestartet werden (DllImport wird beim ersten

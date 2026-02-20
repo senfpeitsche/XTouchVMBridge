@@ -2,9 +2,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
-using System.Linq;
 using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Interfaces;
+using XTouchVMBridge.Core.Logic;
 using XTouchVMBridge.Core.Models;
 using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
@@ -358,13 +358,11 @@ public partial class XTouchPanelWindow
         else
             _vm.SetParameter($"Recorder.ArmBus[{vmChannel - 8}]", 1f);
 
-        string channelName = _config.Channels.TryGetValue(vmChannel, out var channelConfig)
+        var channelName = _config.Channels.TryGetValue(vmChannel, out var channelConfig)
             ? channelConfig.Name
             : $"CH{vmChannel + 1}";
 
-        string safeChannelName = SanitizeRecordingFilePart(channelName);
-        string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-        string fileName = $"{safeChannelName}_{timestamp}.wav";
+        string fileName = RecordingFileNaming.BuildRecordingFileName(channelName, DateTime.Now);
         string recordingsDir = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "XTouchVMBridge",
@@ -374,19 +372,5 @@ public partial class XTouchPanelWindow
         _vm.SetParameterString("Recorder.FileName", System.IO.Path.Combine(recordingsDir, fileName));
         _vm.SetParameter("Recorder.Record", 1f);
         _panelRecorderActive = true;
-    }
-
-    private static string SanitizeRecordingFilePart(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-            return "Channel";
-
-        var invalidChars = System.IO.Path.GetInvalidFileNameChars();
-        var sanitized = new string(input
-            .Trim()
-            .Select(ch => invalidChars.Contains(ch) ? '_' : ch)
-            .ToArray());
-
-        return string.IsNullOrWhiteSpace(sanitized) ? "Channel" : sanitized;
     }
 }

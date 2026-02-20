@@ -214,3 +214,9 @@ Note:
   - for master: LED-per-MQTT only available with promotion `MqttPublish`
 - Transport doesn't send anything:
   - first press a `SelectMqttDevice` button (active target must be set)
+
+## Security notes (current v1.0 scope)
+
+- MQTT credentials (`username`/`password`) are currently stored in plain text in `config.json`.
+- `allowUntrustedCertificates = true` disables certificate trust checks and should only be used in trusted local networks.
+- For the intended local setup use case, this tradeoff is currently accepted.

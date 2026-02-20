@@ -7,6 +7,7 @@ namespace XTouchVMBridge.Core.Models;
 public class XTouchVMBridgeConfig
 {
     public const string SectionName = "XTouchVMBridge";
+    public int ConfigVersion { get; set; }
 
     /// <summary>Kanal-Konfigurationen (Key = Kanal-Index 0–15).</summary>
     public Dictionary<int, ChannelConfig> Channels { get; set; } = new();

@@ -2,6 +2,22 @@
 
 # Changelog
 
+## [Unreleased] - 2026-02-20
+
+### CI / Release-Automatisierung
+- **Neu**: GitHub-Actions-Workflow `.github/workflows/build-and-release.yml` hinzugefuegt
+- **Neu**: Pull-Request- und `main`-Builds fuehren jetzt das Release-Packaging (`scripts/build-release.ps1`) aus
+- **Neu**: Tag-Builds `v*` veroeffentlichen GitHub-Releases mit MSI/ZIP/Checksum-Dateien
+
+### Release-Prozess / Doku
+- **Neu**: Release-Checklist in `README.md` und `README-DE.md` ergaenzt
+- **Aenderung**: Installer-Abschnitt dokumentiert jetzt den CI- und Release-Asset-Flow
+- **Neu**: MQTT-Security-Tradeoffs dokumentiert (Klartext-Zugangsdaten und optionale untrusted TLS)
+- **Neu**: Hinweis auf fehlendes Code-Signing dokumentiert und Hash-Pruefbeispiel ergaenzt
+
+### Repository-Hygiene
+- **Aenderung**: Ignore-Regeln fuer lokale Stoerdateien (`codex-*.exe`, `nul`) in `.gitignore` ergaenzt
+
 ## [Unreleased] - 2026-02-19
 
 ### Channel REC Spezialaktion

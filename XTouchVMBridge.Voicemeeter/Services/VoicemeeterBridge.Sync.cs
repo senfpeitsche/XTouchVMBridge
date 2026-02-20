@@ -1,5 +1,6 @@
-﻿using XTouchVMBridge.Core.Enums;
+using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Hardware;
+using XTouchVMBridge.Core.Logic;
 using XTouchVMBridge.Core.Models;
 
 namespace XTouchVMBridge.Voicemeeter.Services;
@@ -17,7 +18,7 @@ public partial class VoicemeeterBridge
             int vmCh = CurrentChannelMapping[xtCh];
             double level = _vm.GetLevel(vmCh);
 
-            // Nur bei Ã„nderung aktualisieren
+            // Nur bei Änderung aktualisieren
             if (_forceLevelRefresh || Math.Abs(level - _levelCache[vmCh]) > 0.1)
             {
                 _levelCache[vmCh] = level;
@@ -44,7 +45,7 @@ public partial class VoicemeeterBridge
 
         var now = DateTime.UtcNow;
 
-        // PrÃ¼fen ob IRGENDEIN Fader berÃ¼hrt oder geschÃ¼tzt ist
+        // Prüfen ob IRGENDEIN Fader berührt oder geschützt ist
         bool anyFaderActive = false;
         for (int i = 0; i < MidiDevice_ChannelCount(); i++)
         {
@@ -55,7 +56,7 @@ public partial class VoicemeeterBridge
                 break;
             }
         }
-        // Auch Main Fader prÃ¼fen
+        // Auch Main Fader prüfen
         if (_xtouch.IsMainFaderTouched || _faderProtectUntil[8] > now)
             anyFaderActive = true;
 
@@ -65,7 +66,7 @@ public partial class VoicemeeterBridge
             var mapping = GetMapping(vmCh);
 
             // Fader-Position synchronisieren - aber NUR wenn KEIN Fader aktiv ist
-            // Das verhindert MIDI-Kollisionen die den Fader zurÃ¼cksetzen
+            // Das verhindert MIDI-Kollisionen die den Fader zurücksetzen
             double dbToSet;
             if (mapping?.Fader != null)
             {
@@ -83,7 +84,7 @@ public partial class VoicemeeterBridge
                 _xtouch.SetFaderDb(xtCh, dbToSet);
             }
 
-            // Gain-Ã„nderung aus Voicemeeter erkennen (z.B. per GUI) â†’ dB im Display anzeigen
+            // Gain-Änderung aus Voicemeeter erkennen (z.B. per GUI) → dB im Display anzeigen
             if (_gainCacheInitialized && Math.Abs(dbToSet - _lastGainValues[xtCh]) > 0.05)
             {
                 // Nur anzeigen wenn der Fader NICHT vom X-Touch bewegt wird
@@ -112,7 +113,7 @@ public partial class VoicemeeterBridge
 
                     if (btnType == XTouchButtonType.Mute)
                     {
-                        _xtouch.SetButtonLed(xtCh, btnType, GetEffectiveMuteLedState(vmCh, anySoloActive));
+                        _xtouch.SetButtonLed(xtCh, btnType, MuteLedPolicy.Resolve(vmCh, _vmState, anySoloActive));
                         continue;
                     }
 
@@ -125,7 +126,7 @@ public partial class VoicemeeterBridge
                     _xtouch.SetButtonLed(xtCh, btnType,
                         val > 0.5f ? LedState.On : LedState.Off);
                 }
-                // Kein Mapping â†’ LED-State nicht Ã¼berschreiben (Panel-Toggle beibehalten)
+                // Kein Mapping → LED-State nicht überschreiben (Panel-Toggle beibehalten)
             }
 
             // Encoder-Ring synchronisieren (nur wenn kein Encoder-Schutz aktiv)
@@ -143,28 +144,6 @@ public partial class VoicemeeterBridge
         UpdateMasterButtonVmLedStates();
         UpdateDisplays();
     }
-
-    private LedState GetEffectiveMuteLedState(int vmCh, bool anySoloActive)
-    {
-        bool isMuted = vmCh >= 0 &&
-                       vmCh < _vmState.Mutes.Length &&
-                       _vmState.Mutes[vmCh];
-
-        // Solo wirkt nur auf Strips (0-7).
-        if (vmCh >= VoicemeeterState.StripCount || !anySoloActive)
-            return isMuted ? LedState.On : LedState.Off;
-
-        bool isSoloStrip = vmCh >= 0 &&
-                           vmCh < VoicemeeterState.StripCount &&
-                           _vmState.Solos[vmCh];
-        if (isSoloStrip)
-            return isMuted ? LedState.On : LedState.Off;
-
-        // Nicht-solo Strips werden durch Solo-Zustand "ausgeblendet":
-        // manuell gemutet -> On, sonst Blink.
-        return isMuted ? LedState.On : LedState.Blink;
-    }
-
     private void UpdateMasterButtonVmLedStates()
     {
         foreach (var (note, action) in _config.MasterButtonActions)
@@ -207,16 +186,16 @@ public partial class VoicemeeterBridge
             _xtouch.SetFaderDb(8, db);
         }
 
-        // Gain-Ã„nderung aus Voicemeeter erkennen â†’ dB im Display kÃ¶nnte hier
+        // Gain-Änderung aus Voicemeeter erkennen → dB im Display könnte hier
         // angezeigt werden, aber Main Fader hat kein eigenes Scribble-Display.
         _lastGainValues[8] = db;
     }
 
     /// <summary>
-    /// Aktualisiert die Scribble-Displays aller KanÃ¤le.
+    /// Aktualisiert die Scribble-Displays aller Kanäle.
     /// Obere Zeile: Kanalname aus Voicemeeter (sofern kein Encoder-Display aktiv).
     /// Untere Zeile: View-Name (sofern kein dB-Wert, Fader-Touch oder Encoder-Display aktiv).
-    /// Farben: View-spezifische Farbe hat Vorrang, dann globale Channel-Config, sonst WeiÃŸ.
+    /// Farben: View-spezifische Farbe hat Vorrang, dann globale Channel-Config, sonst Weiß.
     /// </summary>
     private void UpdateDisplays()
     {
@@ -227,7 +206,7 @@ public partial class VoicemeeterBridge
         {
             int vmCh = CurrentChannelMapping[xtCh];
 
-            // Encoder-Display-Schutz: Wenn Encoder aktiv ist, Display nicht Ã¼berschreiben
+            // Encoder-Display-Schutz: Wenn Encoder aktiv ist, Display nicht überschreiben
             bool encoderActive = xtCh < _displayEncoderUntil.Length && _displayEncoderUntil[xtCh] > now;
 
             // Farbe: View-Override hat Vorrang, sonst globale Channel-Config
@@ -247,7 +226,7 @@ public partial class VoicemeeterBridge
             }
 
             // Untere Zeile: Ansichtsname, aber NUR wenn kein dB-Wert, kein Encoder-Display
-            // und der Fader nicht berÃ¼hrt wird
+            // und der Fader nicht berührt wird
             bool showingDb = xtCh < _displayDbUntil.Length && _displayDbUntil[xtCh] > now;
             bool isTouched = _xtouch.Channels[xtCh].Fader.IsTouched;
             if (!showingDb && !isTouched && !encoderActive)
@@ -269,12 +248,12 @@ public partial class VoicemeeterBridge
 
         if (fn == null)
         {
-            // Keine Funktion â†’ Ring ausschalten
+            // Keine Funktion → Ring ausschalten
             _xtouch.SetEncoderRing(xtCh, 0, XTouchEncoderRingMode.Dot, false);
             return;
         }
 
-        // Aktuellen Wert aus Voicemeeter lesen und in die Funktion Ã¼bernehmen
+        // Aktuellen Wert aus Voicemeeter lesen und in die Funktion übernehmen
         float currentValue = _vm.GetParameter(fn.VmParameter);
         fn.CurrentValue = currentValue;
 
@@ -283,6 +262,4 @@ public partial class VoicemeeterBridge
         _xtouch.SetEncoderRing(xtCh, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);
     }
 }
-
-
 

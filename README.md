@@ -28,7 +28,7 @@ dotnet run --project XTouchVMBridge.App
 ```bash
 dotnet test XTouchVMBridge.Tests
 ```
-Currently 99 tests: Hardware controls, EncoderFunction/CycleLogic, MackieProtocol, MidiMessageDecoder, XTouchChannel model.
+Currently 107 tests: Hardware controls, EncoderFunction/CycleLogic, MackieProtocol, MidiMessageDecoder, XTouchChannel model, recorder naming, mute LED policy, and config migration.
 
 ## Installer (MSI)
 
@@ -36,6 +36,10 @@ A WiX v4 setup project is now included for building an MSI installer:
 
 ```bash
 dotnet build XTouchVMBridge.Setup/XTouchVMBridge.Setup.wixproj -c Release
+```
+or hardened release packaging:
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/build-release.ps1
 ```
 
 Output:
@@ -47,6 +51,39 @@ Notes:
 - The setup project automatically publishes the app and harvests files for MSI packaging.
 - A Start menu shortcut is included.
 - A Desktop shortcut is currently not included (clean ICE validation for per-machine install).
+- `scripts/build-release.ps1` runs restore/tests/build and creates:
+  - MSI in `artifacts/release/<Configuration>/`
+  - publish ZIP (`XTouchVMBridge-win-x64.zip`)
+  - `SHA256SUMS.txt` with checksums for integrity verification
+
+## CI / GitHub Release
+
+- Workflow: `.github/workflows/build-and-release.yml`
+- Trigger:
+  - Pull Requests: build + test + MSI/ZIP/checksums artifact
+  - `main`: build + test + MSI/ZIP/checksums artifact
+  - Tag `v*` (for example `v1.0.0`): build + test + GitHub Release with attached files
+- Generated release files:
+  - `XTouchVMBridge.Setup.msi`
+  - `XTouchVMBridge-win-x64.zip`
+  - `SHA256SUMS.txt`
+- Note: Releases are currently **not code-signed** (hobby project). Windows SmartScreen warnings are possible.
+
+## Release Checklist
+
+1. Run real-device smoke test (X-Touch + Voicemeeter + MQTT mapping basics).
+2. Run `dotnet test XTouchVMBridge.Tests`.
+3. Run `powershell -ExecutionPolicy Bypass -File scripts/build-release.ps1`.
+4. Verify `SHA256SUMS.txt` against the generated MSI/ZIP.
+5. Create and push tag `vX.Y.Z`.
+6. Validate GitHub Release assets and release notes.
+
+Hash check example:
+```powershell
+Get-FileHash .\XTouchVMBridge.Setup.msi -Algorithm SHA256
+Get-FileHash .\XTouchVMBridge-win-x64.zip -Algorithm SHA256
+Get-Content .\SHA256SUMS.txt
+```
 
 ## Solution structure
 ```mermaid
@@ -73,6 +110,7 @@ flowchart TD
 The first time it is started, `config.json` is created. The name, type and color are defined for each channel (0-15):
 ```json
 {
+  "configVersion": 1,
   "voicemeeterApiType": "potato",
   "enableXTouch": true,
   "segmentDisplayCycleButton": 52,
@@ -103,6 +141,12 @@ The first time it is started, `config.json` is created. The name, type and color
 - [VOICEMEETER-API.md](docs/VOICEMEETER-API.md) -- Full Voicemeeter Remote API parameter reference (implemented + extensible)
 - [MIGRATION.md](docs/MIGRATION.md) -- Mapping Python original to C# implementation
 - [MQTT.md](docs/MQTT.md) -- MQTT Setup, Topic Schema, Master Device Select + Transport
+
+## Security Note (Current Scope)
+
+- MQTT credentials are currently stored in plain text in `config.json`.
+- `allowUntrustedCertificates` can be enabled for local/trusted networks, but is insecure for untrusted environments.
+- For the current intended usage (trusted local setup), this is accepted for `v1.0`.
 
 ##Features
 

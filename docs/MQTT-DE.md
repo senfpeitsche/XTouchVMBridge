@@ -218,3 +218,9 @@ Hinweis:
   - fuer Master: LED-per-MQTT nur bei Aktion `MqttPublish` verfuegbar
 - Transport sendet nichts:
   - erst ein `SelectMqttDevice` Button druecken (aktives Ziel muss gesetzt sein)
+
+## Security-Hinweise (aktueller v1.0 Scope)
+
+- MQTT-Zugangsdaten (`username`/`password`) werden aktuell im Klartext in der `config.json` gespeichert.
+- `allowUntrustedCertificates = true` deaktiviert die Zertifikatspruefung und sollte nur in vertrauten lokalen Netzen verwendet werden.
+- Fuer den vorgesehenen lokalen Einsatzzweck ist dieser Tradeoff aktuell akzeptiert.

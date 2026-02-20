@@ -1,7 +1,7 @@
 using XTouchVMBridge.Core.Events;
+using XTouchVMBridge.Core.Logic;
 using XTouchVMBridge.Core.Models;
 using Microsoft.Extensions.Logging;
-using System.Linq;
 
 namespace XTouchVMBridge.Voicemeeter.Services;
 
@@ -248,9 +248,7 @@ public partial class VoicemeeterBridge
             ? channelConfig.Name
             : $"CH{vmChannel + 1}";
 
-        string safeChannelName = SanitizeFileNamePart(channelName);
-        string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-        string fileName = $"{safeChannelName}_{timestamp}.wav";
+        string fileName = RecordingFileNaming.BuildRecordingFileName(channelName, DateTime.Now);
 
         string recordingsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -259,20 +257,6 @@ public partial class VoicemeeterBridge
 
         Directory.CreateDirectory(recordingsDir);
         return Path.Combine(recordingsDir, fileName);
-    }
-
-    private static string SanitizeFileNamePart(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-            return "Channel";
-
-        var invalidChars = Path.GetInvalidFileNameChars();
-        var sanitized = new string(input
-            .Trim()
-            .Select(ch => invalidChars.Contains(ch) ? '_' : ch)
-            .ToArray());
-
-        return string.IsNullOrWhiteSpace(sanitized) ? "Channel" : sanitized;
     }
 
     private void OnFaderTouched(object? sender, FaderTouchEventArgs e)

@@ -124,7 +124,14 @@ public class MqttClientService : BackgroundService
         _client ??= CreateClient();
 
         var options = BuildOptions(mqtt);
-        _logger.LogInformation("MQTT: Verbinde zu {Host}:{Port} (TLS={Tls})", mqtt.Host, mqtt.Port, mqtt.UseTls);
+        _logger.LogInformation("MQTT: Verbinde zu {Host}:{Port} (TLS={Tls}, ClientId={ClientId}, Username={UsernameSet})",
+            mqtt.Host,
+            mqtt.Port,
+            mqtt.UseTls,
+            mqtt.ClientId,
+            string.IsNullOrWhiteSpace(mqtt.Username) ? "<none>" : "<set>");
+        if (mqtt.UseTls && mqtt.AllowUntrustedCertificates)
+            _logger.LogWarning("MQTT: Unsichere TLS-Einstellung aktiv (AllowUntrustedCertificates=true).");
         await _client.ConnectAsync(options, CancellationToken.None);
 
         var allSubscribeTopics = GetAllSubscribeTopics(mqtt).ToList();

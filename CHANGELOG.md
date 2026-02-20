@@ -2,6 +2,22 @@
 
 # Changelog
 
+## [Unreleased] - 2026-02-20
+
+### CI / release automation
+- **New**: Added GitHub Actions workflow `.github/workflows/build-and-release.yml`
+- **New**: Pull Request and `main` builds now run release packaging (`scripts/build-release.ps1`)
+- **New**: Tag builds `v*` now publish GitHub Releases with attached MSI/ZIP/checksum files
+
+### Release process / docs
+- **New**: Added release checklist in `README.md` and `README-DE.md`
+- **Change**: Installer section now documents CI and release asset flow
+- **New**: Documented current MQTT security tradeoffs (plaintext credentials and optional untrusted TLS)
+- **New**: Documented that releases are currently not code-signed and added hash verification examples
+
+### Repository hygiene
+- **Change**: Added local tooling/noise ignores (`codex-*.exe`, `nul`) in `.gitignore`
+
 ## [Unreleased] - 2026-02-19
 
 ### Channel REC special action
