@@ -1,4 +1,4 @@
-using XTouchVMBridge.Core.Enums;
+﻿using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Hardware;
 using XTouchVMBridge.Core.Interfaces;
 using XTouchVMBridge.Core.Models;
@@ -12,7 +12,7 @@ namespace XTouchVMBridge.Voicemeeter.Services;
 /// Bridge zwischen X-Touch Extender und Voicemeeter.
 /// Entspricht XTouchVM.py (App-Klasse) aus dem Python-Original.
 ///
-/// Läuft als BackgroundService mit 100ms Polling-Intervall.
+/// LÃ¤uft als BackgroundService mit 100ms Polling-Intervall.
 /// Verwaltet Channel-Mounting, Shortcut-Modi und Level-Meter-Updates.
 ///
 /// Control-Mappings (Fader, Buttons, Encoder) werden aus der Config gelesen,
@@ -20,14 +20,14 @@ namespace XTouchVMBridge.Voicemeeter.Services;
 ///
 /// Display-Schutz-Mechanismen:
 ///   - <c>_displayDbUntil</c>: Zeigt dB-Wert 3s nach Fader-Touch/-Bewegung
-///     oder bei Gain-Änderung aus Voicemeeter (z.B. per GUI).
-///   - <c>_displayEncoderUntil</c>: Schützt Encoder-Anzeige (Funktionsname + Wert)
-///     für 3s nach Drücken/Drehen, damit der Wert in Ruhe abgelesen und
-///     eingestellt werden kann, ohne dass der Polling-Loop das Display überschreibt.
+///     oder bei Gain-Ã„nderung aus Voicemeeter (z.B. per GUI).
+///   - <c>_displayEncoderUntil</c>: SchÃ¼tzt Encoder-Anzeige (Funktionsname + Wert)
+///     fÃ¼r 3s nach DrÃ¼cken/Drehen, damit der Wert in Ruhe abgelesen und
+///     eingestellt werden kann, ohne dass der Polling-Loop das Display Ã¼berschreibt.
 ///
 /// Partial-Klassen:
-///   - VoicemeeterBridge.Sync.cs      → Level-Updates, Parameter-Sync, Display-Updates
-///   - VoicemeeterBridge.Callbacks.cs  → X-Touch Event-Callbacks (Fader, Button, Encoder, Touch)
+///   - VoicemeeterBridge.Sync.cs      â†’ Level-Updates, Parameter-Sync, Display-Updates
+///   - VoicemeeterBridge.Callbacks.cs  â†’ X-Touch Event-Callbacks (Fader, Button, Encoder, Touch)
 /// </summary>
 public partial class VoicemeeterBridge : BackgroundService
 {
@@ -38,18 +38,18 @@ public partial class VoicemeeterBridge : BackgroundService
     private XTouchVMBridgeConfig _config;
     private readonly TaskScheduler _scheduler;
 
-    // ─── Channel Mounting System ────────────────────────────────────
+    // â”€â”€â”€ Channel Mounting System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>
     /// Kanal-Ansichten aus der Konfiguration.
-    /// Jede Ansicht mappt 8 physische X-Touch-Kanäle auf logische VM-Kanäle.
+    /// Jede Ansicht mappt 8 physische X-Touch-KanÃ¤le auf logische VM-KanÃ¤le.
     /// </summary>
     private List<ChannelViewConfig> ChannelViews => _config.ChannelViews;
 
     private int _currentViewIndex;
 
     /// <summary>
-    /// Gibt das aktuelle Kanal-Mapping zurück: Index = X-Touch-Kanal (0..7), Wert = VM-Kanal (0..15).
+    /// Gibt das aktuelle Kanal-Mapping zurÃ¼ck: Index = X-Touch-Kanal (0..7), Wert = VM-Kanal (0..15).
     /// </summary>
     public int[] CurrentChannelMapping => ChannelViews[_currentViewIndex].Channels;
 
@@ -59,51 +59,57 @@ public partial class VoicemeeterBridge : BackgroundService
     /// <summary>Name der aktuell aktiven Channel View.</summary>
     public string CurrentViewName => ChannelViews.Count > 0 ? ChannelViews[_currentViewIndex].Name : "";
 
-    /// <summary>Anzahl der verfügbaren Channel Views.</summary>
+    /// <summary>Anzahl der verfÃ¼gbaren Channel Views.</summary>
     public int ViewCount => ChannelViews.Count;
 
     /// <summary>
-    /// Wechselt zur nächsten/vorherigen Channel View.
+    /// Wechselt zur nÃ¤chsten/vorherigen Channel View.
     /// </summary>
-    /// <param name="direction">+1 = nächste, -1 = vorherige</param>
+    /// <param name="direction">+1 = nÃ¤chste, -1 = vorherige</param>
     public void SwitchView(int direction)
     {
         if (ChannelViews.Count == 0) return;
         _currentViewIndex = (_currentViewIndex + direction + ChannelViews.Count) % ChannelViews.Count;
 
-        // Encoder-Funktionen für neue View registrieren
+        for (int ch = 0; ch < MidiDevice_ChannelCount(); ch++)
+            _xtouch.SetLevelMeter(ch, 0);
+        _forceLevelRefresh = true;
+        _logger.LogDebug("VU-Meter nach View-Wechsel zurückgesetzt.");
+
+        // Encoder-Funktionen fÃ¼r neue View registrieren
         RegisterEncoderFunctions();
 
         _needsFullRefresh = true;
         _logger.LogInformation("Ansicht gewechselt zu: {View}", ChannelViews[_currentViewIndex].Name);
     }
 
-    // ─── State ──────────────────────────────────────────────────────
+    // â”€â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private VoicemeeterState _vmState = new();
     private readonly double[] _levelCache = new double[VoicemeeterState.TotalChannels];
+    private bool _forceLevelRefresh;
     private bool _needsFullRefresh = true;
     private volatile bool _xtouchReconnected;
 
-    // ─── Doppel-Touch-Erkennung für Fader (0 dB Reset) ─────────────
+    // â”€â”€â”€ Doppel-Touch-Erkennung fÃ¼r Fader (0 dB Reset) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     private readonly DateTime[] _lastFaderTouchTime = new DateTime[9]; // 0-7 = Channel, 8 = Main
     private const int DoubleTapThresholdMs = 400;
 
-    // ─── Display-Schutz: dB-Wert wird temporär angezeigt ───────────
+    // â”€â”€â”€ Display-Schutz: dB-Wert wird temporÃ¤r angezeigt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     private readonly DateTime[] _displayDbUntil = new DateTime[8]; // Zeitpunkt bis wann dB angezeigt wird
 
-    // ─── Fader-Schutz: Verhindert Zurücksetzen nach Bewegung ───────
+    // â”€â”€â”€ Fader-Schutz: Verhindert ZurÃ¼cksetzen nach Bewegung â”€â”€â”€â”€â”€â”€â”€
     private readonly DateTime[] _faderProtectUntil = new DateTime[9]; // 0-7 = Channel, 8 = Main
     private const int FaderProtectMs = 500; // 500ms Schutz nach Fader-Bewegung
 
-    // ─── Gain-Cache: Erkennt Änderungen aus Voicemeeter (z.B. per GUI) ───
+    // â”€â”€â”€ Gain-Cache: Erkennt Ã„nderungen aus Voicemeeter (z.B. per GUI) â”€â”€â”€
     private readonly double[] _lastGainValues = new double[9]; // 0-7 = Channel, 8 = Main
     private bool _gainCacheInitialized;
 
-    // ─── Encoder-Display-Schutz: Verhindert Überschreiben der Encoder-Anzeige ───
-    // Beim Drücken/Drehen eines Encoders wird der Funktionsname (oben) und Wert (unten)
-    // für 3 Sekunden angezeigt. Während dieser Zeit überschreibt UpdateDisplays()
-    // weder die obere noch die untere Zeile. Jede Encoder-Interaktion verlängert den Schutz.
+    // â”€â”€â”€ Encoder-Display-Schutz: Verhindert Ãœberschreiben der Encoder-Anzeige â”€â”€â”€
+    // Beim DrÃ¼cken/Drehen eines Encoders wird der Funktionsname (oben) und Wert (unten)
+    // fÃ¼r 3 Sekunden angezeigt. WÃ¤hrend dieser Zeit Ã¼berschreibt UpdateDisplays()
+    // weder die obere noch die untere Zeile. Jede Encoder-Interaktion verlÃ¤ngert den Schutz.
     private readonly DateTime[] _displayEncoderUntil = new DateTime[8];
     private bool _isRecorderActive;
 
@@ -130,12 +136,12 @@ public partial class VoicemeeterBridge : BackgroundService
         RegisterEncoderFunctions();
     }
 
-    // ─── Encoder-Funktionen registrieren ─────────────────────────────
+    // â”€â”€â”€ Encoder-Funktionen registrieren â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>
-    /// Registriert die Funktionen für jeden Encoder basierend auf der aktuellen View.
-    /// Durch Drücken des Encoders wird die nächste Funktion in der Liste aktiviert.
-    /// Drehen ändert den Wert der aktiven Funktion.
+    /// Registriert die Funktionen fÃ¼r jeden Encoder basierend auf der aktuellen View.
+    /// Durch DrÃ¼cken des Encoders wird die nÃ¤chste Funktion in der Liste aktiviert.
+    /// Drehen Ã¤ndert den Wert der aktiven Funktion.
     /// </summary>
     private void RegisterEncoderFunctions()
     {
@@ -166,7 +172,7 @@ public partial class VoicemeeterBridge : BackgroundService
 
     /// <summary>
     /// Setzt den Encoder-Schutz: Verhindert dass der Bridge-Sync den Encoder-Ring
-    /// und Display für die angegebene Dauer überschreibt. Wird vom PanelView
+    /// und Display fÃ¼r die angegebene Dauer Ã¼berschreibt. Wird vom PanelView
     /// aufgerufen wenn der Encoder per Mausrad gesteuert wird.
     /// </summary>
     public void SuppressEncoderSync(int channel, TimeSpan duration)
@@ -176,8 +182,8 @@ public partial class VoicemeeterBridge : BackgroundService
     }
 
     /// <summary>
-    /// Lädt die Config neu und re-registriert die Encoder-Funktionen.
-    /// Wird aufgerufen wenn die Config im Panel geändert wurde.
+    /// LÃ¤dt die Config neu und re-registriert die Encoder-Funktionen.
+    /// Wird aufgerufen wenn die Config im Panel geÃ¤ndert wurde.
     /// </summary>
     public void ReloadMappings()
     {
@@ -187,7 +193,7 @@ public partial class VoicemeeterBridge : BackgroundService
         _logger.LogInformation("Mappings neu geladen.");
     }
 
-    // ─── BackgroundService ──────────────────────────────────────────
+    // â”€â”€â”€ BackgroundService â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -197,7 +203,7 @@ public partial class VoicemeeterBridge : BackgroundService
 
         // Warten bis Voicemeeter und X-Touch verbunden sind.
         // Die Bridge startet als HostedService BEVOR Connect() aufgerufen wird,
-        // daher müssen wir hier auf beide Verbindungen warten.
+        // daher mÃ¼ssen wir hier auf beide Verbindungen warten.
         _logger.LogDebug("Warte auf Voicemeeter- und X-Touch-Verbindung...");
         while (!stoppingToken.IsCancellationRequested && (!_vm.IsConnected || !_xtouch.IsConnected))
         {
@@ -206,14 +212,14 @@ public partial class VoicemeeterBridge : BackgroundService
 
         if (stoppingToken.IsCancellationRequested) return;
 
-        // Beide Verbindungen stehen — ersten Dirty-Check konsumieren und
+        // Beide Verbindungen stehen â€” ersten Dirty-Check konsumieren und
         // Full Refresh erzwingen damit Fader/LCDs sofort gesetzt werden.
         // Kurz warten damit das X-Touch nach Initialisierung bereit ist.
         await Task.Delay(500, stoppingToken);
         _ = _vm.IsParameterDirty; // Dirty-Flag konsumieren (VBVMR_IsParametersDirty pollt intern)
         _needsFullRefresh = true;
         _xtouchReconnected = false; // Initiales Connect ist kein "Reconnect"
-        _logger.LogInformation("Voicemeeter und X-Touch verbunden — starte initialen Sync.");
+        _logger.LogInformation("Voicemeeter und X-Touch verbunden â€” starte initialen Sync.");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -226,18 +232,18 @@ public partial class VoicemeeterBridge : BackgroundService
                     _xtouchReconnected = false;
                     _needsFullRefresh = true;
                     _ = _vm.IsParameterDirty; // Dirty-Flag konsumieren
-                    _logger.LogInformation("X-Touch (re)connected — erzwinge Full Refresh.");
-                    await Task.Delay(300, stoppingToken); // Gerät stabilisieren lassen
+                    _logger.LogInformation("X-Touch (re)connected â€” erzwinge Full Refresh.");
+                    await Task.Delay(300, stoppingToken); // GerÃ¤t stabilisieren lassen
                 }
 
                 if (!_xtouch.IsConnected)
                 {
-                    // X-Touch getrennt — warten statt busy-loop
+                    // X-Touch getrennt â€” warten statt busy-loop
                     await Task.Delay(500, stoppingToken);
                     continue;
                 }
 
-                // Level-Updates (immer, unabhängig vom Dirty-Flag)
+                // Level-Updates (immer, unabhÃ¤ngig vom Dirty-Flag)
                 UpdateLevels();
 
                 // Parameter-Updates (nur wenn dirty oder Full Refresh ansteht)
@@ -247,7 +253,7 @@ public partial class VoicemeeterBridge : BackgroundService
                     _needsFullRefresh = false;
                 }
 
-                // Geplante Tasks ausführen
+                // Geplante Tasks ausfÃ¼hren
                 _scheduler.RunDue();
             }
             catch (Exception ex)
@@ -261,7 +267,7 @@ public partial class VoicemeeterBridge : BackgroundService
         _logger.LogInformation("VoicemeeterBridge gestoppt.");
     }
 
-    // ─── Callback Registration ──────────────────────────────────────
+    // â”€â”€â”€ Callback Registration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private void RegisterCallbacks()
     {
@@ -278,24 +284,24 @@ public partial class VoicemeeterBridge : BackgroundService
         if (connected)
         {
             _xtouchReconnected = true;
-            _logger.LogDebug("Bridge: X-Touch Verbindungsstatus → verbunden (Full Refresh wird angefordert).");
+            _logger.LogDebug("Bridge: X-Touch Verbindungsstatus â†’ verbunden (Full Refresh wird angefordert).");
         }
         else
         {
-            _logger.LogDebug("Bridge: X-Touch Verbindungsstatus → getrennt.");
+            _logger.LogDebug("Bridge: X-Touch Verbindungsstatus â†’ getrennt.");
         }
     }
 
-    // ─── Helpers: Mapping-Zugriff ────────────────────────────────────
+    // â”€â”€â”€ Helpers: Mapping-Zugriff â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    /// <summary>Gibt das Mapping für einen VM-Kanal zurück (oder null).</summary>
+    /// <summary>Gibt das Mapping fÃ¼r einen VM-Kanal zurÃ¼ck (oder null).</summary>
     private ControlMappingConfig? GetMapping(int vmChannel)
     {
         _config.Mappings.TryGetValue(vmChannel, out var mapping);
         return mapping;
     }
 
-    /// <summary>Gibt das ButtonMapping für einen VM-Kanal + ButtonType zurück.</summary>
+    /// <summary>Gibt das ButtonMapping fÃ¼r einen VM-Kanal + ButtonType zurÃ¼ck.</summary>
     private ButtonMappingConfig? GetButtonMapping(int vmChannel, XTouchButtonType buttonType)
     {
         var mapping = GetMapping(vmChannel);
@@ -308,7 +314,7 @@ public partial class VoicemeeterBridge : BackgroundService
 
     /// <summary>
     /// Liest den Label eines VM-Kanals direkt aus Voicemeeter.
-    /// Strip[0..7].Label für Inputs, Bus[0..7].Label für Outputs.
+    /// Strip[0..7].Label fÃ¼r Inputs, Bus[0..7].Label fÃ¼r Outputs.
     /// Fallback auf Config-Name oder "Ch N".
     /// </summary>
     private string GetVmLabel(int vmChannel)
@@ -326,7 +332,7 @@ public partial class VoicemeeterBridge : BackgroundService
         }
         catch
         {
-            // Fehler beim Lesen → Fallback
+            // Fehler beim Lesen â†’ Fallback
         }
 
         // Fallback: Config-Name oder generischer Name
@@ -340,7 +346,7 @@ public partial class VoicemeeterBridge : BackgroundService
 }
 
 /// <summary>
-/// Einfacher Task-Scheduler für verzögerte Aktionen.
+/// Einfacher Task-Scheduler fÃ¼r verzÃ¶gerte Aktionen.
 /// Entspricht der Scheduler-Klasse aus dem Python-Original.
 /// </summary>
 internal class TaskScheduler
@@ -372,3 +378,6 @@ internal class TaskScheduler
 
     public void Clear() => _tasks.Clear();
 }
+
+
+

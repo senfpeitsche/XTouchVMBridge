@@ -196,6 +196,9 @@ public partial class XTouchPanelWindow : Window
             UpdateButtonVisual(_selectButtons[ch], GetEffectiveLedState(ch, XTouchButtonType.Select, xtCh));
         }
 
+        // Main Fader (aus aktuellem VM-Status) synchronisieren
+        UpdateMainFaderVisual();
+
         // View-Button Text synchronisieren + Flip-Button LED
         if (_bridge != null)
         {
@@ -273,7 +276,54 @@ public partial class XTouchPanelWindow : Window
                 }
                 break;
             }
+
+            case "MainFader":
+            {
+                if (_mainFaderSlider == null)
+                    break;
+
+                int pos = (int)_mainFaderSlider.Value;
+                double db = FaderControl.PositionToDb(pos);
+                string dbStr = db <= -65 ? "-inf" : $"{db:F1}";
+                DetailMidiInfo.Text =
+                    $"Position: {pos,6}\n" +
+                    $"Wert:     {dbStr} dB\n" +
+                    $"Touch:    {(_device.IsMainFaderTouched ? "Ja" : "Nein")}";
+                break;
+            }
         }
+    }
+
+    private void UpdateMainFaderVisual()
+    {
+        if (_draggingMainFader || _mainFaderSlider == null || _mainFaderDbLabel == null)
+            return;
+        if (_config == null || _vm == null || _bridge == null)
+            return;
+        if (_bridge.CurrentViewIndex < 0 || _bridge.CurrentViewIndex >= _config.ChannelViews.Count)
+            return;
+
+        var currentView = _config.ChannelViews[_bridge.CurrentViewIndex];
+        if (!currentView.MainFaderChannel.HasValue)
+            return;
+
+        int vmCh = currentView.MainFaderChannel.Value;
+        double db;
+
+        if (_config.Mappings.TryGetValue(vmCh, out var mapping) &&
+            mapping.Fader != null &&
+            !string.IsNullOrWhiteSpace(mapping.Fader.Parameter))
+        {
+            db = _vm.GetParameter(mapping.Fader.Parameter);
+        }
+        else
+        {
+            string prefix = vmCh < 8 ? $"Strip[{vmCh}]" : $"Bus[{vmCh - 8}]";
+            db = _vm.GetParameter($"{prefix}.Gain");
+        }
+
+        _mainFaderSlider.Value = FaderControl.DbToPosition(db);
+        _mainFaderDbLabel.Text = db <= -65 ? "-inf dB" : $"{db:F1} dB";
     }
 
     // ═══════════════════════════════════════════════════════════════════

@@ -1,4 +1,4 @@
-using XTouchVMBridge.Core.Enums;
+﻿using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Hardware;
 using XTouchVMBridge.Core.Models;
 
@@ -17,14 +17,16 @@ public partial class VoicemeeterBridge
             int vmCh = CurrentChannelMapping[xtCh];
             double level = _vm.GetLevel(vmCh);
 
-            // Nur bei Änderung aktualisieren
-            if (Math.Abs(level - _levelCache[vmCh]) > 0.1)
+            // Nur bei Ã„nderung aktualisieren
+            if (_forceLevelRefresh || Math.Abs(level - _levelCache[vmCh]) > 0.1)
             {
                 _levelCache[vmCh] = level;
                 int meterLevel = LevelMeterControl.DbToLevel(level);
                 _xtouch.SetLevelMeter(xtCh, meterLevel);
             }
         }
+
+        _forceLevelRefresh = false;
     }
 
     private void UpdateParameters()
@@ -33,7 +35,7 @@ public partial class VoicemeeterBridge
 
         var now = DateTime.UtcNow;
 
-        // Prüfen ob IRGENDEIN Fader berührt oder geschützt ist
+        // PrÃ¼fen ob IRGENDEIN Fader berÃ¼hrt oder geschÃ¼tzt ist
         bool anyFaderActive = false;
         for (int i = 0; i < MidiDevice_ChannelCount(); i++)
         {
@@ -44,7 +46,7 @@ public partial class VoicemeeterBridge
                 break;
             }
         }
-        // Auch Main Fader prüfen
+        // Auch Main Fader prÃ¼fen
         if (_xtouch.IsMainFaderTouched || _faderProtectUntil[8] > now)
             anyFaderActive = true;
 
@@ -54,7 +56,7 @@ public partial class VoicemeeterBridge
             var mapping = GetMapping(vmCh);
 
             // Fader-Position synchronisieren - aber NUR wenn KEIN Fader aktiv ist
-            // Das verhindert MIDI-Kollisionen die den Fader zurücksetzen
+            // Das verhindert MIDI-Kollisionen die den Fader zurÃ¼cksetzen
             double dbToSet;
             if (mapping?.Fader != null)
             {
@@ -72,7 +74,7 @@ public partial class VoicemeeterBridge
                 _xtouch.SetFaderDb(xtCh, dbToSet);
             }
 
-            // Gain-Änderung aus Voicemeeter erkennen (z.B. per GUI) → dB im Display anzeigen
+            // Gain-Ã„nderung aus Voicemeeter erkennen (z.B. per GUI) â†’ dB im Display anzeigen
             if (_gainCacheInitialized && Math.Abs(dbToSet - _lastGainValues[xtCh]) > 0.05)
             {
                 // Nur anzeigen wenn der Fader NICHT vom X-Touch bewegt wird
@@ -108,7 +110,7 @@ public partial class VoicemeeterBridge
                     _xtouch.SetButtonLed(xtCh, btnType,
                         val > 0.5f ? LedState.On : LedState.Off);
                 }
-                // Kein Mapping → LED-State nicht überschreiben (Panel-Toggle beibehalten)
+                // Kein Mapping â†’ LED-State nicht Ã¼berschreiben (Panel-Toggle beibehalten)
             }
 
             // Encoder-Ring synchronisieren (nur wenn kein Encoder-Schutz aktiv)
@@ -169,16 +171,16 @@ public partial class VoicemeeterBridge
             _xtouch.SetFaderDb(8, db);
         }
 
-        // Gain-Änderung aus Voicemeeter erkennen → dB im Display könnte hier
+        // Gain-Ã„nderung aus Voicemeeter erkennen â†’ dB im Display kÃ¶nnte hier
         // angezeigt werden, aber Main Fader hat kein eigenes Scribble-Display.
         _lastGainValues[8] = db;
     }
 
     /// <summary>
-    /// Aktualisiert die Scribble-Displays aller Kanäle.
+    /// Aktualisiert die Scribble-Displays aller KanÃ¤le.
     /// Obere Zeile: Kanalname aus Voicemeeter (sofern kein Encoder-Display aktiv).
     /// Untere Zeile: View-Name (sofern kein dB-Wert, Fader-Touch oder Encoder-Display aktiv).
-    /// Farben: View-spezifische Farbe hat Vorrang, dann globale Channel-Config, sonst Weiß.
+    /// Farben: View-spezifische Farbe hat Vorrang, dann globale Channel-Config, sonst WeiÃŸ.
     /// </summary>
     private void UpdateDisplays()
     {
@@ -189,7 +191,7 @@ public partial class VoicemeeterBridge
         {
             int vmCh = CurrentChannelMapping[xtCh];
 
-            // Encoder-Display-Schutz: Wenn Encoder aktiv ist, Display nicht überschreiben
+            // Encoder-Display-Schutz: Wenn Encoder aktiv ist, Display nicht Ã¼berschreiben
             bool encoderActive = xtCh < _displayEncoderUntil.Length && _displayEncoderUntil[xtCh] > now;
 
             // Farbe: View-Override hat Vorrang, sonst globale Channel-Config
@@ -209,7 +211,7 @@ public partial class VoicemeeterBridge
             }
 
             // Untere Zeile: Ansichtsname, aber NUR wenn kein dB-Wert, kein Encoder-Display
-            // und der Fader nicht berührt wird
+            // und der Fader nicht berÃ¼hrt wird
             bool showingDb = xtCh < _displayDbUntil.Length && _displayDbUntil[xtCh] > now;
             bool isTouched = _xtouch.Channels[xtCh].Fader.IsTouched;
             if (!showingDb && !isTouched && !encoderActive)
@@ -231,12 +233,12 @@ public partial class VoicemeeterBridge
 
         if (fn == null)
         {
-            // Keine Funktion → Ring ausschalten
+            // Keine Funktion â†’ Ring ausschalten
             _xtouch.SetEncoderRing(xtCh, 0, XTouchEncoderRingMode.Dot, false);
             return;
         }
 
-        // Aktuellen Wert aus Voicemeeter lesen und in die Funktion übernehmen
+        // Aktuellen Wert aus Voicemeeter lesen und in die Funktion Ã¼bernehmen
         float currentValue = _vm.GetParameter(fn.VmParameter);
         fn.CurrentValue = currentValue;
 
@@ -245,3 +247,6 @@ public partial class VoicemeeterBridge
         _xtouch.SetEncoderRing(xtCh, encoder.CalculateCcValue(), encoder.RingMode, encoder.RingLed);
     }
 }
+
+
+
