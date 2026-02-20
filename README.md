@@ -122,6 +122,7 @@ The first time it is started, `config.json` is created. The name, type and color
     Without a configured action, the LED is toggled (on/off) and the MIDI note is sent to the X-Touch.
   - **Ctrl+click on channel buttons** (REC/SOLO/MUTE/SELECT): Toggles the assigned Voicemeeter parameter.
     Unassigned buttons toggle their LED directly (On/Off).
+    When Solo is active, non-solo strip MUTE LEDs blink (VM solo-mute state).
     For the REC special action `Record Start/Stop (filename: channel + time)`: first press starts,
     second press stops; LED follows recorder state.
   - **MQTT button mapping in the editor**: switchable between VM parameters and MQTT publish per channel button,
@@ -195,7 +196,7 @@ Channel views can be edited in the X-Touch panel using the mapping editor.
 8 Voicemeeter channels are mapped to the physical X-Touch strips per view.
 
 - **Channel Mapping**: Each strip can be assigned to any VM channel (0-15).
-- **Display colors**: You can set your own display color for each strip,
+- **Display colors**: A dedicated display color can be set for each strip,
   which overrides the global channel color. Available Colors: Off, Red, Green, Yellow, Blue, Magenta, Cyan, White.
   If no color is set ("—"), the global channel color applies.
 
@@ -320,7 +321,7 @@ The toggle mode is particularly suitable for lock/unlock actions or for the acti
 of a program visually on the X-Touch. The blinking mode uses the native one
 Hardware blink of the Mackie protocol (Velocity 2) and does not require software timers.
 
-For `VmParameter` actions, you can optionally set `vmLedSource`:
+For `VmParameter` actions, `vmLedSource` can optionally be set:
 - `ManualFeedback` (default): LED follows `ledFeedback`
 - `VoicemeeterState`: LED follows the real VM parameter state (On/Off), including external changes in Voicemeeter
 
@@ -343,7 +344,7 @@ The media keys are forwarded by the operating system to the active media player
 ## 7-segment display (timecode display)
 
 The 12-digit 7-segment display on the X-Touch shows the **time** by default.
-You can switch between the following modes using the cycle button (standard: NAME/VALUE, Note 52):
+The cycle button (default: NAME/VALUE, Note 52) switches between the following modes:
 
 | Mode | Advertisement | Update interval |
 |---|---|---|

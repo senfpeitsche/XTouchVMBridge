@@ -54,8 +54,8 @@ services.AddHostedService(sp => sp.GetRequiredService<MqttClientService>());
 services.AddSingleton<MqttButtonIntegrationService>();   // MQTT <-> Button Mapping/LEDs
 services.AddSingleton<TrayIconService>();
 ```
-To use another MIDI device: write your own class that implements `IMidiDevice`,
-and exchange in the DI registry.
+To use another MIDI device: implement a class that implements `IMidiDevice`,
+and replace the registration in the DI container.
 
 ## Hardware controls hierarchy
 ```mermaid

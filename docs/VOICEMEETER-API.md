@@ -75,8 +75,8 @@ These parameters can already be used in the C# project via `IVoicemeeterService`
 ## Parameters not yet implemented
 
 All of the following parameters can be used immediately via the existing P/Invoke methods,
-without changing the native layer. All you have to do is `IVoicemeeterService`, `VoicemeeterState`
-and/or the `EncoderFunction` registry can be extended to `VoicemeeterBridge`.
+without changing the native layer. `IVoicemeeterService`, `VoicemeeterState`
+and/or the `EncoderFunction` registry can be extended in `VoicemeeterBridge`.
 
 ### Strip parameters (input channels 0-7)
 

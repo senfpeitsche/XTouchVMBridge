@@ -123,7 +123,7 @@ with payloads:
 
 - `on`, `off`, `blink`, `toggle`
 
-## Practical example DAT/CD (like in your company)
+## Practical example DAT/CD
 
 Broker/User:
 
@@ -140,7 +140,7 @@ Transport payloads per device:
 - DAT: `DATPlay`, `DATStop`, `DATFF`, `DATRew`
 - CD: `CDPlay`, `CDStop`, `CDFF`, `CDRew`
 
-Example CLI (corresponds to your current control):
+Example CLI:
 ```bash
 mosquitto_pub -h 10.5.0.240 -u mqtt -t Remote/DAT -m DATFF
 ```
@@ -158,8 +158,8 @@ Mapping idea in the editor:
 Note:
 
 - With `SelectMqttDevice + MqttTransport` the payload remains identical and only the topic changes (e.g. `Remote/DAT` vs. `Remote/CD`).
-- If your target device absolutely requires prefix payloads such as `DATFF` / `CDFF`, this cannot currently be dynamically mapped with a common transport button set.
-- Workaround: configure your own transport buttons as `MqttPublish` for each device (fixed payloads per button).
+- If a target device absolutely requires prefix payloads such as `DATFF` / `CDFF`, this cannot currently be dynamically mapped with a common transport button set.
+- Workaround: configure dedicated transport buttons as `MqttPublish` for each device (fixed payloads per button).
 
 ## Example config (excerpt)
 ```json

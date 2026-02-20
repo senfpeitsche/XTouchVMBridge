@@ -32,6 +32,15 @@ public partial class VoicemeeterBridge
     private void UpdateParameters()
     {
         _vmState = _vm.GetCurrentState();
+        bool anySoloActive = false;
+        for (int strip = 0; strip < VoicemeeterState.StripCount; strip++)
+        {
+            if (_vmState.Solos[strip])
+            {
+                anySoloActive = true;
+                break;
+            }
+        }
 
         var now = DateTime.UtcNow;
 
@@ -101,6 +110,12 @@ public partial class VoicemeeterBridge
                     if (string.IsNullOrWhiteSpace(btnMap.Parameter))
                         continue;
 
+                    if (btnType == XTouchButtonType.Mute)
+                    {
+                        _xtouch.SetButtonLed(xtCh, btnType, GetEffectiveMuteLedState(vmCh, anySoloActive));
+                        continue;
+                    }
+
                     float val = string.Equals(
                         btnMap.Parameter,
                         ButtonMappingConfig.ChannelRecordActionParameter,
@@ -127,6 +142,27 @@ public partial class VoicemeeterBridge
 
         UpdateMasterButtonVmLedStates();
         UpdateDisplays();
+    }
+
+    private LedState GetEffectiveMuteLedState(int vmCh, bool anySoloActive)
+    {
+        bool isMuted = vmCh >= 0 &&
+                       vmCh < _vmState.Mutes.Length &&
+                       _vmState.Mutes[vmCh];
+
+        // Solo wirkt nur auf Strips (0-7).
+        if (vmCh >= VoicemeeterState.StripCount || !anySoloActive)
+            return isMuted ? LedState.On : LedState.Off;
+
+        bool isSoloStrip = vmCh >= 0 &&
+                           vmCh < VoicemeeterState.StripCount &&
+                           _vmState.Solos[vmCh];
+        if (isSoloStrip)
+            return isMuted ? LedState.On : LedState.Off;
+
+        // Nicht-solo Strips werden durch Solo-Zustand "ausgeblendet":
+        // manuell gemutet -> On, sonst Blink.
+        return isMuted ? LedState.On : LedState.Blink;
     }
 
     private void UpdateMasterButtonVmLedStates()

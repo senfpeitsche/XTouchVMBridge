@@ -123,7 +123,7 @@ mit Payloads:
 
 - `on`, `off`, `blink`, `toggle`
 
-## Praxisbeispiel DAT/CD (wie bei dir im Betrieb)
+## Praxisbeispiel DAT/CD
 
 Broker/Benutzer:
 
@@ -140,7 +140,7 @@ Transport-Payloads pro Geraet:
 - DAT: `DATPlay`, `DATStop`, `DATFF`, `DATRew`
 - CD: `CDPlay`, `CDStop`, `CDFF`, `CDRew`
 
-Beispiel-CLI (entspricht deiner aktuellen Steuerung):
+Beispiel-CLI:
 
 ```bash
 mosquitto_pub -h 10.5.0.240 -u mqtt -t Remote/DAT -m DATFF
@@ -160,7 +160,7 @@ Mapping-Idee im Editor:
 Hinweis:
 
 - Bei `SelectMqttDevice + MqttTransport` bleibt der Payload identisch und nur das Topic wechselt (z. B. `Remote/DAT` vs. `Remote/CD`).
-- Falls dein Zielgeraet zwingend Praefix-Payloads wie `DATFF` / `CDFF` braucht, ist das mit einem gemeinsamen Transport-Button-Set aktuell nicht dynamisch abbildbar.
+- Falls ein Zielgeraet zwingend Praefix-Payloads wie `DATFF` / `CDFF` braucht, ist das mit einem gemeinsamen Transport-Button-Set aktuell nicht dynamisch abbildbar.
 - Workaround: pro Geraet eigene Transport-Buttons als `MqttPublish` konfigurieren (feste Payloads je Button).
 
 ## Beispiel-Config (Ausschnitt)

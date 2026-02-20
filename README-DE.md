@@ -128,6 +128,7 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
     Ohne konfigurierte Aktion wird die LED getoggelt (On/Off) und die MIDI-Note ans X-Touch gesendet.
   - **Strg+Klick auf Kanal-Buttons** (REC/SOLO/MUTE/SELECT): Toggelt den zugeordneten Voicemeeter-Parameter.
     Nicht-zugewiesene Buttons toggeln ihre LED direkt (On/Off).
+    Bei aktivem Solo blinken die MUTE-LEDs der nicht-solo Strips (VM-Solo-Mute-Status).
     Bei REC-Spezialaktion `Aufnahme Start/Stop (Dateiname: Kanal + Zeit)` startet der erste Druck,
     der zweite Druck stoppt die Aufnahme; die LED folgt dem Recorder-Status.
   - **MQTT-Button-Mapping im Editor**: pro Kanal-Button zwischen VM-Parameter und MQTT Publish umschaltbar,

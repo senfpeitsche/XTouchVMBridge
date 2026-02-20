@@ -13,6 +13,10 @@
 - **Change**: MQTT LED options are only visible when `ActionType = MqttPublish`
 - **New**: Added hint text for REC special action that LED follows recorder state automatically
 
+### Solo/Mute LED sync
+- **Fix**: With active Solo, non-solo strip MUTE LEDs are now synchronized as `Blink` (X-Touch + panel)
+- **Change**: VM solo-mute state is now visible in Live Panel and on hardware
+
 ## [Unreleased] - 2026-02-17
 
 ### Installer (WiX/MSI)
