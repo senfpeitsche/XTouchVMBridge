@@ -1,4 +1,4 @@
-[English](README.md) | [Deutsch](README-DE.md)
+﻿[English](README.md) | [Deutsch](README-DE.md)
 
 # XTouchVMBridge (C#)
 
@@ -14,9 +14,10 @@ Portiert vom originalen Python-Projekt in ein C# .NET 8 Projekt.
 - .NET 8 SDK (oder neuer)
 - Windows 10/11
 - Voicemeeter Potato (installiert, `VoicemeeterRemote64.dll` muss im Systempfad sein)
-- Behringer X-Touch oder X-Touch Extender (USB, im Mackie Control Modus)
+- Behringer X-Touch oder X-Touch Extender
+  - Pflicht: Das Geraet muss per USB verbunden und vor App-Start im MC-Modus (Mackie Control) sein.
   - Hinweis: X-Touch Extender ist aktuell ungetestet.
-  - Hinweis: Die PanelView (`X-Touch Panel`) ist aktuell nur für den X-Touch (Full-Size) ausgelegt.
+  - Hinweis: Die PanelView (`X-Touch Panel`) ist aktuell nur fÃ¼r den X-Touch (Full-Size) ausgelegt.
 
 ## Build & Start
 
@@ -138,8 +139,8 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 
 - Kanalnamen: max. 7 Zeichen (ASCII), werden auf dem X-Touch LCD angezeigt
 - Farben: `off`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
-- Kanäle 0-7: Voicemeeter Input Strips
-- Kanäle 8-15: Voicemeeter Output Buses
+- KanÃ¤le 0-7: Voicemeeter Input Strips
+- KanÃ¤le 8-15: Voicemeeter Output Buses
 
 ## Dokumentation
 
@@ -159,16 +160,16 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 - **X-Touch (Full)**: 8 Kanalstreifen + Main Fader + Master Section (Transport, Encoder Assign, Function, Jog Wheel, etc.)
 - **Fader, Buttons, Encoder**: Rec/Solo/Mute/Select, motorisierte Fader, LCD-Displays, Level-Meter
 - **Encoder-Funktionsliste**: Jeder Encoder kann mehrere Funktionen haben (z.B. HIGH/MID/LOW EQ, PAN, GAIN).
-  Drücken schaltet zyklisch durch die Funktionsliste, Drehen ändert den Wert der aktiven Funktion.
+  DrÃ¼cken schaltet zyklisch durch die Funktionsliste, Drehen Ã¤ndert den Wert der aktiven Funktion.
   Aktuelle Funktion und Wert werden im Display und auf dem Encoder-Knob angezeigt.
 - **Voicemeeter Bridge**: Echtzeit-Steuerung von Gain, Mute, Solo; Level-Meter-Feedback
 - **Kanal-Ansichten**: Home / Outputs / Inputs, umschaltbar per FLIIP Buttom
-- **Audio-Device-Monitor**: Erkennt USB-Geräteänderungen, startet Voicemeeter neu
+- **Audio-Device-Monitor**: Erkennt USB-GerÃ¤teÃ¤nderungen, startet Voicemeeter neu
 - **Screen-Lock-Schutz**: Blockiert X-Touch-Eingabe bei gesperrtem Bildschirm
 - **MIDI Debug Monitor**: Echtzeit-Anzeige aller MIDI-Nachrichten (Tray-Menu)
-- **X-Touch Panel**: Interaktive visuelle Darstellung der X-Touch Oberfläche (Tray-Menu).
+- **X-Touch Panel**: Interaktive visuelle Darstellung der X-Touch OberflÃ¤che (Tray-Menu).
   Zeigt alle Controls in Echtzeit, Klick auf ein Control zeigt MIDI-Details und zugeordnete Funktion.
-  - **Strg+Klick auf Master-Buttons**: Führt die konfigurierte Aktion aus (z.B. Media-Keys).
+  - **Strg+Klick auf Master-Buttons**: FÃ¼hrt die konfigurierte Aktion aus (z.B. Media-Keys).
     Ohne konfigurierte Aktion wird die LED getoggelt (On/Off) und die MIDI-Note ans X-Touch gesendet.
   - **Strg+Klick auf Kanal-Buttons** (REC/SOLO/MUTE/SELECT): Toggelt den zugeordneten Voicemeeter-Parameter.
     Nicht-zugewiesene Buttons toggeln ihre LED direkt (On/Off).
@@ -177,21 +178,22 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
     der zweite Druck stoppt die Aufnahme; die LED folgt dem Recorder-Status.
   - **MQTT-Button-Mapping im Editor**: pro Kanal-Button zwischen VM-Parameter und MQTT Publish umschaltbar,
     inkl. `Test Publish` und `Test LED` (MQTT-LED-Option nur bei `MQTT Publish` sichtbar).
-  - **Strg+Klick auf Encoder**: Schaltet durch die Funktionsliste (z.B. HIGH → MID → LOW → PAN → GAIN).
-  - **Mausrad auf Encoder**: Ändert den Wert der aktiven Funktion. Strg+Mausrad = 5× gröbere Schritte.
+  - **Strg+Klick auf Encoder**: Schaltet durch die Funktionsliste (z.B. HIGH â†’ MID â†’ LOW â†’ PAN â†’ GAIN).
+  - **Mausrad auf Encoder**: Ã„ndert den Wert der aktiven Funktion. Strg+Mausrad = 5Ã— grÃ¶bere Schritte.
   - **Strg+Klick auf Fader**: Fader per Mausbewegung steuern (Drag), Wert wird in Echtzeit an Voicemeeter gesendet.
 - **Per-View Display-Farben**: Jede Channel View kann eigene Display-Farben pro Strip definieren,
-  die die globale Kanalfarbe überschreiben. Konfigurierbar im Channel View Editor.
+  die die globale Kanalfarbe Ã¼berschreiben. Konfigurierbar im Channel View Editor.
 - **Log-Fenster**: Rolling-Log mit Level-Filter (Tray-Menu / Doppelklick)
-- **X-Touch Geräteauswahl**: Unterstützung für X-Touch und X-Touch Extender, wählbar im Tray-Menu
-- **Auto-Reconnect**: Automatische Wiederverbindung bei Gerätetrennung (alle 5 Sekunden)
-- **Verbindungsstatus**: Anzeige im Tray-Tooltip und Kontextmenü ("X-Touch: Verbunden/Getrennt")
+- **X-Touch GerÃ¤teauswahl**: UnterstÃ¼tzung fÃ¼r X-Touch und X-Touch Extender, wÃ¤hlbar im Tray-Menu
+- **Auto-Reconnect**: Automatische Wiederverbindung bei GerÃ¤tetrennung (alle 5 Sekunden)
+- **Verbindungsstatus**: Anzeige im Tray-Tooltip und KontextmenÃ¼ ("X-Touch: Verbunden/Getrennt")
+- **Sprachumschaltung**: Deutsch/Englisch kann im Tray-Menue gewechselt werden.
 - **MQTT**:
   - Globaler MQTT-Client mit Config-Dialog
   - Channel-Button Mapping: VM-Parameter oder MQTT Publish
-  - MQTT LED-Steuerung für Channel-Buttons und Master-Buttons (nur bei Aktionstyp `MQTT Publish`)
+  - MQTT LED-Steuerung fÃ¼r Channel-Buttons und Master-Buttons (nur bei Aktionstyp `MQTT Publish`)
   - Mapping-Editor: `Test Publish` und `Test LED`
-- **Master-Button-Aktionen**: F1-F8 und andere Master-Buttons können konfiguriert werden für:
+- **Master-Button-Aktionen**: F1-F8 und andere Master-Buttons kÃ¶nnen konfiguriert werden fÃ¼r:
   - Windows-Programme starten (mit Argumenten)
   - Tastenkombinationen senden (z.B. Ctrl+Shift+M, Alt+F4)
   - Media-Keys senden (MediaPlay, MediaNext, MediaPrev, MediaStop)
@@ -200,21 +202,21 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
   - VM Audio Engine neu starten
   - VM-Fenster anzeigen (in den Vordergrund bringen)
   - VM-GUI sperren/entsperren (Toggle)
-  - Voicemeeter Macro-Button auslösen (Index 0–79)
+  - Voicemeeter Macro-Button auslÃ¶sen (Index 0â€“79)
   - MQTT Publish (Topic, Payload Press/Release, QoS, Retain)
-  - MQTT Gerät auswählen (DeviceId + CommandTopic)
-  - MQTT Transport zum aktiven Gerät (play/pause/stop/next/prev/play_pause)
-  - Für `VmParameter`: LED-Quelle wählbar (`ManualFeedback` oder `VoicemeeterState`)
+  - MQTT GerÃ¤t auswÃ¤hlen (DeviceId + CommandTopic)
+  - MQTT Transport zum aktiven GerÃ¤t (play/pause/stop/next/prev/play_pause)
+  - FÃ¼r `VmParameter`: LED-Quelle wÃ¤hlbar (`ManualFeedback` oder `VoicemeeterState`)
 - **LED-Feedback**: Jede Master-Button-Aktion hat einen konfigurierbaren LED-Modus:
-  - **Blink**: LED blinkt kurz (150ms) als Bestätigung
+  - **Blink**: LED blinkt kurz (150ms) als BestÃ¤tigung
   - **Toggle**: LED wechselt bei jedem Druck zwischen An und Aus
-  - **Blinking**: LED blinkt dauerhaft (Hardware-Blink via Mackie Protocol), erneutes Drücken stoppt das Blinken
+  - **Blinking**: LED blinkt dauerhaft (Hardware-Blink via Mackie Protocol), erneutes DrÃ¼cken stoppt das Blinken
 - **7-Segment-Display**: Timecode-Anzeige zeigt Uhrzeit, Datum oder Speicherverbrauch.
   Cycle-Button (konfigurierbar, Standard: Note 52 / NAME) schaltet zwischen Modi um.
 
 ## MIDI Debug Monitor
 
-Öffnet sich über das Tray-Menü unter "MIDI Debug Monitor". Zeigt alle ein- und ausgehenden MIDI-Nachrichten des X-Touch in Echtzeit an.
+Ã–ffnet sich Ã¼ber das Tray-MenÃ¼ unter "MIDI Debug Monitor". Zeigt alle ein- und ausgehenden MIDI-Nachrichten des X-Touch in Echtzeit an.
 
 Jede Nachricht wird anhand der Behringer X-Touch MIDI-Dokumentation dekodiert und zeigt:
 - Zeitstempel, Richtung (IN/OUT), Control-Typ, Kanal/ID, Wert, resultierende Aktion, rohe Hex-Bytes
@@ -225,7 +227,7 @@ Siehe auch: `Document_BE_X-TOUCH-X-TOUCH-EXTENDER-MIDI-Mode-Implementation.pdf` 
 
 ## X-Touch Panel
 
-Interaktive visuelle Darstellung der vollständigen X-Touch Oberfläche, erreichbar via Tray-Menu "X-Touch Panel":
+Interaktive visuelle Darstellung der vollstÃ¤ndigen X-Touch OberflÃ¤che, erreichbar via Tray-Menu "X-Touch Panel":
 
 - **Links**: 8 Kanalstreifen (LCD, Encoder + Ring, REC/SOLO/MUTE/SELECT, Fader, Level-Meter, Touch) + Main Fader
 - **Rechts**: Master Section (Encoder Assign, Display/Assignment, Global View, Function F1-F8,
@@ -233,22 +235,22 @@ Interaktive visuelle Darstellung der vollständigen X-Touch Oberfläche, erreich
 - **Echtzeit-Updates**: 100ms Timer + Events vom MIDI-Device
 - **Klick-Detail**: Jedes Control zeigt im Detail-Panel: aktueller Zustand, Encoder-Funktionsliste mit
   aktivem Modus (z.B. ">HIGH = 3.5dB"), MIDI-Protokoll-Details, Hersteller-Doku-Referenzen
-- **Strg+Klick-Steuerung**: Alle Controls können per Strg+Klick direkt bedient werden:
-  - Master-Buttons: konfigurierte Aktion ausführen, oder LED toggeln (On/Off)
+- **Strg+Klick-Steuerung**: Alle Controls kÃ¶nnen per Strg+Klick direkt bedient werden:
+  - Master-Buttons: konfigurierte Aktion ausfÃ¼hren, oder LED toggeln (On/Off)
   - Kanal-Buttons (REC/SOLO/MUTE/SELECT): zugeordneten VM-Parameter toggeln, oder LED toggeln bei nicht-zugewiesenen Buttons
-  - Encoder: durch zugewiesene Funktionen cyclen (HIGH → MID → LOW → PAN → GAIN → ...)
-  - Fader: per Maus-Drag steuern (transparentes Overlay über dem deaktivierten Slider)
-- **Mausrad-Steuerung** auf Encodern: Wert der aktiven Funktion ändern, Strg+Mausrad für 5× gröbere Schritte
+  - Encoder: durch zugewiesene Funktionen cyclen (HIGH â†’ MID â†’ LOW â†’ PAN â†’ GAIN â†’ ...)
+  - Fader: per Maus-Drag steuern (transparentes Overlay Ã¼ber dem deaktivierten Slider)
+- **Mausrad-Steuerung** auf Encodern: Wert der aktiven Funktion Ã¤ndern, Strg+Mausrad fÃ¼r 5Ã— grÃ¶bere Schritte
 
 ## Channel View Editor
 
-Channel Views können im X-Touch Panel über den Mapping-Editor bearbeitet werden.
-Pro View werden 8 Voicemeeter-Kanäle auf die physischen X-Touch-Strips gemappt.
+Channel Views kÃ¶nnen im X-Touch Panel Ã¼ber den Mapping-Editor bearbeitet werden.
+Pro View werden 8 Voicemeeter-KanÃ¤le auf die physischen X-Touch-Strips gemappt.
 
 - **Kanal-Zuordnung**: Jeder Strip kann einem beliebigen VM-Kanal (0-15) zugewiesen werden
 - **Display-Farben**: Pro Strip kann eine eigene Display-Farbe festgelegt werden,
-  die die globale Kanalfarbe überschreibt. Verfügbare Farben: Off, Red, Green, Yellow, Blue, Magenta, Cyan, White.
-  Wird keine Farbe gesetzt ("—"), gilt die globale Kanalfarbe.
+  die die globale Kanalfarbe Ã¼berschreibt. VerfÃ¼gbare Farben: Off, Red, Green, Yellow, Blue, Magenta, Cyan, White.
+  Wird keine Farbe gesetzt ("â€”"), gilt die globale Kanalfarbe.
 
 In der `config.json` unter `channelViews`:
 
@@ -267,13 +269,13 @@ In der `config.json` unter `channelViews`:
 ]
 ```
 
-`channelColors`: Array mit 8 Einträgen (je Strip) oder `null` für globale Farben.
-Einzelne Einträge können `null` sein um die globale Farbe für diesen Strip beizubehalten.
+`channelColors`: Array mit 8 EintrÃ¤gen (je Strip) oder `null` fÃ¼r globale Farben.
+Einzelne EintrÃ¤ge kÃ¶nnen `null` sein um die globale Farbe fÃ¼r diesen Strip beizubehalten.
 
 ## Encoder-Funktionsliste
 
-Die Encoder (Drehregler) unterstützen eine konfigurierbare Liste von Funktionen pro Kanal.
-Standardmäßig sind für Encoder 2, 4-8 folgende Funktionen registriert:
+Die Encoder (Drehregler) unterstÃ¼tzen eine konfigurierbare Liste von Funktionen pro Kanal.
+StandardmÃ¤ÃŸig sind fÃ¼r Encoder 2, 4-8 folgende Funktionen registriert:
 
 | Funktion | Parameter | Bereich | Schrittweite |
 |---|---|---|---|
@@ -283,37 +285,37 @@ Standardmäßig sind für Encoder 2, 4-8 folgende Funktionen registriert:
 | PAN | Pan_x | -0.5..+0.5 | 0.05 |
 | GAIN | Gain | -60..+12 dB | 0.5 dB |
 
-- **Drücken** (Hardware): Schaltet zur nächsten Funktion (HIGH → MID → LOW → PAN → GAIN → HIGH ...)
-- **Drehen** (Hardware): Ändert den Wert der aktiven Funktion
-- **Strg+Klick** (Panel): Schaltet zur nächsten Funktion (identisch mit Hardware-Drücken)
-- **Mausrad** (Panel): Ändert den Wert der aktiven Funktion (±1 Step pro Notch)
-- **Strg+Mausrad** (Panel): Grobe Steuerung (±5 Steps pro Notch)
+- **DrÃ¼cken** (Hardware): Schaltet zur nÃ¤chsten Funktion (HIGH â†’ MID â†’ LOW â†’ PAN â†’ GAIN â†’ HIGH ...)
+- **Drehen** (Hardware): Ã„ndert den Wert der aktiven Funktion
+- **Strg+Klick** (Panel): Schaltet zur nÃ¤chsten Funktion (identisch mit Hardware-DrÃ¼cken)
+- **Mausrad** (Panel): Ã„ndert den Wert der aktiven Funktion (Â±1 Step pro Notch)
+- **Strg+Mausrad** (Panel): Grobe Steuerung (Â±5 Steps pro Notch)
 - **Display**: Zeigt kurzzeitig den neuen Funktionsnamen, dann den Wert, dann ">FUNKTIONSNAME"
 - **Encoder-Ring**: Position zeigt den aktuellen Wert relativ zum Bereich (0-10 LEDs)
 
-Encoder 1 bleibt für Ansichtswechsel, Encoder 3 für Shortcut-Modus.
+Encoder 1 bleibt fÃ¼r Ansichtswechsel, Encoder 3 fÃ¼r Shortcut-Modus.
 
 ## Master-Button-Aktionen
 
-Die Master-Section-Buttons (F1-F8, Transport, Utility, etc.) können im X-Touch Panel mit
+Die Master-Section-Buttons (F1-F8, Transport, Utility, etc.) kÃ¶nnen im X-Touch Panel mit
 benutzerdefinierten Aktionen belegt werden. Klick auf einen Master-Button im Panel zeigt den
 Mapping-Editor mit folgenden Aktionstypen:
 
 | Aktionstyp | Beschreibung | Konfigurationsfelder |
 |---|---|---|
 | **VM-Parameter toggeln** | Bool-Parameter in Voicemeeter umschalten | VM-Parameter (z.B. `Strip[0].Mute`), optional `vmLedSource` (`ManualFeedback` / `VoicemeeterState`) |
-| **Programm starten** | Windows-Programm ausführen | Programmpfad + optionale Argumente |
+| **Programm starten** | Windows-Programm ausfÃ¼hren | Programmpfad + optionale Argumente |
 | **Tastenkombination** | Keyboard-Shortcut simulieren | Kombination (z.B. `Ctrl+Shift+M`, `Alt+F4`, `F5`) |
-| **Text senden** | Text via Zwischenablage einfügen | Beliebiger Text |
-| **VM Audio Engine neu starten** | Voicemeeter Audio Engine restarten | — |
-| **VM-Fenster anzeigen** | Voicemeeter in den Vordergrund bringen | — |
-| **VM-GUI sperren/entsperren** | GUI-Lock toggeln | — |
-| **Macro-Button auslösen** | Voicemeeter Macro-Button triggern | Macro-Button Index (0–79) |
-| **MQTT Publish** | MQTT Nachricht beim Drücken/Loslassen senden | Topic, Payload Press/Release, QoS, Retain |
-| **MQTT Gerät auswählen** | Aktives MQTT-Zielgerät wählen | DeviceId, CommandTopic |
-| **MQTT Transport** | Transport-Befehl an aktives Zielgerät senden | Command, Payload-Override (optional), QoS, Retain |
+| **Text senden** | Text via Zwischenablage einfÃ¼gen | Beliebiger Text |
+| **VM Audio Engine neu starten** | Voicemeeter Audio Engine restarten | â€” |
+| **VM-Fenster anzeigen** | Voicemeeter in den Vordergrund bringen | â€” |
+| **VM-GUI sperren/entsperren** | GUI-Lock toggeln | â€” |
+| **Macro-Button auslÃ¶sen** | Voicemeeter Macro-Button triggern | Macro-Button Index (0â€“79) |
+| **MQTT Publish** | MQTT Nachricht beim DrÃ¼cken/Loslassen senden | Topic, Payload Press/Release, QoS, Retain |
+| **MQTT GerÃ¤t auswÃ¤hlen** | Aktives MQTT-ZielgerÃ¤t wÃ¤hlen | DeviceId, CommandTopic |
+| **MQTT Transport** | Transport-Befehl an aktives ZielgerÃ¤t senden | Command, Payload-Override (optional), QoS, Retain |
 
-Unterstützte Modifier: `Ctrl`, `Alt`, `Shift`, `Win`. Unterstützte Sondertasten: `F1`-`F24`,
+UnterstÃ¼tzte Modifier: `Ctrl`, `Alt`, `Shift`, `Win`. UnterstÃ¼tzte Sondertasten: `F1`-`F24`,
 `Enter`, `Escape`, `Tab`, `Space`, `Delete`, `Home`, `End`, `PageUp`, `PageDown`, Pfeiltasten,
 `VolumeUp`, `VolumeDown`, `Mute`, `MediaPlay`, `MediaNext`, `MediaPrev`, `MediaStop`, etc.
 
@@ -338,23 +340,23 @@ In der `config.json` unter `masterButtonActions` (Key = MIDI Note-Nummer):
 }
 ```
 
-Note-Nummern für Function-Buttons: F1=54, F2=55, ..., F8=61.
+Note-Nummern fÃ¼r Function-Buttons: F1=54, F2=55, ..., F8=61.
 Transport-Buttons: REW=91, FF=92, STOP=93, PLAY=94, REC=95.
 
 ### MQTT Device Select + Transport (ohne Home Assistant)
 
-Mit den Aktionstypen `MQTT Gerät auswählen` und `MQTT Transport` kann die Master-Section zwei oder mehr Geräte direkt per MQTT steuern:
+Mit den Aktionstypen `MQTT GerÃ¤t auswÃ¤hlen` und `MQTT Transport` kann die Master-Section zwei oder mehr GerÃ¤te direkt per MQTT steuern:
 
 - **Selector-Buttons** (z.B. MARKER/NUDGE):
-  - Aktionstyp `MQTT Gerät auswählen`
+  - Aktionstyp `MQTT GerÃ¤t auswÃ¤hlen`
   - Felder: `DeviceId`, `CommandTopic`
-  - Verhalten: nur ein Gerät ist aktiv; aktiver Selector leuchtet
+  - Verhalten: nur ein GerÃ¤t ist aktiv; aktiver Selector leuchtet
 - **Transport-Buttons** (z.B. REW/FF/STOP/PLAY):
   - Aktionstyp `MQTT Transport`
-  - sendet den gewählten Command an das aktuell aktive Gerät
+  - sendet den gewÃ¤hlten Command an das aktuell aktive GerÃ¤t
   - optionales Payload-Override; sonst wird der Command-Text als Payload gesendet
 
-Preset-Commands im Editor für Transport-Buttons:
+Preset-Commands im Editor fÃ¼r Transport-Buttons:
 - Rewind (91) -> `prev`
 - Forward (92) -> `next`
 - Stop (93) -> `stop`
@@ -363,27 +365,27 @@ Preset-Commands im Editor für Transport-Buttons:
 
 ### LED-Feedback
 
-Jede Aktion kann über `ledFeedback` bestimmen, wie die Button-LED reagiert:
+Jede Aktion kann Ã¼ber `ledFeedback` bestimmen, wie die Button-LED reagiert:
 
 | Modus | Beschreibung |
 |---|---|
-| `Blink` (Standard) | LED blinkt 150ms auf als Bestätigung |
-| `Toggle` | LED wechselt bei jedem Druck: 1× drücken = an, 2× drücken = aus |
-| `Blinking` | LED blinkt dauerhaft (Hardware-Blink via Mackie Protocol), erneutes Drücken stoppt das Blinken |
+| `Blink` (Standard) | LED blinkt 150ms auf als BestÃ¤tigung |
+| `Toggle` | LED wechselt bei jedem Druck: 1Ã— drÃ¼cken = an, 2Ã— drÃ¼cken = aus |
+| `Blinking` | LED blinkt dauerhaft (Hardware-Blink via Mackie Protocol), erneutes DrÃ¼cken stoppt das Blinken |
 
-Der Toggle-Modus eignet sich besonders für Lock/Unlock-Aktionen oder um den aktiven Status
+Der Toggle-Modus eignet sich besonders fÃ¼r Lock/Unlock-Aktionen oder um den aktiven Status
 eines Programms visuell auf dem X-Touch darzustellen. Der Blinking-Modus nutzt den nativen
-Hardware-Blink des Mackie-Protokolls (Velocity 2) und benötigt keine Software-Timer.
+Hardware-Blink des Mackie-Protokolls (Velocity 2) und benÃ¶tigt keine Software-Timer.
 
-Für `VmParameter`-Aktionen kann optional `vmLedSource` gesetzt werden:
+FÃ¼r `VmParameter`-Aktionen kann optional `vmLedSource` gesetzt werden:
 - `ManualFeedback` (Standard): LED folgt `ledFeedback`
-- `VoicemeeterState`: LED folgt dem echten VM-Parameterzustand (On/Off), auch bei externen Änderungen in Voicemeeter
+- `VoicemeeterState`: LED folgt dem echten VM-Parameterzustand (On/Off), auch bei externen Ã„nderungen in Voicemeeter
 
-Hinweis: `LED per MQTT steuern` im Master-Editor ist nur beim Aktionstyp `MQTT Publish` verfügbar.
+Hinweis: `LED per MQTT steuern` im Master-Editor ist nur beim Aktionstyp `MQTT Publish` verfÃ¼gbar.
 
 ### Media-Fernbedienung (z.B. YouTube in Vivaldi/Chrome)
 
-Die Transport-Buttons können als Media-Keys konfiguriert werden, um Browser-Mediaplayer zu steuern:
+Die Transport-Buttons kÃ¶nnen als Media-Keys konfiguriert werden, um Browser-Mediaplayer zu steuern:
 
 ```json
 "masterButtonActions": {
@@ -397,9 +399,14 @@ Die Transport-Buttons können als Media-Keys konfiguriert werden, um Browser-Med
 Die Media-Keys werden vom Betriebssystem an den aktiven Mediaplayer weitergeleitet
 (z.B. YouTube im Browser, Spotify, VLC).
 
+## Letzte Updates
+
+- Laufzeit-Lokalisierung verbessert: Panel und Dialoge wechseln nach Sprachwechsel konsistent.
+- MSI-Paketierung: WiX-App-Dateien werden als AppFiles-Komponentengruppe generiert, um Linker-Fehler in CI-Builds zu vermeiden.
+
 ## 7-Segment-Display (Timecode-Anzeige)
 
-Das 12-stellige 7-Segment-Display auf dem X-Touch zeigt standardmäßig die **Uhrzeit** an.
+Das 12-stellige 7-Segment-Display auf dem X-Touch zeigt standardmÃ¤ÃŸig die **Uhrzeit** an.
 Per Cycle-Button (Standard: NAME/VALUE, Note 52) kann zwischen folgenden Modi gewechselt werden:
 
 | Modus | Anzeige | Update-Intervall |
@@ -416,19 +423,20 @@ Der Cycle-Button kann in der Config angepasst werden:
 ```
 
 Standard ist Note 52 (NAME/VALUE Button). `0` = Cycle-Funktion deaktiviert.
-Das Display kommuniziert über Behringer-eigene SysEx-Nachrichten
+Das Display kommuniziert Ã¼ber Behringer-eigene SysEx-Nachrichten
 (`F0 00 20 32 dd 37 ...`) mit automatischer Device-ID-Erkennung (X-Touch=0x14, Ext=0x15).
 
 ## Credits & Danksagung
 
-Dieses Projekt ist eine vollständige Neuentwicklung in C# / .NET 8, basierend auf dem originalen
+Dieses Projekt ist eine vollstÃ¤ndige Neuentwicklung in C# / .NET 8, basierend auf dem originalen
 Python-Projekt **audiomanager** von [TheRedNet](https://github.com/TheRedNet):
 
 - **Original-Repository**: [github.com/TheRedNet/audiomanager](https://github.com/TheRedNet/audiomanager)
 - **Original-Sprache**: Python (XTouchVM.py, XTouchLib.py, audiomanager.pyw)
 - **Portierung**: C# / WPF / .NET 8 mit Claude Code (Anthropic)
 
-Die Kernidee — Voicemeeter Potato über das Behringer X-Touch im Mackie Control Modus zu steuern —
+Die Kernidee â€” Voicemeeter Potato Ã¼ber das Behringer X-Touch im Mackie Control Modus zu steuern â€”
 stammt aus dem Python-Original. Die C#-Portierung erweitert das Konzept um eine modulare Architektur
-mit Dependency Injection, umfangreiche Unit-Tests, eine grafische Oberfläche (WPF) mit interaktivem
+mit Dependency Injection, umfangreiche Unit-Tests, eine grafische OberflÃ¤che (WPF) mit interaktivem
 X-Touch Panel, MIDI Debug Monitor und konfigurierbaren Master-Button-Aktionen.
+

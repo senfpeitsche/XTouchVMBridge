@@ -14,7 +14,8 @@ Ported from the original Python project to a C# .NET 8 project.
 - .NET 8 SDK (or newer)
 - Windows 10/11
 - Voicemeeter Potato (installed, `VoicemeeterRemote64.dll` must be in the system path)
-- Behringer X-Touch or X-Touch Extender (USB, in Mackie Control mode)
+- Behringer X-Touch or X-Touch Extender
+  - Required: connect via USB and set the device to MC (Mackie Control) mode before starting the app.
   - Note: X-Touch Extender support is currently untested.
   - Note: PanelView (`X-Touch Panel`) is currently designed for X-Touch (full-size) only.
 
@@ -180,6 +181,7 @@ The first time it is started, `config.json` is created. The name, type and color
 - **X-Touch device selection**: Support for X-Touch and X-Touch Extender, selectable in the tray menu
 - **Auto-Reconnect**: Automatic reconnection when device disconnects (every 5 seconds)
 - **Connection status**: Display in tray tooltip and context menu ("X-Touch: Connected/Disconnected")
+- **Language switch**: German/English can be changed from the tray menu.
 - **MQTT**:
   - Global MQTT client with config dialog
   - Channel button mapping: VM parameters or MQTT publish
@@ -205,6 +207,11 @@ The first time it is started, `config.json` is created. The name, type and color
   - **Blinking**: LED flashes continuously (hardware flash via Mackie Protocol), pressing again stops flashing
 - **7-segment display**: Timecode display shows time, date or memory usage.
   Cycle button (configurable, default: Note 52 / NAME) switches between modes.
+
+## Latest updates
+
+- Improved runtime localization: panel and dialogs now switch language consistently after changing UI language.
+- MSI packaging: WiX app files are generated into an `AppFiles` component group to avoid linker issues in CI builds.
 
 ## MIDI Debug Monitor
 

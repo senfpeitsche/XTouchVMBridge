@@ -2,6 +2,20 @@
 
 # Changelog
 
+## [Unreleased] - 2026-02-21
+
+### Lokalisierung / UI-Sprache
+- **Neu**: Konfigurierbare UI-Sprache (`de` / `en`) in Config und Tray-Menue.
+- **Fix**: Panel/Dialog-Lokalisierung wird nach Sprachwechsel jetzt konsistent aktualisiert.
+- **Fix**: Panel-Open-Absturz nach Sprachwechsel durch sichere Visual-Tree-Pruefung behoben.
+
+### Installer (WiX/MSI)
+- **Fix**: CI-Linker-Fehler `WIX0094` behoben durch Generierung und Kompilierung einer `AppFiles`-Komponentengruppe.
+- **Neu**: `scripts/generate-wix-appfiles.ps1` fuer deterministische App-Datei-Generierung hinzugefuegt.
+
+### Dokumentation
+- **Aenderung**: Hardware-Voraussetzung klarer dokumentiert: X-Touch muss vor App-Start per USB im MC-Modus verbunden sein.
+
 ## [Unreleased] - 2026-02-20
 
 ### CI / Release-Automatisierung
