@@ -7,13 +7,14 @@ using XTouchVMBridge.Voicemeeter.Services;
 namespace XTouchVMBridge.App.Views;
 
 /// <summary>
-/// Mapping-Editor: Parameter-Zuweisungen für Buttons, Fader, Encoder und Master-Buttons.
-/// Enthält alle ShowXxxMappingPanel-Methoden, ComboBox-EventHandler, VM-Parameter-Dropdown-Kaskade,
-/// Save/Reload-Logik.
+/// Mapping editor logic for channel controls (button/fader/encoder) and master-section actions.
+/// Handles panel population, form state synchronization, and saving mappings back to config.
 /// </summary>
 public partial class XTouchPanelWindow
 {
-    /// <summary>Blendet alle Mapping-Sub-Panels aus.</summary>
+    /// <summary>
+    /// Hides all mapping sub-panels so the active editor panel can be shown explicitly.
+    /// </summary>
     private void HideMappingSubPanels()
     {
         ButtonMappingPanel.Visibility = Visibility.Collapsed;
@@ -22,7 +23,10 @@ public partial class XTouchPanelWindow
         MasterButtonMappingPanel.Visibility = Visibility.Collapsed;
     }
 
-    /// <summary>Zeigt das Button-Mapping-Panel für einen Kanal und Button-Typ.</summary>
+    /// <summary>
+    /// Opens the channel button mapping panel for the selected strip/button type.
+    /// Supports VM-parameter and MQTT publish modes.
+    /// </summary>
     private void ShowButtonMappingPanel(int xtChannel, XTouchButtonType buttonType)
     {
         if (_config == null || _configService == null)
@@ -48,7 +52,6 @@ public partial class XTouchPanelWindow
             ButtonMqttLedTestModeCombo.ItemsSource = new[] { "On", "Off", "Blink", "Toggle" };
             ButtonMqttLedTestModeCombo.SelectedItem = "On";
 
-            // ComboBox mit Bool-Parametern befüllen
             var boolParams = VoicemeeterParameterCatalog.GetBoolParameters(vmCh);
             ButtonParamCombo.Items.Clear();
             ButtonParamCombo.Items.Add(new ComboBoxItem { Content = "(nicht zugewiesen)", Tag = "" });
@@ -70,7 +73,6 @@ public partial class XTouchPanelWindow
                 });
             }
 
-            // Aktuellen Wert auswählen
             ButtonMappingConfig? currentMapping = null;
             string? currentParam = null;
             if (_config.Mappings.TryGetValue(vmCh, out var mapping))
@@ -83,7 +85,7 @@ public partial class XTouchPanelWindow
                 }
             }
 
-            ButtonParamCombo.SelectedIndex = 0; // Default: nicht zugewiesen
+            ButtonParamCombo.SelectedIndex = 0; // Default: not assigned
             if (currentParam != null)
             {
                 for (int i = 1; i < ButtonParamCombo.Items.Count; i++)
@@ -126,7 +128,9 @@ public partial class XTouchPanelWindow
         }
     }
 
-    /// <summary>Zeigt das Fader-Mapping-Panel für einen Kanal.</summary>
+    /// <summary>
+    /// Applies action-type-specific visibility for channel button mappings.
+    /// </summary>
     private void UpdateButtonActionSubPanels(ButtonActionType actionType)
     {
         ButtonVmParamPanel.Visibility = actionType == ButtonActionType.VmParameter
@@ -154,6 +158,9 @@ public partial class XTouchPanelWindow
         ButtonVmRecHintText.Visibility = showRecHint ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    /// <summary>
+    /// Opens the fader mapping panel for the selected strip.
+    /// </summary>
     private void ShowFaderMappingPanel(int xtChannel)
     {
         if (_config == null || _configService == null)
@@ -171,7 +178,6 @@ public partial class XTouchPanelWindow
         {
             HideMappingSubPanels();
 
-            // ComboBox mit Float-Parametern befüllen
             var floatParams = VoicemeeterParameterCatalog.GetFloatParameters(vmCh);
             FaderParamCombo.Items.Clear();
             FaderParamCombo.Items.Add(new ComboBoxItem { Content = "(nicht zugewiesen)", Tag = "" });
@@ -185,7 +191,6 @@ public partial class XTouchPanelWindow
                 });
             }
 
-            // Aktuellen Wert auswählen
             FaderParamCombo.SelectedIndex = 0;
             FaderMinBox.Text = "-60";
             FaderMaxBox.Text = "12";
@@ -214,7 +219,9 @@ public partial class XTouchPanelWindow
         }
     }
 
-    /// <summary>Zeigt das Encoder-Mapping-Panel für einen Kanal.</summary>
+    /// <summary>
+    /// Opens the encoder mapping panel and loads current function assignments.
+    /// </summary>
     private void ShowEncoderMappingPanel(int xtChannel)
     {
         if (_config == null || _configService == null)
@@ -232,10 +239,8 @@ public partial class XTouchPanelWindow
         {
             HideMappingSubPanels();
 
-            // Funktionsliste befüllen
             RefreshEncoderFunctionList(vmCh);
 
-            // ComboBox mit Float-Parametern befüllen (für "Hinzufügen")
             var floatParams = VoicemeeterParameterCatalog.GetFloatParameters(vmCh);
             EncoderAddParamCombo.Items.Clear();
             foreach (var p in floatParams)
@@ -260,7 +265,6 @@ public partial class XTouchPanelWindow
         }
     }
 
-    /// <summary>Aktualisiert die Encoder-Funktionsliste im Panel.</summary>
     private void RefreshEncoderFunctionList(int vmCh)
     {
         EncoderFunctionList.Items.Clear();
@@ -278,11 +282,10 @@ public partial class XTouchPanelWindow
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //  Master-Button-Mapping-Editor
-    // ═══════════════════════════════════════════════════════════════════
 
-    /// <summary>Zeigt das Master-Button-Mapping-Panel für eine MIDI-Note.</summary>
+    /// <summary>
+    /// Opens the master-button action editor for a specific MIDI note.
+    /// </summary>
     private void ShowMasterButtonMappingPanel(int noteNumber)
     {
         if (_config == null || _configService == null)
@@ -296,7 +299,6 @@ public partial class XTouchPanelWindow
         {
             HideMappingSubPanels();
 
-            // ActionType-ComboBox befüllen
             MasterActionTypeCombo.Items.Clear();
             MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "(keine Aktion)", Tag = MasterButtonActionType.None });
             MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM-Parameter toggeln", Tag = MasterButtonActionType.VmParameter });
@@ -314,13 +316,11 @@ public partial class XTouchPanelWindow
             MasterMqttTransportQosCombo.ItemsSource = new[] { "0", "1", "2" };
             MasterMqttTransportCommandCombo.ItemsSource = new[] { "play_pause", "play", "pause", "stop", "next", "prev" };
 
-            // Aktuelle Config laden
             MasterButtonActionConfig? actionConfig = null;
             _config.MasterButtonActions.TryGetValue(noteNumber, out actionConfig);
 
             var activeType = actionConfig?.ActionType ?? MasterButtonActionType.None;
 
-            // ComboBox auf aktuellen Typ setzen
             for (int i = 0; i < MasterActionTypeCombo.Items.Count; i++)
             {
                 if (MasterActionTypeCombo.Items[i] is ComboBoxItem item &&
@@ -331,7 +331,6 @@ public partial class XTouchPanelWindow
                 }
             }
 
-            // Felder befüllen
             MasterProgramPathBox.Text = actionConfig?.ProgramPath ?? "";
             MasterProgramArgsBox.Text = actionConfig?.ProgramArgs ?? "";
             MasterKeyCombinationBox.Text = actionConfig?.KeyCombination ?? "";
@@ -364,7 +363,6 @@ public partial class XTouchPanelWindow
             var activeVmLedSource = actionConfig?.VmLedSource ?? MasterVmLedSource.ManualFeedback;
             MasterVmLedSourceCombo.SelectedIndex = activeVmLedSource == MasterVmLedSource.VoicemeeterState ? 1 : 0;
 
-            // LED-Feedback-ComboBox befüllen
             MasterLedFeedbackCombo.Items.Clear();
             MasterLedFeedbackCombo.Items.Add(new ComboBoxItem { Content = "Kurz aufblinken", Tag = LedFeedbackMode.Blink });
             MasterLedFeedbackCombo.Items.Add(new ComboBoxItem { Content = "An/Aus (Toggle)", Tag = LedFeedbackMode.Toggle });
@@ -377,10 +375,8 @@ public partial class XTouchPanelWindow
                 _ => 0
             };
 
-            // VM-Parameter-Dropdowns initialisieren
             InitMasterVmParamDropdowns(actionConfig?.VmParameter);
 
-            // Sub-Panel für aktiven Typ anzeigen
             UpdateMasterActionSubPanels(activeType);
 
             MasterButtonMappingPanel.Visibility = Visibility.Visible;
@@ -393,7 +389,6 @@ public partial class XTouchPanelWindow
         }
     }
 
-    /// <summary>Zeigt/versteckt die Sub-Panels je nach Aktionstyp.</summary>
     private void UpdateMasterActionSubPanels(MasterButtonActionType type)
     {
         MasterVmParamPanel.Visibility = type == MasterButtonActionType.VmParameter ? Visibility.Visible : Visibility.Collapsed;
@@ -408,7 +403,6 @@ public partial class XTouchPanelWindow
         RefreshMasterLedFeedbackPanelVisibility(type);
     }
 
-    /// <summary>Aktionstyp-ComboBox geändert.</summary>
     private void OnMasterActionTypeChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressMappingEvents) return;
@@ -443,7 +437,6 @@ public partial class XTouchPanelWindow
         _ => null
     };
 
-    /// <summary>Programm-Pfad per Datei-Dialog auswählen.</summary>
     private void OnMasterBrowseProgram(object sender, RoutedEventArgs e)
     {
         var dlg = new Microsoft.Win32.OpenFileDialog
@@ -457,9 +450,9 @@ public partial class XTouchPanelWindow
         }
     }
 
-    /// <summary>Master-Button-Aktion speichern.</summary>
     private void OnMasterActionSave(object sender, RoutedEventArgs e)
     {
+        // Commits master-section action configuration including transport/device/MQTT options.
         if (_config == null || _configService == null || _selectedMasterButtonNote < 0) return;
 
         var selectedType = MasterButtonActionType.None;
@@ -531,7 +524,6 @@ public partial class XTouchPanelWindow
         SaveAndReload();
     }
 
-    /// <summary>Master-Button-Aktion entfernen.</summary>
     private void OnMasterActionClear(object sender, RoutedEventArgs e)
     {
         if (_config == null || _configService == null || _selectedMasterButtonNote < 0) return;
@@ -573,20 +565,16 @@ public partial class XTouchPanelWindow
         SaveAndReload();
     }
 
-    // ─── VM-Parameter Dropdown-Kaskade ──────────────────────────────
 
-    /// <summary>Initialisiert die VM-Parameter-Dropdowns beim Anzeigen des Panels.</summary>
     private void InitMasterVmParamDropdowns(string? currentParam)
     {
         _suppressMappingEvents = true;
         try
         {
-            // Kanaltyp-Dropdown befüllen
             MasterVmChannelTypeCombo.Items.Clear();
             MasterVmChannelTypeCombo.Items.Add(new ComboBoxItem { Content = "Strip", Tag = "Strip" });
             MasterVmChannelTypeCombo.Items.Add(new ComboBoxItem { Content = "Bus", Tag = "Bus" });
 
-            // Versuche aktuellen Parameter zu parsen um Dropdowns vorzubelegen
             string preselectedType = "Strip";
             int preselectedIndex = 0;
             string? preselectedGroup = null;
@@ -607,7 +595,6 @@ public partial class XTouchPanelWindow
                     if (match.Success) preselectedIndex = int.Parse(match.Groups[1].Value);
                 }
 
-                // Finde passende Gruppe und Template
                 var groups = VoicemeeterParameterCatalog.GetBoolGroups(preselectedType);
                 foreach (var group in groups)
                 {
@@ -627,20 +614,15 @@ public partial class XTouchPanelWindow
                 }
             }
 
-            // Kanaltyp setzen
             MasterVmChannelTypeCombo.SelectedIndex = preselectedType == "Bus" ? 1 : 0;
 
-            // Gruppen befüllen
             PopulateMasterVmGroups(preselectedType, preselectedGroup);
 
-            // Parameter befüllen (falls Gruppe gefunden)
             if (preselectedGroup != null)
                 PopulateMasterVmParams(preselectedType, preselectedGroup, preselectedTemplate);
 
-            // Index-Dropdown befüllen
             PopulateMasterVmIndex(preselectedIndex);
 
-            // Ergebnis aktualisieren
             UpdateMasterVmResultParam();
         }
         finally
@@ -649,7 +631,6 @@ public partial class XTouchPanelWindow
         }
     }
 
-    /// <summary>Befüllt das Gruppen-Dropdown für den gewählten Kanaltyp.</summary>
     private void PopulateMasterVmGroups(string channelType, string? preselectedGroup = null)
     {
         MasterVmGroupCombo.Items.Clear();
@@ -664,7 +645,6 @@ public partial class XTouchPanelWindow
             MasterVmGroupCombo.SelectedIndex = selectIndex;
     }
 
-    /// <summary>Befüllt das Parameter-Dropdown für die gewählte Gruppe.</summary>
     private void PopulateMasterVmParams(string channelType, string groupName, string? preselectedTemplate = null)
     {
         MasterVmParamCombo.Items.Clear();
@@ -683,7 +663,6 @@ public partial class XTouchPanelWindow
             MasterVmParamCombo.SelectedIndex = selectIndex;
     }
 
-    /// <summary>Befüllt das Index-Dropdown (0–7).</summary>
     private void PopulateMasterVmIndex(int preselectedIndex = 0)
     {
         MasterVmIndexCombo.Items.Clear();
@@ -697,7 +676,6 @@ public partial class XTouchPanelWindow
             MasterVmIndexCombo.SelectedIndex = 0;
     }
 
-    /// <summary>Aktualisiert das Ergebnis-TextBox basierend auf den Dropdown-Auswahlen.</summary>
     private void UpdateMasterVmResultParam()
     {
         string? template = null;
@@ -720,7 +698,6 @@ public partial class XTouchPanelWindow
         }
     }
 
-    /// <summary>Kanaltyp-Dropdown geändert → Gruppen neu laden.</summary>
     private void OnMasterVmChannelTypeChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressMappingEvents) return;
@@ -729,7 +706,6 @@ public partial class XTouchPanelWindow
 
         _suppressMappingEvents = true;
         PopulateMasterVmGroups(channelType);
-        // Ersten Gruppeneintrag auswählen → löst Parameter-Laden aus
         if (MasterVmGroupCombo.Items.Count > 0)
         {
             var firstGroupName = (MasterVmGroupCombo.Items[0] as ComboBoxItem)?.Tag as string;
@@ -739,7 +715,6 @@ public partial class XTouchPanelWindow
         _suppressMappingEvents = false;
     }
 
-    /// <summary>Gruppen-Dropdown geändert → Parameter neu laden.</summary>
     private void OnMasterVmGroupChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressMappingEvents) return;
@@ -755,14 +730,12 @@ public partial class XTouchPanelWindow
         _suppressMappingEvents = false;
     }
 
-    /// <summary>Parameter-Dropdown geändert → Ergebnis aktualisieren.</summary>
     private void OnMasterVmParamComboChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressMappingEvents) return;
         UpdateMasterVmResultParam();
     }
 
-    /// <summary>Index-Dropdown geändert → Ergebnis aktualisieren.</summary>
     private void OnMasterVmIndexChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressMappingEvents) return;
@@ -795,11 +768,7 @@ public partial class XTouchPanelWindow
         MasterLedFeedbackPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //  Mapping-Editor: Event-Handler (aus XAML referenziert)
-    // ═══════════════════════════════════════════════════════════════════
 
-    /// <summary>Button-Parameter geändert (ComboBox SelectionChanged).</summary>
     private void OnButtonActionTypeChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressMappingEvents) return;
@@ -838,6 +807,7 @@ public partial class XTouchPanelWindow
 
     private void OnButtonMappingSave(object sender, RoutedEventArgs e)
     {
+        // Persist either VM mapping or MQTT publish payload mapping for the selected button.
         if (_config == null || _configService == null) return;
         if (_selectedVmChannel < 0 || _selectedControlType != "Button") return;
         if (ButtonActionTypeCombo.SelectedItem is not ComboBoxItem item ||
@@ -890,6 +860,7 @@ public partial class XTouchPanelWindow
 
     private async void OnButtonMqttTestPublish(object sender, RoutedEventArgs e)
     {
+        // Sends the current pressed payload to validate broker/topic wiring without saving.
         if (_mqttClientService == null)
             return;
 
@@ -907,6 +878,7 @@ public partial class XTouchPanelWindow
 
     private async void OnButtonMqttTestLed(object sender, RoutedEventArgs e)
     {
+        // Publishes one configured LED payload to validate topic/payload behavior.
         if (_mqttClientService == null)
             return;
 
@@ -928,7 +900,6 @@ public partial class XTouchPanelWindow
         await _mqttClientService.PublishAsync(topic, payload, 0, false);
     }
 
-    /// <summary>Button-Zuweisung entfernen (Clear-Button Click).</summary>
     private void OnButtonMappingClear(object sender, RoutedEventArgs e)
     {
         if (_config == null || _configService == null) return;
@@ -959,7 +930,6 @@ public partial class XTouchPanelWindow
         SaveAndReload();
     }
 
-    /// <summary>Fader-Parameter geändert (ComboBox SelectionChanged).</summary>
     private void OnFaderParamChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressMappingEvents || _config == null || _configService == null) return;
@@ -970,14 +940,12 @@ public partial class XTouchPanelWindow
 
         if (string.IsNullOrEmpty(paramName))
         {
-            // Sofort speichern: Fader-Zuweisung entfernen
             EnsureMapping(_selectedVmChannel);
             _config.Mappings[_selectedVmChannel].Fader = null;
             SaveAndReload();
             return;
         }
 
-        // Min/Max aus Katalog vorausfüllen
         var template = VoicemeeterParameterCatalog.FindTemplate(paramName);
         if (template != null)
         {
@@ -986,9 +954,9 @@ public partial class XTouchPanelWindow
         }
     }
 
-    /// <summary>Fader-Mapping speichern (Speichern-Button Click).</summary>
     private void OnFaderMappingSave(object sender, RoutedEventArgs e)
     {
+        // Stores range and parameter binding for the selected strip fader.
         if (_config == null || _configService == null) return;
         if (_selectedVmChannel < 0 || _selectedControlType != "Fader") return;
 
@@ -1025,9 +993,9 @@ public partial class XTouchPanelWindow
         SaveAndReload();
     }
 
-    /// <summary>Encoder-Funktion hinzufügen (+-Button Click).</summary>
     private void OnEncoderFunctionAdd(object sender, RoutedEventArgs e)
     {
+        // Adds an encoder function using defaults from the parameter catalog.
         if (_config == null || _configService == null) return;
         if (_selectedVmChannel < 0 || _selectedControlType != "Encoder") return;
 
@@ -1038,7 +1006,6 @@ public partial class XTouchPanelWindow
         string label = EncoderAddLabelBox.Text.Trim();
         if (string.IsNullOrEmpty(label))
         {
-            // Label aus DisplayName ableiten
             var resolved = VoicemeeterParameterCatalog.GetFloatParameters(_selectedVmChannel)
                 .FirstOrDefault(p => p.Parameter == paramName);
             label = resolved?.DisplayName ?? "PARAM";
@@ -1067,7 +1034,6 @@ public partial class XTouchPanelWindow
         SaveAndReload();
     }
 
-    /// <summary>Encoder-Funktion entfernen (−-Button Click).</summary>
     private void OnEncoderFunctionRemove(object sender, RoutedEventArgs e)
     {
         if (_config == null || _configService == null) return;
@@ -1085,9 +1051,7 @@ public partial class XTouchPanelWindow
         }
     }
 
-    // ─── Mapping Helpers ─────────────────────────────────────────────
 
-    /// <summary>Stellt sicher, dass ein Mapping für den VM-Kanal existiert.</summary>
     private void EnsureMapping(int vmChannel)
     {
         if (_config == null) return;
@@ -1097,7 +1061,9 @@ public partial class XTouchPanelWindow
         }
     }
 
-    /// <summary>Speichert die Config und benachrichtigt die Bridge.</summary>
+    /// <summary>
+    /// Persists the current in-memory config and triggers bridge mapping reload.
+    /// </summary>
     private void SaveAndReload()
     {
         if (_config == null || _configService == null) return;
@@ -1105,3 +1071,5 @@ public partial class XTouchPanelWindow
         _bridge?.ReloadMappings();
     }
 }
+
+

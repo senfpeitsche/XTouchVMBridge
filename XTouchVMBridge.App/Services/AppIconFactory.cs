@@ -8,9 +8,6 @@ using System.Windows.Media.Imaging;
 
 namespace XTouchVMBridge.App.Services;
 
-/// <summary>
-/// Erzeugt das gemeinsame App-Icon fuer Tray und Fenster.
-/// </summary>
 public static class AppIconFactory
 {
     private static readonly Lazy<Icon> TrayIconCache = new(CreateIconCore);

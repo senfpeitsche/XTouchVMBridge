@@ -11,9 +11,6 @@ using Orientation = System.Windows.Controls.Orientation;
 
 namespace XTouchVMBridge.App.Views;
 
-/// <summary>
-/// Main Fader: Aufbau und Maus-Interaktion (Strg+Klick, Doppelklick → 0 dB).
-/// </summary>
 public partial class XTouchPanelWindow
 {
     private DateTime _lastMainFaderClickTime = DateTime.MinValue;
@@ -32,7 +29,6 @@ public partial class XTouchPanelWindow
             Margin = new Thickness(0, 0, 0, 8)
         });
 
-        // Flip Button oberhalb des Main Faders
         var flipButton = new Button
         {
             Content = "FLIP",
@@ -63,7 +59,6 @@ public partial class XTouchPanelWindow
         stack.Children.Add(flipButton);
         _masterButtons["Flip"] = flipButton;
 
-        // Main Fader mit Maus-Overlay für Strg+Klick
         var faderHost = new Grid { Width = 32, Height = 200 };
         _mainFaderSlider = new Slider
         {
@@ -75,7 +70,6 @@ public partial class XTouchPanelWindow
         };
         faderHost.Children.Add(_mainFaderSlider);
 
-        // Transparentes Overlay fängt Maus-Events ab
         var faderOverlay = new Border
         {
             Background = Brushes.Transparent,
@@ -114,7 +108,6 @@ public partial class XTouchPanelWindow
     {
         var now = DateTime.Now;
 
-        // Doppelklick-Erkennung: Main Fader auf 0 dB setzen
         if ((now - _lastMainFaderClickTime).TotalMilliseconds < DoubleTapThresholdMs)
         {
             SetMainFaderTo0dB();

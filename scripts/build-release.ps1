@@ -26,6 +26,7 @@ $checksumPath = Join-Path $artifactsDir "SHA256SUMS.txt"
 
 Write-Host "==> Restore"
 Invoke-External "dotnet" @("restore", "$root\\XTouchVMBridge.slnx")
+Invoke-External "dotnet" @("restore", $setupProject)
 
 if (-not $SkipTests)
 {

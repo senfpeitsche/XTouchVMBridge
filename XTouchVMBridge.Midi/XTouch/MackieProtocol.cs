@@ -1,124 +1,84 @@
 namespace XTouchVMBridge.Midi.XTouch;
 
 /// <summary>
-/// Konstanten und Hilfsmethoden für das Mackie Control Extended Protokoll.
-/// Zentralisiert alle "Magic Numbers" aus dem Python-Original.
+/// Protocol constants and message builders for Mackie/Behringer MIDI communication
+/// used by X-Touch and X-Touch Extender devices.
 /// </summary>
 public static class MackieProtocol
 {
-    // ─── SysEx Framing ──────────────────────────────────────────────
-
-    /// <summary>SysEx-Prefix für Mackie Control Unit (MCU Main).</summary>
+    // Mackie SysEx headers for main/extended device variants.
     public static readonly byte[] SysExPrefix = { 0xF0, 0x00, 0x00, 0x66, 0x14 };
 
-    /// <summary>SysEx-Prefix für Mackie Control Unit Extended (MCU Ext).</summary>
     public static readonly byte[] SysExPrefixExtended = { 0xF0, 0x00, 0x00, 0x66, 0x15 };
 
-    /// <summary>SysEx-Suffix.</summary>
     public const byte SysExEnd = 0xF7;
 
-    // ─── SysEx Command Bytes ────────────────────────────────────────
-
-    /// <summary>Display-Text schreiben (gefolgt von Offset + ASCII-Daten).</summary>
+    // Core display/handshake command IDs.
     public const byte CmdDisplayText = 0x12;
 
-    /// <summary>Display-Farben setzen (gefolgt von 8 Farb-Bytes).</summary>
     public const byte CmdDisplayColor = 0x72;
 
-    /// <summary>Handshake/Challenge-Response.</summary>
     public const byte CmdHandshake = 0x13;
 
-    /// <summary>Handshake-Antwort.</summary>
     public const byte CmdHandshakeResponse = 0x14;
 
-    // ─── MIDI Channel/Note Mappings ────────────────────────────────
-
-    /// <summary>Kanäle 0–7: Anzahl der physischen Kanäle.</summary>
+    // Note ranges used by strip buttons and touch states.
     public const int ChannelCount = 8;
 
-    /// <summary>MIDI Notes für REC-Buttons (0–7).</summary>
     public const int NoteRecBase = 0;
 
-    /// <summary>MIDI Notes für SOLO-Buttons (8–15).</summary>
     public const int NoteSoloBase = 8;
 
-    /// <summary>MIDI Notes für MUTE-Buttons (16–23).</summary>
     public const int NoteMuteBase = 16;
 
-    /// <summary>MIDI Notes für SELECT-Buttons (24–31).</summary>
     public const int NoteSelectBase = 24;
 
-    /// <summary>MIDI Notes für Encoder-Press (32–39).</summary>
     public const int NoteEncoderPressBase = 32;
 
-    /// <summary>MIDI Notes für Fader-Touch (104–111 für Extender, Main=112).</summary>
     public const int NoteFaderTouchBase = 104;
 
-    // ─── Control Change Mappings ────────────────────────────────────
-
-    /// <summary>CC-Nummern für Encoder-Rotation (16–23).</summary>
+    // Continuous controller ranges for encoders.
     public const int CcEncoderBase = 16;
 
-    /// <summary>CC-Nummern für Encoder-Ring-Anzeige (48–55).</summary>
     public const int CcEncoderRingBase = 48;
 
-    // ─── MIDI Velocity Constants ────────────────────────────────────
-
-    /// <summary>LED aus.</summary>
+    // LED velocity conventions used by Mackie note messages.
     public const byte VelocityOff = 0;
 
-    /// <summary>LED blinkt.</summary>
     public const byte VelocityBlink = 1;
 
-    /// <summary>LED an.</summary>
     public const byte VelocityOn = 127;
 
-    // ─── Display Constants ──────────────────────────────────────────
-
-    /// <summary>Maximale Zeichen pro Kanal-Zeile.</summary>
+    // Scribble strip layout: 8 channels, 2 rows, 7 chars each.
     public const int CharsPerChannel = 7;
 
-    /// <summary>Gesamte Display-Zeichenlänge (8 Kanäle × 7 Zeichen × 2 Zeilen).</summary>
     public const int TotalDisplayChars = 112;
 
-    /// <summary>Offset für die zweite Zeile im Display-Buffer.</summary>
     public const int SecondRowOffset = 56;
 
-    // ─── Segment Display ──────────────────────────────────────────────
-
-    /// <summary>Behringer SysEx-Prefix für Segment Display (ohne Device-ID).</summary>
+    // Behringer SysEx constants for segment/LCD displays.
     public static readonly byte[] BehringerSysExBase = { 0xF0, 0x00, 0x20, 0x32 };
 
-    /// <summary>Device-ID für X-Touch (nicht Extender).</summary>
     public const byte DeviceIdXTouch = 0x14;
 
-    /// <summary>Device-ID für X-Touch Extender.</summary>
     public const byte DeviceIdXTouchExt = 0x15;
 
-    /// <summary>SysEx-Kommando für Segment-Display.</summary>
     public const byte CmdSegmentDisplay = 0x37;
 
-    /// <summary>SysEx-Kommando für LCD-Display (Behringer X-Touch spezifisch).</summary>
     public const byte CmdLcdDisplay = 0x4C;
 
-    /// <summary>Anzahl der 7-Segment-Digits.</summary>
     public const int SegmentDigitCount = 12;
 
-    /// <summary>Basis-CC für 7-Segment-Display (Mackie Control Protocol).</summary>
     public const int CcSegmentDisplayBase = 64;
 
     /// <summary>
-    /// Mackie Control 7-Segment Display.
-    /// Das X-Touch im MCU-Modus zeigt ASCII-Zeichen direkt an.
-    /// CC-Wert = ASCII-Code des Zeichens (0-127).
-    /// Bit 6 (0x40) = Dezimalpunkt aktiv.
+    /// Encodes one character for the segment display value stream.
+    /// Dot/colon markers are encoded by setting bit 6.
     /// </summary>
     public static byte CharToSegmentCcValue(char c, bool dot = false)
     {
-        // Direkt ASCII-Code verwenden, auf 0-63 begrenzen (Bit 6 für Dot reserviert)
         byte value = (byte)(c & 0x3F);
 
-        // Bit 6 = Dezimalpunkt
         if (dot)
             value |= 0x40;
 
@@ -126,9 +86,7 @@ public static class MackieProtocol
     }
 
     /// <summary>
-    /// Konvertiert einen String in CC-Werte für das 7-Segment-Display.
-    /// Punkte im String werden als Dot-Bit auf dem vorherigen Zeichen gesetzt.
-    /// Gibt Array von 12 CC-Werten zurück (für CC 64-75).
+    /// Converts user text to 12 segment values plus inline dot handling.
     /// </summary>
     public static byte[] TextToSegmentCcValues(string text)
     {
@@ -136,7 +94,6 @@ public static class MackieProtocol
         var chars = new char[SegmentDigitCount];
         var dots = new bool[SegmentDigitCount];
 
-        // Initialisiere mit Leerzeichen
         for (int i = 0; i < SegmentDigitCount; i++)
             chars[i] = ' ';
 
@@ -145,7 +102,6 @@ public static class MackieProtocol
         {
             char c = text[i];
 
-            // Punkt/Doppelpunkt als Dot auf vorheriges Digit
             if ((c == '.' || c == ':') && digitIdx > 0)
             {
                 dots[digitIdx - 1] = true;
@@ -156,7 +112,6 @@ public static class MackieProtocol
             digitIdx++;
         }
 
-        // Konvertiere zu CC-Werten
         for (int i = 0; i < SegmentDigitCount; i++)
             values[i] = CharToSegmentCcValue(chars[i], dots[i]);
 
@@ -164,9 +119,7 @@ public static class MackieProtocol
     }
 
     /// <summary>
-    /// 7-Segment-Font: Mappt Zeichen auf Segment-Bitmuster (für Behringer SysEx).
-    /// Bit 0=a(oben), 1=b(rechts oben), 2=c(rechts unten), 3=d(unten),
-    /// 4=e(links unten), 5=f(links oben), 6=g(mitte).
+    /// Character-to-segment map for the Behringer segment display.
     /// </summary>
     public static readonly Dictionary<char, byte> SegmentFont = new()
     {
@@ -183,18 +136,13 @@ public static class MackieProtocol
     };
 
     /// <summary>
-    /// Baut eine SysEx-Nachricht für das 7-Segment-Display (Behringer-Format, nicht für X-Touch im MCU-Modus).
+    /// Builds a complete segment SysEx message with digit and dot masks.
     /// </summary>
-    /// <param name="segments">12 Segment-Bytes (links nach rechts).</param>
-    /// <param name="dots1">Dot-Bits für Display 1–7.</param>
-    /// <param name="dots2">Dot-Bits für Display 8–12.</param>
-    /// <param name="deviceId">Device-ID (0x14=X-Touch, 0x15=Ext).</param>
     public static byte[] BuildSegmentDisplayMessage(byte[] segments, byte dots1, byte dots2, byte deviceId = DeviceIdXTouchExt)
     {
         if (segments.Length != SegmentDigitCount)
             throw new ArgumentException($"Genau {SegmentDigitCount} Segment-Bytes erwartet.", nameof(segments));
 
-        // F0 00 20 32 dd 37 s1..s12 d1 d2 F7  => 4 + 1 + 1 + 12 + 2 + 1 = 21
         var data = new byte[21];
         BehringerSysExBase.CopyTo(data, 0);
         data[4] = deviceId;
@@ -210,8 +158,7 @@ public static class MackieProtocol
     }
 
     /// <summary>
-    /// Konvertiert einen String in 7-Segment-Bytes + Dot-Bytes (Behringer SysEx-Format).
-    /// Punkte im String werden als Dot auf dem vorherigen Digit gesetzt.
+    /// Converts plain text into the segment payload tuple used by BuildSegmentDisplayMessage.
     /// </summary>
     public static (byte[] segments, byte dots1, byte dots2) TextToSegments(string text)
     {
@@ -223,10 +170,9 @@ public static class MackieProtocol
         {
             char c = text[i];
 
-            // Punkt/Doppelpunkt als Dot auf vorheriges Digit
             if ((c == '.' || c == ':') && digitIdx > 0)
             {
-                int dotDigit = digitIdx; // 1-basiert (Display 1 = digitIdx 1)
+                int dotDigit = digitIdx; // 1-based (display digit 1 = digitIdx 1)
                 if (dotDigit <= 7)
                     dots1 |= (byte)(1 << (dotDigit - 1));
                 else if (dotDigit <= 12)
@@ -234,14 +180,13 @@ public static class MackieProtocol
                 continue;
             }
 
-            // Zeichen in Segment-Font nachschlagen
             char upper = char.ToUpperInvariant(c);
             if (SegmentFont.TryGetValue(c, out byte seg))
                 segments[digitIdx] = seg;
             else if (SegmentFont.TryGetValue(upper, out byte segU))
                 segments[digitIdx] = segU;
             else
-                segments[digitIdx] = 0x00; // Leer bei unbekannten Zeichen
+                segments[digitIdx] = 0x00; // Blank for unknown characters
 
             digitIdx++;
         }
@@ -249,50 +194,35 @@ public static class MackieProtocol
         return (segments, dots1, dots2);
     }
 
-    // ─── LCD Display (Behringer X-Touch spezifisch) ─────────────────
 
     /// <summary>
-    /// Baut eine SysEx-Nachricht für ein einzelnes LCD-Display (Behringer X-Touch Format).
-    /// Format: F0 00 20 32 dd 4C nn cc c1..c14 F7
+    /// Builds a per-channel LCD scribble message (7 chars top + 7 chars bottom).
     /// </summary>
-    /// <param name="lcdNumber">LCD Nummer 0-7</param>
-    /// <param name="topRow">Text für obere Zeile (max 7 Zeichen)</param>
-    /// <param name="bottomRow">Text für untere Zeile (max 7 Zeichen)</param>
-    /// <param name="color">Hintergrundfarbe (0-7: black, red, green, yellow, blue, magenta, cyan, white)</param>
-    /// <param name="invertTop">Obere Hälfte invertieren</param>
-    /// <param name="invertBottom">Untere Hälfte invertieren</param>
-    /// <param name="deviceId">Device-ID (0x14=X-Touch, 0x15=Ext)</param>
     public static byte[] BuildLcdMessage(int lcdNumber, string topRow, string bottomRow,
         byte color = 7, bool invertTop = false, bool invertBottom = false,
         byte deviceId = DeviceIdXTouchExt)
     {
-        // F0 00 20 32 dd 4C nn cc c1..c14 F7 = 4 + 1 + 1 + 1 + 1 + 14 + 1 = 23 bytes
         var data = new byte[23];
 
-        // Behringer SysEx Header
         BehringerSysExBase.CopyTo(data, 0);  // F0 00 20 32
         data[4] = deviceId;                   // dd
         data[5] = CmdLcdDisplay;              // 4C
         data[6] = (byte)lcdNumber;            // nn
 
-        // Color + Invert flags
         byte colorByte = (byte)(color & 0x07);
         if (invertTop) colorByte |= 0x10;
         if (invertBottom) colorByte |= 0x20;
         data[7] = colorByte;                  // cc
 
-        // Pad strings to 7 characters
         string top = topRow.Length >= 7 ? topRow[..7] : topRow.PadRight(7);
         string bottom = bottomRow.Length >= 7 ? bottomRow[..7] : bottomRow.PadRight(7);
 
-        // c1..c7: upper half
         for (int i = 0; i < 7; i++)
         {
             char c = top[i];
             data[8 + i] = (byte)(c is >= ' ' and <= '~' ? c : ' ');
         }
 
-        // c8..c14: lower half
         for (int i = 0; i < 7; i++)
         {
             char c = bottom[i];
@@ -304,7 +234,7 @@ public static class MackieProtocol
     }
 
     /// <summary>
-    /// LCD-Farben für X-Touch Display.
+    /// LCD color IDs accepted by BuildLcdMessage.
     /// </summary>
     public static class LcdColor
     {
@@ -318,15 +248,13 @@ public static class MackieProtocol
         public const byte White = 7;
     }
 
-    // ─── Level Meter ────────────────────────────────────────────────
 
-    /// <summary>Maximaler Level-Meter-Wert.</summary>
+    // Peak meter level range used by X-Touch.
     public const int MaxLevelMeter = 13;
 
-    // ─── Hilfsmethoden ──────────────────────────────────────────────
 
     /// <summary>
-    /// Baut eine SysEx-Nachricht für Display-Text.
+    /// Builds a Mackie global display text write at a specific buffer offset.
     /// </summary>
     public static byte[] BuildDisplayTextMessage(int offset, string text)
     {
@@ -346,7 +274,7 @@ public static class MackieProtocol
     }
 
     /// <summary>
-    /// Baut eine SysEx-Nachricht für Display-Farben (alle 8 Kanäle).
+    /// Builds a display color message for all 8 channel scribbles.
     /// </summary>
     public static byte[] BuildDisplayColorMessage(byte[] colors)
     {
@@ -365,7 +293,7 @@ public static class MackieProtocol
     }
 
     /// <summary>
-    /// Berechnet den Display-Buffer-Offset für einen Kanal und eine Zeile.
+    /// Returns linear display buffer offset for a channel/row position.
     /// </summary>
     public static int GetDisplayOffset(int channel, int row)
     {
@@ -373,24 +301,22 @@ public static class MackieProtocol
     }
 
     /// <summary>
-    /// Dekodiert eine Encoder-Rotation aus einem CC-Wert.
-    /// CC-Werte: 1–15 = Rechtsdrehung, 65–79 = Linksdrehung.
+    /// Decodes relative encoder tick values from Mackie CC data bytes.
     /// </summary>
     public static int DecodeEncoderTicks(int ccValue)
     {
         if (ccValue is >= 1 and <= 15)
-            return ccValue; // Rechtsdrehung (positiv)
+            return ccValue; // Right turn (positive)
         if (ccValue is >= 65 and <= 79)
-            return -(ccValue - 64); // Linksdrehung (negativ)
+            return -(ccValue - 64); // Left turn (negative)
         return 0;
     }
 
     /// <summary>
-    /// Erzeugt den Mackie-Handshake-Response-Code.
+    /// Generates handshake response bytes from challenge payload.
     /// </summary>
     public static byte[] GenerateResponseCode(byte[] challenge)
     {
-        // Mackie Handshake Challenge-Response Algorithmus
         if (challenge.Length < 4) return Array.Empty<byte>();
 
         return new byte[]

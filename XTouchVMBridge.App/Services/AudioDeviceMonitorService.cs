@@ -5,14 +5,6 @@ using NAudio.Wave;
 
 namespace XTouchVMBridge.App.Services;
 
-/// <summary>
-/// Überwacht Audio-Geräte auf Änderungen (USB an/abstecken).
-/// Entspricht AudioDeviceMonitor aus dem Python-Original.
-///
-/// Läuft als BackgroundService und prüft alle 5 Sekunden die Geräteanzahl.
-/// Bei Änderung: Benachrichtigung + Voicemeeter Neustart.
-/// Prüft außerdem ob der X-Touch verbunden ist und versucht Reconnect.
-/// </summary>
 public class AudioDeviceMonitorService : BackgroundService
 {
     private readonly ILogger<AudioDeviceMonitorService> _logger;
@@ -59,12 +51,10 @@ public class AudioDeviceMonitorService : BackgroundService
 
                     if (_changeDetectedLastCheck)
                     {
-                        // Zweiter Check: tatsächlich handeln
                         _changeDetectedLastCheck = false;
                         DevicesChanged?.Invoke(this, EventArgs.Empty);
                         _vm.Restart();
 
-                        // Nach Änderung länger warten
                         await Task.Delay(10_000, stoppingToken);
                         continue;
                     }
@@ -76,19 +66,16 @@ public class AudioDeviceMonitorService : BackgroundService
                     _changeDetectedLastCheck = false;
                 }
 
-                // Aktive Prüfung: Gerät noch vorhanden obwohl IsConnected true?
                 if (_midiDevice.IsConnected && !_midiDevice.IsDeviceStillPresent())
                 {
                     _logger.LogWarning("X-Touch ist nicht mehr in der Geräteliste — erzwinge Disconnect.");
                     _midiDevice.Disconnect();
                 }
 
-                // X-Touch Reconnect mit Exponential Backoff
                 if (!_midiDevice.IsConnected)
                 {
                     if (_reconnectAttempts < MaxReconnectAttempts)
                     {
-                        // Exponential Backoff: 1s, 2s, 4s, 8s, ... bis MaxReconnectDelayMs
                         int backoffMs = Math.Min(1_000 * (1 << Math.Min(_reconnectAttempts, 5)), MaxReconnectDelayMs);
                         _reconnectAttempts++;
 
@@ -120,7 +107,6 @@ public class AudioDeviceMonitorService : BackgroundService
                     }
                     else
                     {
-                        // Nach Max-Versuchen: weiterhin periodisch prüfen, aber seltener
                         await Task.Delay(MaxReconnectDelayMs, stoppingToken);
                         try
                         {
@@ -136,7 +122,6 @@ public class AudioDeviceMonitorService : BackgroundService
                 }
                 else
                 {
-                    // Verbindung steht — Reconnect-Zähler zurücksetzen
                     _reconnectAttempts = 0;
                 }
             }

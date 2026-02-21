@@ -9,10 +9,6 @@ using FontFamily = System.Windows.Media.FontFamily;
 
 namespace XTouchVMBridge.App.Views;
 
-/// <summary>
-/// Master Section: Encoder Assign, Display Mode, Global View, Function,
-/// Modify, Automation, Utility, Transport, Fader Bank/Channel, Navigation, Scrub, Jog Wheel.
-/// </summary>
 public partial class XTouchPanelWindow
 {
     private void BuildMasterSection()
@@ -31,11 +27,10 @@ public partial class XTouchPanelWindow
         SetupJogWheel();
     }
 
-    // ── Encoder Assign: TRACK, PAN/SURROUND, EQ, SEND, PLUG-IN, INST
     private void BuildEncoderAssignButtons()
     {
         var names = new[] { "TRACK", "PAN", "EQ", "SEND", "PLUG-IN", "INST" };
-        var notes = new[] { 40, 42, 44, 41, 43, 45 }; // Mackie Control Note-Nummern
+        var notes = new[] { 40, 42, 44, 41, 43, 45 }; // Mackie Control note numbers
         for (int i = 0; i < names.Length; i++)
         {
             int noteNum = notes[i];
@@ -46,10 +41,8 @@ public partial class XTouchPanelWindow
         }
     }
 
-    // ── Display Mode: NAME/VALUE buttons + SMPTE/BEATS timecode mode
     private void BuildDisplayModeButtons()
     {
-        // NAME/VALUE buttons in DisplayModePanel
         var displayItems = new (string Name, int Note, string Desc)[]
         {
             ("NAME", 52, "Zeigt Kanalnamen im Display"),
@@ -62,7 +55,6 @@ public partial class XTouchPanelWindow
             DisplayModePanel.Children.Add(btn);
         }
 
-        // SMPTE/BEATS timecode mode buttons in TimecodeModePanelXaml
         var timecodeItems = new (string Name, int Note, string Desc)[]
         {
             ("SMPTE", 113, "Timecode: SMPTE-Format (HH:MM:SS:FF)"),
@@ -76,10 +68,8 @@ public partial class XTouchPanelWindow
         }
     }
 
-    // ── Global View: GLOBAL VIEW Button + MIDI TRACKS, INPUTS, AUDIO TRACKS, AUDIO INST, AUX, BUSES, OUTPUTS, USER
     private void BuildGlobalViewButtons()
     {
-        // "GLOBAL VIEW" Master-Button (Note 51) — links vor den 8 View-Buttons
         var gvBtn = CreateMasterButton("G.VIEW", "GlobalView_Main", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         gvBtn.Click += (s, _) => OnMasterButtonClick(s, "Global View", "Global View", 51,
             "Global View — Aktiviert/deaktiviert den Global-View-Modus.\nZeigt alle Kanäle unabhängig vom Typ.");
@@ -97,7 +87,6 @@ public partial class XTouchPanelWindow
         }
     }
 
-    // ── Function: F1..F8
     private void BuildFunctionButtons()
     {
         for (int i = 0; i < 8; i++)
@@ -112,7 +101,6 @@ public partial class XTouchPanelWindow
         }
     }
 
-    // ── Modify: SHIFT, OPTION, CONTROL, ALT
     private void BuildModifyButtons()
     {
         var items = new (string Name, int Note)[] { ("SHIFT", 70), ("OPTION", 71), ("CONTROL", 72), ("ALT", 73) };
@@ -125,7 +113,6 @@ public partial class XTouchPanelWindow
         }
     }
 
-    // ── Automation: READ, WRITE, TRIM, TOUCH, LATCH, GROUP
     private void BuildAutomationButtons()
     {
         var items = new (string Name, int Note)[]
@@ -142,7 +129,6 @@ public partial class XTouchPanelWindow
         }
     }
 
-    // ── Utility: SAVE, UNDO, CANCEL, ENTER
     private void BuildUtilityButtons()
     {
         var items = new (string Name, int Note)[] { ("SAVE", 80), ("UNDO", 81), ("CANCEL", 82), ("ENTER", 83) };
@@ -155,10 +141,8 @@ public partial class XTouchPanelWindow
         }
     }
 
-    // ── Transport: obere Reihe (MARKER, NUDGE, CYCLE, DROP, REPLACE, CLICK, SOLO) + Transport Buttons
     private void BuildTransportButtons()
     {
-        // Obere Reihe
         var topItems = new (string Name, int Note)[]
         {
             ("MARKER", 84), ("NUDGE", 85), ("CYCLE", 86), ("DROP", 87),
@@ -172,7 +156,6 @@ public partial class XTouchPanelWindow
             TransportTopPanel.Children.Add(btn);
         }
 
-        // Transport-Buttons: ◄◄  ►►  ■  ▶  ●
         var transportItems = new (string Symbol, string Name, int Note, Color ActiveColor)[]
         {
             ("◄◄", "Rewind", 91, Color.FromRgb(80, 80, 80)),
@@ -203,10 +186,8 @@ public partial class XTouchPanelWindow
         }
     }
 
-    // ── Fader Bank / Channel Navigation
     private void BuildFaderBankChannelButtons()
     {
-        // Fader Bank: ◄ ► → jetzt normale zuweisbare Buttons (nicht mehr für View-Wechsel)
         var fbLeft = CreateMasterButton("◄", "FaderBank_Left", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         fbLeft.FontSize = 14; fbLeft.Width = 36;
         fbLeft.Click += (s, _) => OnMasterButtonClick(s,"Fader Bank", "Bank Left", 46,
@@ -221,7 +202,6 @@ public partial class XTouchPanelWindow
         FaderBankPanel.Children.Add(fbRight);
         _masterButtons["FaderBank_Right"] = fbRight;
 
-        // Channel: ◄ ► → auch normale zuweisbare Buttons
         var chLeft = CreateMasterButton("◄", "Channel_Left", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
         chLeft.FontSize = 14; chLeft.Width = 36;
         chLeft.Click += (s, _) => OnMasterButtonClick(s,"Channel", "Channel Left", 48,
@@ -237,7 +217,6 @@ public partial class XTouchPanelWindow
         _masterButtons["Channel_Right"] = chRight;
     }
 
-    // ── Navigation Buttons (Kreuz-Anordnung, gleicher Stil wie Master-Buttons)
     private void BuildNavigationButtons()
     {
         var navItems = new (string Label, string Name, int Note, string Desc, int Row, int Col)[]
@@ -263,7 +242,6 @@ public partial class XTouchPanelWindow
         }
     }
 
-    // ── Scrub Button
     private void BuildScrubButton()
     {
         ScrubButton.Click += (s, _) => OnMasterButtonClick(s,"Control", "SCRUB", 101,
@@ -272,7 +250,6 @@ public partial class XTouchPanelWindow
         _masterButtons["Scrub"] = ScrubButton;
     }
 
-    // ── Jog Wheel
     private void SetupJogWheel()
     {
         JogWheelButton.Click += (_, _) =>
@@ -311,27 +288,19 @@ public partial class XTouchPanelWindow
         return btn;
     }
 
-    /// <summary>
-    /// Wird von allen Master-Buttons als Click-Handler verwendet.
-    /// Bei gedrückter Strg-Taste wird die zugewiesene Aktion direkt ausgeführt,
-    /// ansonsten wird das Detail-Panel angezeigt.
-    /// </summary>
     private void OnMasterButtonClick(object sender, string section, string name, int noteNumber, string description)
     {
         if (System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
         {
-            // Konfigurierte Aktion ausführen (z.B. SendKeys für Transport-Buttons)
             if (_masterButtonActionService?.ExecuteAction(noteNumber) == true)
                 return;
 
-            // LED toggeln (Panel + Hardware)
             _masterButtonLedState.TryGetValue(noteNumber, out bool isOn);
             _masterButtonLedState[noteNumber] = !isOn;
             var newState = !isOn ? LedState.On : LedState.Off;
 
             _device?.SetMasterButtonLed(noteNumber, newState);
 
-            // PanelView-Button visuell aktualisieren
             if (sender is Button panelBtn)
                 panelBtn.Background = new SolidColorBrush(!isOn ? Color.FromRgb(100, 160, 220) : Color.FromRgb(35, 35, 35));
             return;

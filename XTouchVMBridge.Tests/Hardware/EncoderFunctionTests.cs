@@ -1,11 +1,10 @@
-﻿using XTouchVMBridge.Core.Enums;
+using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Hardware;
 
 namespace XTouchVMBridge.Tests.Hardware;
 
 public class EncoderFunctionTests
 {
-    // ─── EncoderFunction Tests ───────────────────────────────────────
 
     [Fact]
     public void ApplyTicks_IncrementsValue()
@@ -65,7 +64,6 @@ public class EncoderFunctionTests
         Assert.Equal("0.2", fn.FormatValue()); // 0.25 → F1 mit banker's rounding = "0.2"
     }
 
-    // ─── EncoderControl Funktionsliste Tests ─────────────────────────
 
     [Fact]
     public void HasFunctions_FalseByDefault()
@@ -105,7 +103,6 @@ public class EncoderFunctionTests
         Assert.Equal("LOW", fn2!.Name);
         Assert.Equal(2, enc.ActiveFunctionIndex);
 
-        // Wrap-around
         var fn3 = enc.CycleFunction();
         Assert.Equal("HIGH", fn3!.Name);
         Assert.Equal(0, enc.ActiveFunctionIndex);
@@ -119,7 +116,6 @@ public class EncoderFunctionTests
         enc.AddFunction(new EncoderFunction("MID", "p2", -12, 12, 0.5, "dB"));
         enc.AddFunction(new EncoderFunction("LOW", "p3", -12, 12, 0.5, "dB"));
 
-        // Von HIGH rückwärts → LOW
         var fn = enc.CycleFunctionReverse();
         Assert.Equal("LOW", fn!.Name);
         Assert.Equal(2, enc.ActiveFunctionIndex);
@@ -227,19 +223,15 @@ public class EncoderFunctionTests
         enc.AddFunction(new EncoderFunction("HIGH", "p1", -12, 12, 0.5, "dB"));
         enc.AddFunction(new EncoderFunction("LOW", "p2", -12, 12, 0.5, "dB"));
 
-        // Drehe HIGH auf +3
         enc.ApplyTicks(6);
         Assert.Equal(3.0, enc.ActiveFunction!.CurrentValue, 2);
 
-        // Wechsle zu LOW
         enc.CycleFunction();
         Assert.Equal(0.0, enc.ActiveFunction!.CurrentValue, 2); // LOW unverändert
 
-        // Drehe LOW auf -2
         enc.ApplyTicks(-4);
         Assert.Equal(-2.0, enc.ActiveFunction!.CurrentValue, 2);
 
-        // Zurück zu HIGH → immer noch +3
         enc.CycleFunction();
         Assert.Equal(3.0, enc.ActiveFunction!.CurrentValue, 2);
     }

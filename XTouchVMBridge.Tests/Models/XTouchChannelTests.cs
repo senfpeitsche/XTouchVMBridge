@@ -22,7 +22,6 @@ public class XTouchChannelTests
     {
         var channel = new XTouchChannel(0);
 
-        // Alle Enum-Werte sollten vorhanden sein
         foreach (var buttonType in Enum.GetValues<XTouchButtonType>())
         {
             Assert.True(channel.Buttons.ContainsKey(buttonType),

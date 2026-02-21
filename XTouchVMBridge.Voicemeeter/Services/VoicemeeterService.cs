@@ -6,17 +6,8 @@ using Microsoft.Extensions.Logging;
 namespace XTouchVMBridge.Voicemeeter.Services;
 
 /// <summary>
-/// Voicemeeter-Service: Kapselt die VoicemeeterRemote-API.
-/// Entspricht XTouchVMinterface.py (VMInterfaceFunctions + VMState).
-///
-/// Potato-Layout:
-///   Strips 0–7: Input-Kanäle
-///   Bus 0–7: Output-Busse (logisch als Kanal 8–15)
-///
-/// Hinweis: Der DLL-Suchpfad für VoicemeeterRemote64.dll wird in
-/// <c>App.OnStartup</c> gesetzt, bevor die HostedServices starten.
-/// <see cref="Connect"/> ruft <see cref="VoicemeeterRemote.EnsureDllSearchPath"/>
-/// nur noch als Fallback auf.
+/// Thin wrapper around the native Voicemeeter Remote API.
+/// Handles connection lifecycle, parameter IO, command helpers, and state snapshots.
 /// </summary>
 public class VoicemeeterService : IVoicemeeterService
 {
@@ -31,12 +22,10 @@ public class VoicemeeterService : IVoicemeeterService
         _logger = logger;
     }
 
-    // ─── Verbindung ─────────────────────────────────────────────────
 
     public void Connect()
     {
-        // DLL-Suchpfad wird bereits in App.OnStartup gesetzt (vor Host-Start).
-        // Dieser Aufruf dient als Fallback, falls Connect() ohne App-Kontext aufgerufen wird.
+        // Fallback: ensure DLL path can be resolved even if startup path setup was skipped.
         var dllPath = VoicemeeterRemote.EnsureDllSearchPath();
         if (dllPath != null)
         {
@@ -74,7 +63,6 @@ public class VoicemeeterService : IVoicemeeterService
         _logger.LogInformation("Voicemeeter Neustart angefordert.");
     }
 
-    // ─── Dirty Flags ────────────────────────────────────────────────
 
     public bool IsParameterDirty => VoicemeeterRemote.IsParametersDirty() == 1;
 
@@ -82,24 +70,16 @@ public class VoicemeeterService : IVoicemeeterService
     {
         get
         {
-            // Voicemeeter hat kein separates LevelDirty-Flag — wir pollen die Levels direkt.
-            // In der Python-Version wird vm.ldirty geprüft, was intern dasselbe macht.
-            return true; // Levels werden im Polling-Intervall immer abgefragt
+            return true; // Level values are always read by polling.
         }
     }
 
-    // ─── Parameter lesen/schreiben ──────────────────────────────────
 
     public double GetLevel(int channel)
     {
         float linear;
         if (channel < VoicemeeterState.StripCount)
         {
-            // Strip: PostFader Level (type=1), beide Kanaele (L+R), Maximum nehmen.
-            // Potato-Layout:
-            // - Strip 0..4: Stereo (je 2 Level-Slots)
-            // - Strip 5..7: Virtual 8ch (je 8 Level-Slots)
-            // Daher ist "strip * 2" fuer 5..7 falsch und liefert dort oft 0.
             int leftIndex;
             int rightIndex;
             if (channel <= 4)
@@ -109,7 +89,7 @@ public class VoicemeeterService : IVoicemeeterService
             }
             else
             {
-                int virtualStripOffset = 10; // 5 * 2 Slots der physischen Strips
+                int virtualStripOffset = 10; // 5 * 2 slots occupied by physical strips
                 int virtualStripIndex = channel - 5;
                 leftIndex = virtualStripOffset + (virtualStripIndex * 8);
                 rightIndex = leftIndex + 1;
@@ -121,15 +101,12 @@ public class VoicemeeterService : IVoicemeeterService
         }
         else
         {
-            // Bus: Output Level (type=3)
             int busIndex = channel - VoicemeeterState.StripCount;
             VoicemeeterRemote.GetLevel(3, busIndex * 8, out float left);
             VoicemeeterRemote.GetLevel(3, busIndex * 8 + 1, out float right);
             linear = Math.Max(left, right);
         }
 
-        // VBVMR_GetLevel gibt lineare Amplitude zurueck (0.0-1.0+), nicht dB.
-        // Umrechnung: dB = 20 * log10(linear). Bei Stille (0.0) -> -200 dB.
         return linear > 0 ? 20.0 * Math.Log10(linear) : -200.0;
     }
 
@@ -164,7 +141,6 @@ public class VoicemeeterService : IVoicemeeterService
 
     public bool IsStrip(int channel) => channel < VoicemeeterState.StripCount;
 
-    // ─── Generische Parameter ─────────────────────────────────────────
 
     public float GetParameter(string paramName)
     {
@@ -188,13 +164,11 @@ public class VoicemeeterService : IVoicemeeterService
         int result = VoicemeeterRemote.GetParameterStringA(paramName, buffer);
         if (result != 0) return "";
 
-        // Null-terminated ANSI-String aus dem Buffer lesen
         int length = Array.IndexOf(buffer, (byte)0);
         if (length < 0) length = buffer.Length;
         return System.Text.Encoding.ASCII.GetString(buffer, 0, length);
     }
 
-    // ─── Commands ─────────────────────────────────────────────────────
 
     public void ShowVoicemeeter()
     {
@@ -216,12 +190,10 @@ public class VoicemeeterService : IVoicemeeterService
             return;
         }
 
-        // Mode 2 = Trigger (kurzer Impuls)
         VoicemeeterRemote.MacroButtonSetStatus(buttonIndex, 1.0f, 2);
         _logger.LogInformation("Macro-Button {Index} ausgelöst.", buttonIndex);
     }
 
-    // ─── State Snapshot ─────────────────────────────────────────────
 
     public VoicemeeterState GetCurrentState()
     {
@@ -233,29 +205,24 @@ public class VoicemeeterService : IVoicemeeterService
                 ? $"Strip[{i}]"
                 : $"Bus[{i - VoicemeeterState.StripCount}]";
 
-            // Mute
             VoicemeeterRemote.GetParameterFloat($"{prefix}.Mute", out float mute);
             state.Mutes[i] = mute > 0.5f;
 
-            // Gain
             VoicemeeterRemote.GetParameterFloat($"{prefix}.Gain", out float gain);
             state.Gains[i] = gain;
 
-            // Solo (nur Strips)
             if (IsStrip(i) && i < VoicemeeterState.StripCount)
             {
                 VoicemeeterRemote.GetParameterFloat($"Strip[{i}].Solo", out float solo);
                 state.Solos[i] = solo > 0.5f;
             }
 
-            // Level
             state.Levels[i] = GetLevel(i);
         }
 
         return state;
     }
 
-    // ─── IDisposable ────────────────────────────────────────────────
 
     public void Dispose()
     {

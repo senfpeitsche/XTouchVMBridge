@@ -8,9 +8,6 @@ using HorizontalAlignment = System.Windows.HorizontalAlignment;
 
 namespace XTouchVMBridge.App.Views;
 
-/// <summary>
-/// WPF Control-Templates für Buttons und Encoder-Knobs.
-/// </summary>
 public partial class XTouchPanelWindow
 {
     private static ControlTemplate CreateRoundedButtonTemplate(double cornerRadius)

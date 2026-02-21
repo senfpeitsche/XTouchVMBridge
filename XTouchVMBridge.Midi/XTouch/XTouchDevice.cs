@@ -9,17 +9,7 @@ using NAudio.Midi;
 namespace XTouchVMBridge.Midi.XTouch;
 
 /// <summary>
-/// Implementierung des X-Touch Extender MIDI-Controllers.
-/// Entspricht XTouchLib.py aus dem Python-Original.
-///
-/// Erweiterbarkeit:
-/// - Neue Button-Typen: XTouchButtonType Enum erweitern + NoteBase-Mapping hier ergänzen
-/// - Neue Controls: HardwareControlBase ableiten, in XTouchChannel registrieren
-/// - Neue Events: EventHandler in IMidiDevice-Interface ergänzen
-///
-/// Partial-Klassen:
-///   - XTouchDevice.Output.cs → MIDI-Output (Fader, LEDs, Display, Encoder-Ringe, Level-Meter)
-///   - XTouchDevice.Input.cs  → MIDI-Input (Callback, Fader/Encoder/Button-Parsing, Error-Handling)
+/// MIDI transport adapter for Behringer X-Touch/X-Touch Extender devices.
 /// </summary>
 public partial class XTouchDevice : IMidiDevice
 {
@@ -36,7 +26,6 @@ public partial class XTouchDevice : IMidiDevice
     private readonly object _connectionLock = new();
     private int _consecutiveErrors;
 
-    // ─── Events ─────────────────────────────────────────────────────
 
     public event EventHandler<FaderEventArgs>? FaderChanged;
     public event EventHandler<EncoderEventArgs>? EncoderRotated;
@@ -47,16 +36,12 @@ public partial class XTouchDevice : IMidiDevice
     public event EventHandler<MasterButtonEventArgs>? MasterButtonChanged;
     public event EventHandler<bool>? ConnectionStateChanged;
 
-    // ─── Properties ─────────────────────────────────────────────────
 
     public bool IsConnected => _isConnected;
     public int ChannelCount => MackieProtocol.ChannelCount;
     public IReadOnlyList<XTouchChannel> Channels => _channels;
     public bool IsMainFaderTouched => _mainFaderTouched;
 
-    /// <summary>
-    /// Name des gewählten Geräts. Null = automatische Erkennung (erstes X-Touch Gerät).
-    /// </summary>
     public string? SelectedDeviceName
     {
         get => _selectedDeviceName;
@@ -71,21 +56,17 @@ public partial class XTouchDevice : IMidiDevice
             _channels[i] = new XTouchChannel(i);
     }
 
-    // ─── Verbindung ─────────────────────────────────────────────────
 
     public Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         lock (_connectionLock)
         {
-            // Bereits verbunden → nichts tun (verhindert dass ein paralleler
-            // Reconnect-Versuch eine funktionierende Verbindung zerstört)
             if (_isConnected)
             {
                 _logger.LogDebug("ConnectAsync übersprungen — bereits verbunden.");
                 return Task.CompletedTask;
             }
 
-            // Verwaiste Ressourcen aufräumen (z.B. nach Crash ohne sauberes Disconnect)
             if (_midiIn != null || _midiOut != null)
             {
                 DisconnectInternal(fireEvent: false);
@@ -134,7 +115,6 @@ public partial class XTouchDevice : IMidiDevice
             }
         }
 
-        // Event außerhalb des Locks feuern um Deadlocks zu vermeiden
         ConnectionStateChanged?.Invoke(this, true);
         return Task.CompletedTask;
     }
@@ -152,11 +132,6 @@ public partial class XTouchDevice : IMidiDevice
             ConnectionStateChanged?.Invoke(this, false);
     }
 
-    /// <summary>
-    /// Internes Disconnect — muss innerhalb von _connectionLock aufgerufen werden.
-    /// Einzelne try-catch Blöcke verhindern, dass ein Fehler beim Cleanup
-    /// das Aufräumen der anderen Ressourcen blockiert.
-    /// </summary>
     private void DisconnectInternal(bool fireEvent)
     {
         bool wasConnected = _isConnected;
@@ -182,12 +157,7 @@ public partial class XTouchDevice : IMidiDevice
             ConnectionStateChanged?.Invoke(this, false);
     }
 
-    // ─── Geräte-Erkennung ───────────────────────────────────────────
 
-    /// <summary>
-    /// Listet alle verfügbaren X-Touch MIDI-Geräte auf.
-    /// Gibt Gerätenamen zurück, die sowohl als Input als auch Output vorhanden sind.
-    /// </summary>
     public IReadOnlyList<string> ListDevices()
     {
         var inputs = new HashSet<string>();
@@ -211,10 +181,6 @@ public partial class XTouchDevice : IMidiDevice
         return inputs.OrderBy(n => n).ToList();
     }
 
-    /// <summary>
-    /// Prüft ob das ausgewählte MIDI-Gerät noch in der Geräteliste des OS vorhanden ist.
-    /// Diese Prüfung erkennt USB-Disconnects bevor ein Send-Fehler auftritt.
-    /// </summary>
     public bool IsDeviceStillPresent()
     {
         try
@@ -256,12 +222,7 @@ public partial class XTouchDevice : IMidiDevice
         return (inputIndex, outputIndex);
     }
 
-    // ─── Connection State ───────────────────────────────────────────
 
-    /// <summary>
-    /// Markiert die Verbindung als verloren und feuert das ConnectionStateChanged-Event.
-    /// Thread-safe durch Lock.
-    /// </summary>
     private void HandleConnectionLost()
     {
         lock (_connectionLock)
@@ -274,16 +235,10 @@ public partial class XTouchDevice : IMidiDevice
         ConnectionStateChanged?.Invoke(this, false);
     }
 
-    // ─── Helpers ────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Ermittelt die Behringer Device-ID anhand des verbundenen Gerätenamens.
-    /// X-Touch = 0x14, X-Touch Extender = 0x15.
-    /// </summary>
     private byte GetBehringerDeviceId()
     {
         var name = _selectedDeviceName ?? "";
-        // "X-Touch-Ext" → Extender, alles andere → X-Touch
         if (name.Contains("Ext", StringComparison.OrdinalIgnoreCase))
             return MackieProtocol.DeviceIdXTouchExt;
         return MackieProtocol.DeviceIdXTouch;
@@ -296,7 +251,6 @@ public partial class XTouchDevice : IMidiDevice
                 $"Kanal muss zwischen 0 und {MackieProtocol.ChannelCount - 1} liegen.");
     }
 
-    // ─── IDisposable ────────────────────────────────────────────────
 
     public void Dispose()
     {

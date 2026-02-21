@@ -3,10 +3,6 @@ using XTouchVMBridge.Core.Interfaces;
 
 namespace XTouchVMBridge.App.Services;
 
-/// <summary>
-/// Erkennt ob der Windows-Bildschirm gesperrt ist.
-/// Nutzt SystemEvents.SessionSwitch für sofortige, event-basierte Erkennung.
-/// </summary>
 public class ScreenLockDetector : IScreenLockDetector
 {
     private bool _isLocked;

@@ -16,9 +16,6 @@ using ProgressBar = System.Windows.Controls.ProgressBar;
 
 namespace XTouchVMBridge.App.Views;
 
-/// <summary>
-/// Channel-Strip-Aufbau: 8 Kanalstreifen mit Display, Encoder, Buttons, Fader, Level-Meter.
-/// </summary>
 public partial class XTouchPanelWindow
 {
     private void BuildChannelStrips()
@@ -35,7 +32,6 @@ public partial class XTouchPanelWindow
     {
         var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
 
-        // Kanal-Nummer
         stack.Children.Add(new TextBlock
         {
             Text = $"CH {ch + 1}",
@@ -46,7 +42,6 @@ public partial class XTouchPanelWindow
             Margin = new Thickness(0, 0, 0, 4)
         });
 
-        // LCD Display
         var displayBorder = new Border
         {
             Background = new SolidColorBrush(Color.FromRgb(20, 20, 20)),
@@ -84,7 +79,6 @@ public partial class XTouchPanelWindow
         _displayTop[ch] = topText;
         _displayBottom[ch] = bottomText;
 
-        // Encoder Ring (modusabhängig: Pan=von Mitte, Wrap=von links)
         var ringContainer = new Grid
         {
             Width = 48, Height = 6,
@@ -105,7 +99,6 @@ public partial class XTouchPanelWindow
         _encoderRingContainers[ch] = ringContainer;
         _encoderRingIndicators[ch] = ringIndicator;
 
-        // Encoder Button (Knob)
         var encoderBtn = new Button
         {
             Width = 44, Height = 44,
@@ -119,7 +112,6 @@ public partial class XTouchPanelWindow
         stack.Children.Add(encoderBtn);
         _encoderButtons[ch] = encoderBtn;
 
-        // Buttons: REC, SOLO, MUTE, SELECT
         _recButtons[ch] = CreateHwButton("REC", Color.FromRgb(180, 40, 40), Color.FromRgb(60, 15, 15), ch, XTouchButtonType.Rec);
         _soloButtons[ch] = CreateHwButton("SOLO", Color.FromRgb(200, 180, 30), Color.FromRgb(60, 55, 10), ch, XTouchButtonType.Solo);
         _muteButtons[ch] = CreateHwButton("MUTE", Color.FromRgb(220, 100, 20), Color.FromRgb(65, 30, 8), ch, XTouchButtonType.Mute);
@@ -129,7 +121,6 @@ public partial class XTouchPanelWindow
         stack.Children.Add(_muteButtons[ch]);
         stack.Children.Add(_selectButtons[ch]);
 
-        // Touch-Indikator
         var touchDot = new Ellipse
         {
             Width = 8, Height = 8,
@@ -141,12 +132,10 @@ public partial class XTouchPanelWindow
         stack.Children.Add(touchDot);
         _touchIndicators[ch] = touchDot;
 
-        // Fader + Level-Meter nebeneinander
         var faderPanel = new Grid { Margin = new Thickness(0, 2, 0, 0) };
         faderPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
         faderPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        // Level Meter (links, schmal)
         var meter = new ProgressBar
         {
             Orientation = Orientation.Vertical,
@@ -162,7 +151,6 @@ public partial class XTouchPanelWindow
         faderPanel.Children.Add(meter);
         _levelMeters[ch] = meter;
 
-        // Fader (rechts) — Slider ist disabled, daher transparentes Overlay für Maus-Events
         var faderContainer = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
         var faderHost = new Grid { Width = 32, Height = 150 };
         var fader = new Slider
@@ -176,7 +164,6 @@ public partial class XTouchPanelWindow
         fader.ValueChanged += (_, e) => OnFaderValueChanged(ch, e.NewValue);
         faderHost.Children.Add(fader);
 
-        // Transparentes Overlay fängt Maus-Events ab (auch wenn Slider disabled ist)
         var faderOverlay = new Border
         {
             Background = Brushes.Transparent,
@@ -207,7 +194,6 @@ public partial class XTouchPanelWindow
 
         stack.Children.Add(faderPanel);
 
-        // Channel-Nummer unten
         stack.Children.Add(new TextBlock
         {
             Text = $"{ch + 1}",
@@ -251,11 +237,6 @@ public partial class XTouchPanelWindow
         return btn;
     }
 
-    /// <summary>
-    /// Wird von allen Hardware-Buttons (REC, SOLO, MUTE, SELECT) als Click-Handler verwendet.
-    /// Bei gedrückter Strg-Taste wird der zugewiesene VM-Parameter direkt getoggelt,
-    /// ansonsten wird das Detail-Panel angezeigt.
-    /// </summary>
     private void OnHwButtonClick(int ch, XTouchButtonType type)
     {
         if (System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control))
@@ -267,12 +248,8 @@ public partial class XTouchPanelWindow
         ShowButtonDetail(ch, type);
     }
 
-    /// <summary>
-    /// Führt die zugewiesene Aktion eines Hardware-Buttons aus (VM-Parameter toggeln).
-    /// </summary>
     private void ExecuteHwButtonAction(int ch, XTouchButtonType type)
     {
-        // Prüfen ob ein zugewiesener VM-Parameter existiert
         bool hasMapping = false;
         if (_config != null && _vm != null)
         {
@@ -310,7 +287,6 @@ public partial class XTouchPanelWindow
                         }
                         else
                         {
-                            // Bool-Parameter toggeln
                             float currentValue = _vm.GetParameter(btnMap.Parameter);
                             float newValue = currentValue > 0.5f ? 0f : 1f;
                             _vm.SetParameter(btnMap.Parameter, newValue);
@@ -321,14 +297,12 @@ public partial class XTouchPanelWindow
             }
         }
 
-        // Kein Mapping vorhanden → LED manuell toggeln (Panel + Hardware)
         if (!hasMapping)
         {
             var key = (ch, type);
             _manualLedState.TryGetValue(key, out bool isOn);
             _manualLedState[key] = !isOn;
 
-            // Hardware-LED setzen falls Gerät verbunden
             if (_device != null && ch < _device.Channels.Count)
                 _device.SetButtonLed(ch, type, !isOn ? LedState.On : LedState.Off);
         }

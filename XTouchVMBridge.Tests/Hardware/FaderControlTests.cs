@@ -19,7 +19,6 @@ public class FaderControlTests
     [Fact]
     public void PositionToDb_AtKnownPoints()
     {
-        // Aus den Lookup-Tabellen des Python-Originals
         Assert.Equal(-70.0, FaderControl.PositionToDb(-8192));
         Assert.Equal(8.0, FaderControl.PositionToDb(8188));
     }

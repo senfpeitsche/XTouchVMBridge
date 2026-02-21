@@ -6,17 +6,12 @@ using NAudio.Midi;
 
 namespace XTouchVMBridge.Midi.XTouch;
 
-/// <summary>
-/// Input-Verarbeitung: MIDI-Nachrichten vom X-Touch empfangen und parsen.
-/// Fader, Encoder, Buttons, Fader-Touch, Error-Handling.
-/// </summary>
 public partial class XTouchDevice
 {
     private void OnMidiMessageReceived(object? sender, MidiInMessageEventArgs e)
     {
         try
         {
-            // Erfolgreiche Nachricht — Error-Counter zurücksetzen
             _consecutiveErrors = 0;
 
             byte status = (byte)(e.MidiEvent.CommandCode);
@@ -25,7 +20,6 @@ public partial class XTouchDevice
             byte data2 = (byte)((rawMsg >> 16) & 0xFF);
             byte channel = (byte)(e.MidiEvent.Channel - 1); // NAudio ist 1-basiert
 
-            // Direct Hook — erlaubt externen Code MIDI abzufangen
             var hookArgs = new MidiMessageEventArgs(new[] { (byte)(rawMsg & 0xFF), data1, data2 });
             RawMidiReceived?.Invoke(this, hookArgs);
             if (hookArgs.Handled) return;
@@ -49,7 +43,6 @@ public partial class XTouchDevice
                     break;
 
                 case MidiCommandCode.ChannelAfterTouch:
-                    // Level-Meter-Daten vom Gerät (ignorieren wir hier)
                     break;
             }
         }
@@ -61,13 +54,11 @@ public partial class XTouchDevice
 
     private void HandleFader(int channel, byte lsb, byte msb)
     {
-        // Channels 0-7 are strip faders, channel 8 is the main fader
         if (channel > MackieProtocol.ChannelCount) return;
 
         int position = ((msb << 7) | lsb) - 8192;
         double db = FaderControl.PositionToDb(position);
 
-        // Update internal state for strip faders (0-7)
         if (channel < MackieProtocol.ChannelCount)
         {
             _channels[channel].Fader.Position = position;
@@ -89,10 +80,8 @@ public partial class XTouchDevice
     {
         bool isPressed = velocity > 0;
 
-        // Debug: Alle Note-Events loggen für Diagnose
         _logger.LogDebug("NoteOn empfangen: Note={Note}, Velocity={Velocity}, Pressed={Pressed}", note, velocity, isPressed);
 
-        // Encoder Press (Notes 32–39)
         if (note is >= MackieProtocol.NoteEncoderPressBase and < MackieProtocol.NoteEncoderPressBase + MackieProtocol.ChannelCount)
         {
             int ch = note - MackieProtocol.NoteEncoderPressBase;
@@ -109,7 +98,6 @@ public partial class XTouchDevice
             return;
         }
 
-        // Fader Touch (Notes 110–117 für Channel 0-7, Note 118 für Main Fader)
         if (note is >= MackieProtocol.NoteFaderTouchBase and < MackieProtocol.NoteFaderTouchBase + MackieProtocol.ChannelCount)
         {
             int ch = note - MackieProtocol.NoteFaderTouchBase;
@@ -123,7 +111,6 @@ public partial class XTouchDevice
             return;
         }
 
-        // Main Fader Touch (Note 118)
         if (note == MackieProtocol.NoteFaderTouchBase + MackieProtocol.ChannelCount)
         {
             if (isPressed) _noteTimers[note] = DateTime.UtcNow;
@@ -134,7 +121,6 @@ public partial class XTouchDevice
             return;
         }
 
-        // Buttons (Notes 0–31: Rec=0–7, Solo=8–15, Mute=16–23, Select=24–31)
         if (note < 32)
         {
             int ch = note % MackieProtocol.ChannelCount;
@@ -148,7 +134,6 @@ public partial class XTouchDevice
 
             ButtonChanged?.Invoke(this, new ButtonEventArgs(ch, buttonType, isPressed, timePressed));
         }
-        // Master-Section-Buttons (alle nicht-kanalspezifischen Notes: 40+, außer Encoder-Press 32–39 und Fader-Touch 104–111)
         else if (note >= 40)
         {
             if (isPressed) _noteTimers[note] = DateTime.UtcNow;
@@ -159,7 +144,6 @@ public partial class XTouchDevice
 
     private void HandleNoteOff(byte note)
     {
-        // NoteOff = NoteOn mit velocity 0
         HandleNoteOn(note, 0);
     }
 
@@ -172,14 +156,12 @@ public partial class XTouchDevice
         return DateTime.UtcNow - startTime;
     }
 
-    // ─── Error Handling ─────────────────────────────────────────────
 
     private void OnMidiError(object? sender, MidiInMessageEventArgs e)
     {
         _consecutiveErrors++;
         _logger.LogWarning("MIDI-Fehler empfangen: {Message} (Fehler #{Count})", e.RawMessage, _consecutiveErrors);
 
-        // Nach 3 aufeinanderfolgenden Fehlern Verbindung als verloren markieren
         if (_consecutiveErrors >= 3)
         {
             _logger.LogError("Zu viele MIDI-Fehler — Verbindung wird als getrennt markiert.");

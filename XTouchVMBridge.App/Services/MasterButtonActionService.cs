@@ -11,11 +11,6 @@ using Application = System.Windows.Application;
 
 namespace XTouchVMBridge.App.Services;
 
-/// <summary>
-/// Service für die Ausführung von Master-Button-Aktionen.
-/// Registriert sich auf das MasterButtonChanged-Event und führt
-/// konfigurierte Aktionen aus (Programm starten, Tasten senden, Text senden, Channel View wechseln).
-/// </summary>
 public class MasterButtonActionService : IDisposable
 {
     private readonly ILogger<MasterButtonActionService> _logger;
@@ -28,12 +23,9 @@ public class MasterButtonActionService : IDisposable
     private readonly Dictionary<int, bool> _toggleLedStates = new();
     private string? _activeMqttDeviceId;
     private string? _activeMqttDeviceTopic;
-    private bool _lockGuiState; // eigener State, da Command.Lock write-only ist
+    private bool _lockGuiState; // Local mirror because Command.Lock is write-only.
     private bool _disposed;
 
-    /// <summary>
-    /// MIDI Note für den Flip-Button (fest zugewiesen für Channel View Cycling).
-    /// </summary>
     public const int FlipButtonNote = 50;
 
     public MasterButtonActionService(
@@ -52,7 +44,6 @@ public class MasterButtonActionService : IDisposable
         _mqttClientService = mqttClientService;
         _inputSimulator = new InputSimulator();
 
-        // Events abonnieren
         _midiDevice.MasterButtonChanged += OnMasterButtonChanged;
 
         _logger.LogInformation("MasterButtonActionService initialisiert.");
@@ -66,7 +57,6 @@ public class MasterButtonActionService : IDisposable
             return;
         }
 
-        // Flip-Button ist fest für Channel View Cycling reserviert
         if (e.NoteNumber == FlipButtonNote)
         {
             CycleChannelView();
@@ -76,11 +66,6 @@ public class MasterButtonActionService : IDisposable
         ExecuteAction(e.NoteNumber);
     }
 
-    /// <summary>
-    /// Führt die konfigurierte Aktion für eine Master-Button-Note aus.
-    /// Kann sowohl vom MIDI-Event als auch von der UI (Strg+Klick) aufgerufen werden.
-    /// Gibt true zurück wenn eine Aktion ausgeführt wurde, false wenn keine konfiguriert ist.
-    /// </summary>
     public bool ExecuteAction(int noteNumber)
     {
         if (!_config.MasterButtonActions.TryGetValue(noteNumber, out var actionConfig))
@@ -140,7 +125,6 @@ public class MasterButtonActionService : IDisposable
                                         actionConfig.VmLedSource == MasterVmLedSource.VoicemeeterState;
             if (actionConfig.ActionType != MasterButtonActionType.SelectMqttDevice && !vmLedFromVoicemeeter)
             {
-                // LED-Feedback
                 UpdateLedFeedback(noteNumber, actionConfig);
             }
 
@@ -203,15 +187,12 @@ public class MasterButtonActionService : IDisposable
 
         var (modifiers, key) = ParseKeyCombination(config.KeyCombination);
 
-        // Modifier drücken
         foreach (var mod in modifiers)
             _inputSimulator.Keyboard.KeyDown(mod);
 
-        // Taste drücken und loslassen
         if (key.HasValue)
             _inputSimulator.Keyboard.KeyPress(key.Value);
 
-        // Modifier loslassen (umgekehrte Reihenfolge)
         for (int i = modifiers.Count - 1; i >= 0; i--)
             _inputSimulator.Keyboard.KeyUp(modifiers[i]);
     }
@@ -226,16 +207,13 @@ public class MasterButtonActionService : IDisposable
 
         _logger.LogInformation("Sende Text: {Text}", config.Text);
 
-        // Text in die Zwischenablage kopieren und einfügen
         Application.Current?.Dispatcher?.Invoke(() =>
         {
             System.Windows.Clipboard.SetText(config.Text);
         });
 
-        // Kurz warten damit Clipboard aktualisiert ist
         Thread.Sleep(50);
 
-        // Ctrl+V senden
         _inputSimulator.Keyboard.ModifiedKeyStroke(
             VirtualKeyCode.CONTROL,
             VirtualKeyCode.VK_V);
@@ -251,7 +229,6 @@ public class MasterButtonActionService : IDisposable
 
         _logger.LogInformation("Toggle VM-Parameter: {Param}", config.VmParameter);
 
-        // Bool-Parameter toggeln
         float currentValue = _vm.GetParameter(config.VmParameter);
         float newValue = currentValue > 0.5f ? 0f : 1f;
         _vm.SetParameter(config.VmParameter, newValue);
@@ -278,7 +255,6 @@ public class MasterButtonActionService : IDisposable
 
     private void ExecuteLockGui()
     {
-        // Toggle: eigenen State umkehren (Command.Lock ist write-only in der VM API)
         _lockGuiState = !_lockGuiState;
         _logger.LogInformation("Voicemeeter GUI wird {State}.", _lockGuiState ? "gesperrt" : "entsperrt");
         _vm.LockGui(_lockGuiState);
@@ -376,12 +352,6 @@ public class MasterButtonActionService : IDisposable
         }
     }
 
-    /// <summary>
-    /// LED-Feedback je nach konfiguriertem Modus.
-    /// Blink: LED kurz aufblinken (150ms).
-    /// Toggle: LED wechselt bei jedem Druck zwischen An und Aus.
-    /// Blinking: LED blinkt dauerhaft (Hardware-Blink, toggelt An/Aus bei erneutem Druck).
-    /// </summary>
     private void UpdateLedFeedback(int noteNumber, MasterButtonActionConfig config)
     {
         try
@@ -407,7 +377,6 @@ public class MasterButtonActionService : IDisposable
                     break;
 
                 case LedFeedbackMode.Blinking:
-                    // Hardware-Blink: toggelt zwischen Blink und Aus bei jedem Druck
                     _toggleLedStates.TryGetValue(noteNumber, out bool currentlyBlinking);
                     bool newBlinkState = !currentlyBlinking;
                     _toggleLedStates[noteNumber] = newBlinkState;
@@ -423,21 +392,14 @@ public class MasterButtonActionService : IDisposable
         }
     }
 
-    /// <summary>
-    /// Wechselt zur nächsten Channel-Ansicht (View).
-    /// Wird vom Flip-Button ausgelöst.
-    /// </summary>
     private void CycleChannelView()
     {
         _bridge.SwitchView(1); // +1 = nächste Ansicht
 
-        // Flip-LED kurz aufleuchten lassen als Feedback
         _midiDevice.SetMasterButtonLed(FlipButtonNote, Core.Enums.LedState.On);
 
-        // LED nach kurzer Zeit wieder aus (oder je nach View-Status)
         Task.Delay(200).ContinueWith(_ =>
         {
-            // LED bleibt an wenn nicht in der ersten View
             var state = _bridge.CurrentViewIndex > 0
                 ? Core.Enums.LedState.On
                 : Core.Enums.LedState.Off;
@@ -448,9 +410,6 @@ public class MasterButtonActionService : IDisposable
             _bridge.CurrentViewName, _bridge.CurrentViewIndex + 1, _bridge.ViewCount);
     }
 
-    /// <summary>
-    /// Parst eine Tastenkombination wie "Ctrl+Shift+M" in Modifier und Haupttaste.
-    /// </summary>
     private static (List<VirtualKeyCode> modifiers, VirtualKeyCode? key) ParseKeyCombination(string combination)
     {
         var modifiers = new List<VirtualKeyCode>();
@@ -484,24 +443,17 @@ public class MasterButtonActionService : IDisposable
         return (modifiers, key);
     }
 
-    /// <summary>
-    /// Mappt einen Tastennamen auf VirtualKeyCode.
-    /// </summary>
     private static VirtualKeyCode? MapKeyName(string keyName)
     {
-        // Funktionstasten F1–F24
         if (keyName.StartsWith("F") && int.TryParse(keyName[1..], out int fNum) && fNum >= 1 && fNum <= 24)
             return (VirtualKeyCode)(0x6F + fNum); // VK_F1 = 0x70
 
-        // Einzelne Buchstaben A–Z
         if (keyName.Length == 1 && char.IsLetter(keyName[0]))
             return (VirtualKeyCode)(keyName[0]); // VK_A = 0x41, etc.
 
-        // Zahlen 0–9
         if (keyName.Length == 1 && char.IsDigit(keyName[0]))
             return (VirtualKeyCode)(keyName[0]); // VK_0 = 0x30, etc.
 
-        // Spezielle Tasten
         return keyName switch
         {
             "ENTER" or "RETURN" => VirtualKeyCode.RETURN,

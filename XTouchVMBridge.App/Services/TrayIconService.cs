@@ -11,8 +11,7 @@ using Microsoft.Extensions.Logging;
 namespace XTouchVMBridge.App.Services;
 
 /// <summary>
-/// System-Tray-Icon mit Kontextmenü.
-/// Entspricht TrayIcon-Klasse aus dem Python-Original.
+/// Owns the tray icon, context menu, and related utility windows.
 /// </summary>
 public class TrayIconService : IDisposable
 {
@@ -53,10 +52,6 @@ public class TrayIconService : IDisposable
         _mqttClientService = mqttClientService;
     }
 
-    /// <summary>
-    /// Zugriff auf das aktive MIDI-Debug-Fenster (falls geöffnet).
-    /// Wird vom XTouchDevice genutzt um ausgehende Nachrichten zu loggen.
-    /// </summary>
     public MidiDebugWindow? ActiveDebugWindow => _midiDebugWindow is { IsVisible: true }
         ? _midiDebugWindow
         : null;
@@ -72,7 +67,6 @@ public class TrayIconService : IDisposable
 
         _trayIcon.TrayMouseDoubleClick += (_, _) => ShowLogWindow();
 
-        // Tooltip automatisch aktualisieren wenn sich der Verbindungsstatus ändert
         _midiDevice.ConnectionStateChanged += (_, connected) =>
         {
             Application.Current?.Dispatcher?.Invoke(() =>
@@ -95,7 +89,6 @@ public class TrayIconService : IDisposable
     {
         var menu = new System.Windows.Controls.ContextMenu();
 
-        // Dynamischer Verbindungsstatus (wird bei jedem Öffnen aktualisiert)
         var statusItem = new System.Windows.Controls.MenuItem
         {
             Header = GetConnectionStatusText(),
@@ -119,7 +112,6 @@ public class TrayIconService : IDisposable
 
         menu.Items.Add(new System.Windows.Controls.Separator());
 
-        // X-Touch Geräteauswahl Untermenü
         var deviceMenu = new System.Windows.Controls.MenuItem { Header = "X-Touch Gerät" };
         menu.Items.Add(deviceMenu);
 
@@ -174,7 +166,6 @@ public class TrayIconService : IDisposable
         };
         menu.Items.Add(exit);
 
-        // Beim Öffnen des Menüs: Status und Geräteliste aktualisieren
         menu.Opened += (_, _) =>
         {
             statusItem.Header = GetConnectionStatusText();
@@ -194,7 +185,6 @@ public class TrayIconService : IDisposable
     {
         deviceMenu.Items.Clear();
 
-        // "Auto" Option
         var autoItem = new System.Windows.Controls.MenuItem
         {
             Header = "Auto",
@@ -208,7 +198,6 @@ public class TrayIconService : IDisposable
         };
         deviceMenu.Items.Add(autoItem);
 
-        // Verfügbare Geräte auflisten
         var devices = _midiDevice.ListDevices();
         if (devices.Count == 0)
         {
@@ -229,7 +218,7 @@ public class TrayIconService : IDisposable
                     IsCheckable = true,
                     IsChecked = _midiDevice.SelectedDeviceName == deviceName
                 };
-                var name = deviceName; // Capture für Closure
+                var name = deviceName; // Capture local copy for closure.
                 devItem.Click += (_, _) =>
                 {
                     _midiDevice.SelectedDeviceName = name;

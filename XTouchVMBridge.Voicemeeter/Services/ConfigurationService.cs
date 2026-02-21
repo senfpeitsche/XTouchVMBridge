@@ -7,10 +7,6 @@ using Microsoft.Extensions.Logging;
 
 namespace XTouchVMBridge.Voicemeeter.Services;
 
-/// <summary>
-/// Laden und Speichern der config.json.
-/// Entspricht XtouchVMconfig.py (Config-Klasse) aus dem Python-Original.
-/// </summary>
 public class ConfigurationService : IConfigurationService
 {
     public const int CurrentConfigVersion = 1;

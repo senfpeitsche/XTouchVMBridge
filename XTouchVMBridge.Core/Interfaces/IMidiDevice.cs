@@ -4,97 +4,61 @@ using XTouchVMBridge.Core.Models;
 
 namespace XTouchVMBridge.Core.Interfaces;
 
-/// <summary>
-/// Abstraktion für ein MIDI-Controller-Gerät (z.B. X-Touch Extender).
-/// Ermöglicht einfaches Austauschen oder Mocken des Geräts.
-/// </summary>
 public interface IMidiDevice : IDisposable
 {
-    /// <summary>Ob das Gerät verbunden ist.</summary>
     bool IsConnected { get; }
 
-    /// <summary>Anzahl der Kanäle auf dem Gerät.</summary>
     int ChannelCount { get; }
 
-    /// <summary>Zugriff auf die Kanal-Objekte.</summary>
     IReadOnlyList<XTouchChannel> Channels { get; }
 
-    /// <summary>Name des aktuell verbundenen oder gewählten Geräts (null = Auto).</summary>
     string? SelectedDeviceName { get; set; }
 
-    /// <summary>Ob der Main Fader gerade berührt wird.</summary>
     bool IsMainFaderTouched { get; }
 
-    // ─── Events (Input vom Gerät) ───────────────────────────────────
 
-    /// <summary>Fader wurde bewegt.</summary>
     event EventHandler<FaderEventArgs>? FaderChanged;
 
-    /// <summary>Encoder wurde gedreht.</summary>
     event EventHandler<EncoderEventArgs>? EncoderRotated;
 
-    /// <summary>Encoder wurde gedrückt/losgelassen.</summary>
     event EventHandler<EncoderPressEventArgs>? EncoderPressed;
 
-    /// <summary>Button wurde gedrückt/losgelassen.</summary>
     event EventHandler<ButtonEventArgs>? ButtonChanged;
 
-    /// <summary>Fader wurde berührt/losgelassen.</summary>
     event EventHandler<FaderTouchEventArgs>? FaderTouched;
 
-    /// <summary>Rohe MIDI-Nachricht empfangen (Direct Hook).</summary>
     event EventHandler<MidiMessageEventArgs>? RawMidiReceived;
 
-    /// <summary>Master-Section-Button wurde gedrückt/losgelassen (Notes 40–95).</summary>
     event EventHandler<MasterButtonEventArgs>? MasterButtonChanged;
 
-    // ─── Ausgabe (an das Gerät senden) ──────────────────────────────
 
-    /// <summary>Setzt die Fader-Position eines Kanals.</summary>
     void SetFader(int channel, int position);
 
-    /// <summary>Setzt die Fader-Position eines Kanals in dB.</summary>
     void SetFaderDb(int channel, double db);
 
-    /// <summary>Setzt den LED-Status eines Buttons.</summary>
     void SetButtonLed(int channel, XTouchButtonType button, LedState state);
 
-    /// <summary>Setzt den LED-Status eines Master-Section-Buttons (Note 40+).</summary>
     void SetMasterButtonLed(int noteNumber, LedState state);
 
-    /// <summary>Setzt den Encoder-Ring eines Kanals.</summary>
     void SetEncoderRing(int channel, int value, XTouchEncoderRingMode mode, bool led = false);
 
-    /// <summary>Setzt das Level-Meter eines Kanals.</summary>
     void SetLevelMeter(int channel, int level);
 
-    /// <summary>Setzt den Display-Text eines Kanals.</summary>
     void SetDisplayText(int channel, int row, string text);
 
-    /// <summary>Setzt die Display-Farbe eines Kanals.</summary>
     void SetDisplayColor(int channel, XTouchColor color);
 
-    /// <summary>Setzt alle Display-Farben auf einmal (effizienter).</summary>
     void SetAllDisplayColors(XTouchColor[] colors);
 
-    /// <summary>Setzt das 7-Segment-Display (Timecode-Anzeige) als Text.</summary>
     void SetSegmentDisplay(string text);
 
-    /// <summary>Verbindung zum Gerät herstellen.</summary>
     Task ConnectAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Verbindung trennen.</summary>
     void Disconnect();
 
-    /// <summary>Listet alle verfügbaren X-Touch MIDI-Geräte auf.</summary>
     IReadOnlyList<string> ListDevices();
 
-    /// <summary>
-    /// Prüft ob das ausgewählte MIDI-Gerät noch in der Geräteliste vorhanden ist.
-    /// Erkennt Geräte-Disconnects auch wenn IsConnected noch true ist.
-    /// </summary>
     bool IsDeviceStillPresent();
 
-    /// <summary>Wird ausgelöst wenn sich der Verbindungsstatus ändert.</summary>
     event EventHandler<bool>? ConnectionStateChanged;
 }

@@ -17,11 +17,6 @@ using Rectangle = System.Windows.Shapes.Rectangle;
 
 namespace XTouchVMBridge.App.Views;
 
-/// <summary>
-/// Dialog zum Bearbeiten der Channel Views.
-/// Ermöglicht das Konfigurieren welche VM-Kanäle auf die 8 X-Touch-Strips
-/// und den Main Fader gemappt werden.
-/// </summary>
 public partial class ChannelViewEditorDialog : Window
 {
     private readonly XTouchVMBridgeConfig _config;
@@ -33,7 +28,6 @@ public partial class ChannelViewEditorDialog : Window
     private readonly ComboBox[] _channelCombos = new ComboBox[8];
     private readonly ComboBox[] _colorCombos = new ComboBox[8];
 
-    /// <summary>Wird true wenn der User gespeichert hat.</summary>
     public bool WasSaved { get; private set; }
 
     public ChannelViewEditorDialog(
@@ -53,11 +47,7 @@ public partial class ChannelViewEditorDialog : Window
         PopulateViewList();
     }
 
-    // ─── UI-Aufbau ───────────────────────────────────────────────────
 
-    /// <summary>
-    /// Erzeugt 8 Zeilen im ChannelGrid mit Label + ComboBox.
-    /// </summary>
     private void BuildChannelGrid()
     {
         ChannelGrid.RowDefinitions.Clear();
@@ -98,19 +88,13 @@ public partial class ChannelViewEditorDialog : Window
             _colorCombos[i] = colorCombo;
         }
 
-        // Main Fader Combo
         PopulateChannelCombo(MainFaderCombo, includeNone: true);
     }
 
-    /// <summary>
-    /// Befüllt eine ComboBox mit allen verfügbaren X-Touch-Display-Farben.
-    /// Jeder Eintrag zeigt ein farbiges Rechteck + Farbnamen.
-    /// </summary>
     private static void PopulateColorCombo(ComboBox combo)
     {
         combo.Items.Clear();
 
-        // "(Standard)" = globale Farbe verwenden
         combo.Items.Add(new ComboBoxItem { Content = "(Standard)", Tag = (XTouchColor?)null });
 
         var colors = new (XTouchColor Color, string Name, Color Wpf)[]
@@ -146,10 +130,6 @@ public partial class ChannelViewEditorDialog : Window
         }
     }
 
-    /// <summary>
-    /// Befüllt eine ComboBox mit allen 16 VM-Kanälen (+ optional "Keine").
-    /// Labels werden direkt aus Voicemeeter gelesen, mit Config-Fallback.
-    /// </summary>
     private void PopulateChannelCombo(ComboBox combo, bool includeNone)
     {
         combo.Items.Clear();
@@ -173,9 +153,6 @@ public partial class ChannelViewEditorDialog : Window
         }
     }
 
-    /// <summary>
-    /// Liest den Label eines VM-Kanals aus Voicemeeter, mit Config-/Generic-Fallback.
-    /// </summary>
     private string GetVmLabel(int vmChannel)
     {
         if (_vm != null)
@@ -198,7 +175,6 @@ public partial class ChannelViewEditorDialog : Window
             : $"Ch {vmChannel + 1}";
     }
 
-    // ─── View-Liste ──────────────────────────────────────────────────
 
     private void PopulateViewList()
     {
@@ -225,9 +201,6 @@ public partial class ChannelViewEditorDialog : Window
         ShowViewDetails(ViewList.SelectedIndex);
     }
 
-    /// <summary>
-    /// Zeigt die Details der ausgewählten View im rechten Panel.
-    /// </summary>
     private void ShowViewDetails(int viewIndex)
     {
         if (viewIndex < 0 || viewIndex >= _config.ChannelViews.Count) return;
@@ -237,7 +210,6 @@ public partial class ChannelViewEditorDialog : Window
 
         ViewNameBox.Text = view.Name;
 
-        // 8 Channel Combos + Farb-Combos setzen
         for (int i = 0; i < 8; i++)
         {
             int vmCh = i < view.Channels.Length ? view.Channels[i] : i;
@@ -247,16 +219,12 @@ public partial class ChannelViewEditorDialog : Window
             SelectColorCombo(_colorCombos[i], viewColor);
         }
 
-        // Main Fader
         SelectComboByTag(MainFaderCombo, view.MainFaderChannel ?? -1);
 
         DetailPanel.Visibility = Visibility.Visible;
         _suppressEvents = false;
     }
 
-    /// <summary>
-    /// Wählt das ComboBox-Item aus, dessen Tag dem angegebenen Wert entspricht.
-    /// </summary>
     private static void SelectComboByTag(ComboBox combo, int tag)
     {
         for (int i = 0; i < combo.Items.Count; i++)
@@ -270,7 +238,6 @@ public partial class ChannelViewEditorDialog : Window
         combo.SelectedIndex = -1;
     }
 
-    // ─── Event Handlers ──────────────────────────────────────────────
 
     private void OnViewNameChanged(object sender, TextChangedEventArgs e)
     {
@@ -279,7 +246,6 @@ public partial class ChannelViewEditorDialog : Window
         var view = _config.ChannelViews[ViewList.SelectedIndex];
         view.Name = ViewNameBox.Text;
 
-        // View-Liste aktualisieren
         _suppressEvents = true;
         int idx = ViewList.SelectedIndex;
         ViewList.Items[idx] = view.Name;
@@ -308,7 +274,6 @@ public partial class ChannelViewEditorDialog : Window
 
         var view = _config.ChannelViews[ViewList.SelectedIndex];
 
-        // ChannelColors-Array initialisieren falls nötig
         if (view.ChannelColors == null)
             view.ChannelColors = new XTouchColor?[8];
 
@@ -318,9 +283,6 @@ public partial class ChannelViewEditorDialog : Window
         }
     }
 
-    /// <summary>
-    /// Wählt die Farbe in einer Farb-ComboBox aus.
-    /// </summary>
     private static void SelectColorCombo(ComboBox combo, XTouchColor? color)
     {
         for (int i = 0; i < combo.Items.Count; i++)

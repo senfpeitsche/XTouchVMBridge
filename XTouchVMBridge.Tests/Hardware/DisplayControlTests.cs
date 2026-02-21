@@ -31,7 +31,6 @@ public class DisplayControlTests
         var display = new DisplayControl(0);
         display.TopRow = "Hällö";
 
-        // ä, ö are filtered out, remaining: "Hll" padded to 7
         Assert.Equal(7, display.TopRow.Length);
         Assert.DoesNotContain("ä", display.TopRow);
     }

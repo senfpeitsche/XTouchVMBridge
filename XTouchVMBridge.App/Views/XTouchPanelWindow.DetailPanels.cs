@@ -6,10 +6,6 @@ using Color = System.Windows.Media.Color;
 
 namespace XTouchVMBridge.App.Views;
 
-/// <summary>
-/// Detail-Panels: Zeigt MIDI-Details und Funktionsbeschreibungen für alle Controls
-/// (Display, Encoder, Button, Fader, Level Meter, Main Fader).
-/// </summary>
 public partial class XTouchPanelWindow
 {
     private void ShowDisplayDetail(int ch)
@@ -39,7 +35,6 @@ public partial class XTouchPanelWindow
         DetailMidiInfo.Text = "";
         var enc = _device?.Channels[ch].Encoder;
 
-        // Funktionsliste aufbauen
         string functionInfo;
         if (enc != null && enc.HasFunctions)
         {
@@ -73,7 +68,6 @@ public partial class XTouchPanelWindow
             $"MIDI Ring:      CC {48 + ch} (value = mode×16 + pos [+64 LED])\n" +
             $"Hersteller:     Encoder CC 80..87, Encoder Rings CC 80..87";
 
-        // Mapping-Panel anzeigen
         ShowEncoderMappingPanel(ch);
     }
 
@@ -110,7 +104,6 @@ public partial class XTouchPanelWindow
             $"Note-Formel:    {type}={((int)type)} × 8 + Kanal={ch} = {noteNum}\n" +
             $"Hersteller:     Buttons Note On #0..103";
 
-        // Mapping-Panel anzeigen
         ShowButtonMappingPanel(ch, type);
     }
 
@@ -136,7 +129,6 @@ public partial class XTouchPanelWindow
             $"MIDI CC Mode:   CC {70 + ch} (value 0..127) — nur im MIDI-Mode\n" +
             $"Hersteller:     Fader CC 70..77, Fader Touch Note #110..117";
 
-        // Mapping-Panel anzeigen
         ShowFaderMappingPanel(ch);
     }
 
@@ -153,7 +145,7 @@ public partial class XTouchPanelWindow
             $"dB-Skala:        -200→0, -100→1, -50→2, -40→3, -35→4, -30→5,\n" +
             $"                 -25→6, -20→7, -15→8, -10→9, -5→10, 0→11, +5→12\n\n" +
             $"Hersteller:      Meter LEDs CC 90..97 (value 0..127)";
-        DetailMidiInfo.Text = ""; // Wird von RefreshDetailLiveValues aktualisiert
+        DetailMidiInfo.Text = ""; // Updated by RefreshDetailLiveValues.
     }
 
     private void ShowMainFaderDetail()

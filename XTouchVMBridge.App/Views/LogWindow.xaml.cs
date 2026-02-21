@@ -8,7 +8,7 @@ using XTouchVMBridge.App.Services;
 namespace XTouchVMBridge.App.Views;
 
 /// <summary>
-/// Log-Fenster: zeigt die laufende Log-Datei an.
+/// Live log viewer with level filtering and incremental file tailing.
 /// </summary>
 public partial class LogWindow : Window
 {
@@ -20,7 +20,6 @@ public partial class LogWindow : Window
     private bool _initialLoadDone;
     private List<string> _allLoadedLines = new();
 
-    // Maximale Anzahl Zeilen beim ersten Laden (letzte X Zeilen)
     private const int MaxInitialLines = 500;
 
     private static readonly string[] LogLevelOrder = { "DBG", "INF", "WRN", "ERR" };
@@ -30,7 +29,6 @@ public partial class LogWindow : Window
         InitializeComponent();
         Icon = AppIconFactory.CreateWindowIcon();
 
-        // Log-Datei in %APPDATA%\XTouchVMBridge suchen
         var appDataDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "XTouchVMBridge");
@@ -61,12 +59,10 @@ public partial class LogWindow : Window
 
         LogTextBox.Text = $"Lade Log-Datei: {_logFilePath}...\n";
 
-        // Initiales Laden asynchron
         await Task.Run(() => LoadInitialContent());
 
         _initialLoadDone = true;
 
-        // Timer für Updates starten
         _updateTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(1)
@@ -81,7 +77,6 @@ public partial class LogWindow : Window
         {
             if (!File.Exists(_logFilePath)) return;
 
-            // Nur die letzten X Zeilen laden für schnelles Starten
             var lines = ReadLastLines(_logFilePath, MaxInitialLines);
             var fileInfo = new FileInfo(_logFilePath);
             _lastFilePosition = fileInfo.Length;
@@ -108,7 +103,6 @@ public partial class LogWindow : Window
         using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var reader = new StreamReader(fs);
 
-        // Für kleine Dateien: alles lesen
         if (fs.Length < 100_000) // < 100 KB
         {
             while (!reader.EndOfStream)
@@ -117,7 +111,6 @@ public partial class LogWindow : Window
                 if (line != null) lines.Add(line);
             }
 
-            // Nur letzte X Zeilen behalten
             if (lines.Count > lineCount)
             {
                 lines = lines.Skip(lines.Count - lineCount).ToList();
@@ -125,7 +118,6 @@ public partial class LogWindow : Window
             return lines;
         }
 
-        // Für große Dateien: vom Ende lesen
         var buffer = new char[64 * 1024]; // 64 KB Buffer
         long position = Math.Max(0, fs.Length - buffer.Length);
 
@@ -135,7 +127,6 @@ public partial class LogWindow : Window
         var content = new string(buffer, 0, charsRead);
         var allLines = content.Split('\n');
 
-        // Erste Zeile könnte unvollständig sein, überspringen
         for (int i = 1; i < allLines.Length && lines.Count < lineCount; i++)
         {
             var line = allLines[allLines.Length - 1 - i].TrimEnd('\r');
@@ -159,7 +150,6 @@ public partial class LogWindow : Window
         }
         catch
         {
-            // Fehler ignorieren
         }
         finally
         {
@@ -176,7 +166,6 @@ public partial class LogWindow : Window
 
         if (fs.Length < _lastFilePosition)
         {
-            // Datei wurde rotiert/gelöscht
             _lastFilePosition = 0;
             LogTextBox.Clear();
             LogTextBox.Text = $"=== Log-Datei wurde zurückgesetzt ===\n";
@@ -204,7 +193,6 @@ public partial class LogWindow : Window
             }
         }
 
-        // Maximale Anzahl Zeilen begrenzen
         if (_allLoadedLines.Count > MaxInitialLines * 2)
         {
             _allLoadedLines = _allLoadedLines.Skip(_allLoadedLines.Count - MaxInitialLines).ToList();
@@ -274,7 +262,6 @@ public partial class LogWindow : Window
         {
             _currentLogLevel = item.Content?.ToString() ?? "INFO";
 
-            // Log neu laden mit neuem Filter
             if (_initialLoadDone)
             {
                 LogTextBox.Text = "Lade Log mit Filter...\n";

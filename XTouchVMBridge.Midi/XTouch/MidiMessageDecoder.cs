@@ -3,56 +3,23 @@ using XTouchVMBridge.Core.Enums;
 namespace XTouchVMBridge.Midi.XTouch;
 
 /// <summary>
-/// Dekodiert rohe MIDI-Bytes in lesbare Debug-Informationen.
-/// Basiert auf der offiziellen Behringer X-Touch/X-Touch Extender MIDI Mode Dokumentation.
-///
-/// Partial-Klasse aufgeteilt in:
-///   - MidiMessageDecoder.cs       → Record, Enums, Haupt-Dekodierung, Input/Output-Dekodierung
-///   - MidiMessageDecoder.SysEx.cs → SysEx-Dekodierung (LCD, Segment, Mackie Display)
-///
-/// Unterstützte Message-Typen (laut Hersteller-Doku):
-/// - Buttons:        Note On #0..103  (push: vel 127, release: vel 0)
-/// - Button LEDs:    Note On #0..103  (vel 0..63: off, vel 64: flash, vel 65..127: on)
-/// - Fader:          CC 70..77(78)    (receive and transmit)
-/// - Fader Touch:    Note On #104..111(112) (touch: vel 127, release: vel 0)
-/// - Encoder:        CC 80..87        (absolute: 0..127, relative: inc=65, dec=1)
-/// - Encoder Rings:  CC 80..87        (value 0..127)
-/// - Jog Wheel:      CC 88            (CW: 65, CCW: 1)
-/// - Meter LEDs:     CC 90..97        (value 0..127)
-/// - Foot Controller:CC 4             (value 0..127)
-/// - Foot Switch:    CC 64 (FS1), CC 67 (FS2) (push: vel 127, release: vel 0)
-/// - LCDs:           SysEx F0 00 20 32 dd 4C nn cc c1..c14 F7
-/// - Segment Disp:   SysEx F0 00 20 32 dd 37 s1..s12 d1 d2 F7
+/// Human-readable decoder for incoming/outgoing X-Touch MIDI messages.
 /// </summary>
 public static partial class MidiMessageDecoder
 {
-    /// <summary>
-    /// Ergebnis einer MIDI-Nachrichten-Dekodierung.
-    /// </summary>
     public record DecodedMidiMessage(
-        /// <summary>Zeitstempel der Nachricht.</summary>
         DateTime Timestamp,
-        /// <summary>Richtung: IN (vom Gerät) oder OUT (zum Gerät).</summary>
         MidiDirection Direction,
-        /// <summary>Erkannter Control-Typ (Button, Fader, Encoder, etc.).</summary>
         string ControlType,
-        /// <summary>Kanal/Index des Controls (falls zutreffend).</summary>
         string ControlId,
-        /// <summary>Menschenlesbare Beschreibung des Werts.</summary>
         string Value,
-        /// <summary>Was die Anwendung mit dieser Nachricht macht.</summary>
         string Action,
-        /// <summary>Rohe MIDI-Bytes als Hex-String.</summary>
         string RawHex
     );
 
     public enum MidiDirection { In, Out }
 
-    // ─── Haupt-Dekodierung ──────────────────────────────────────────
 
-    /// <summary>
-    /// Dekodiert eine eingehende (vom Gerät empfangene) MIDI-Nachricht.
-    /// </summary>
     public static DecodedMidiMessage DecodeIncoming(int rawMessage, DateTime? timestamp = null)
     {
         var ts = timestamp ?? DateTime.Now;
@@ -76,9 +43,6 @@ public static partial class MidiMessageDecoder
         };
     }
 
-    /// <summary>
-    /// Dekodiert eine ausgehende (zum Gerät gesendete) MIDI-Nachricht.
-    /// </summary>
     public static DecodedMidiMessage DecodeOutgoing(int rawMessage, DateTime? timestamp = null)
     {
         var ts = timestamp ?? DateTime.Now;
@@ -101,9 +65,6 @@ public static partial class MidiMessageDecoder
         };
     }
 
-    /// <summary>
-    /// Dekodiert eine SysEx-Nachricht (ein- oder ausgehend).
-    /// </summary>
     public static DecodedMidiMessage DecodeSysEx(byte[] data, MidiDirection direction, DateTime? timestamp = null)
     {
         var ts = timestamp ?? DateTime.Now;
@@ -112,7 +73,6 @@ public static partial class MidiMessageDecoder
         if (data.Length < 7)
             return new DecodedMidiMessage(ts, direction, "SysEx", "Unbekannt", "Zu kurz", "Ignoriert", hex);
 
-        // Prüfe auf Behringer X-Touch Header: F0 00 20 32 dd ...
         if (data[1] == 0x00 && data[2] == 0x20 && data[3] == 0x32)
         {
             byte deviceId = data[4];
@@ -133,7 +93,6 @@ public static partial class MidiMessageDecoder
             };
         }
 
-        // Mackie SysEx (F0 00 00 66 15 ...)
         if (data.Length >= 6 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0x66)
         {
             byte cmd = data[5];
@@ -154,13 +113,11 @@ public static partial class MidiMessageDecoder
             $"{data.Length} Bytes", "Ignoriert", hex);
     }
 
-    // ─── Eingehende Nachrichten ─────────────────────────────────────
 
     private static DecodedMidiMessage DecodeNoteOn(DateTime ts, byte note, byte velocity, string hex)
     {
         bool isPressed = velocity > 0;
 
-        // Fader Touch: Note 104..111 (Extender), Main=112
         if (note is >= 104 and <= 112)
         {
             int ch = note - 104;
@@ -170,7 +127,6 @@ public static partial class MidiMessageDecoder
                 isPressed ? "→ FaderTouched" : "→ FaderTouched (release)", hex);
         }
 
-        // Encoder Press: Note 32..39
         if (note is >= 32 and <= 39)
         {
             int ch = note - 32;
@@ -179,7 +135,6 @@ public static partial class MidiMessageDecoder
                 isPressed ? "→ EncoderPressed" : "→ EncoderPressed (release)", hex);
         }
 
-        // Channel Buttons: Note 0..31 (4 Typen × 8 Kanäle)
         if (note <= 103)
         {
             int ch = note % 8;
@@ -213,7 +168,6 @@ public static partial class MidiMessageDecoder
 
     private static DecodedMidiMessage DecodeControlChange(DateTime ts, byte cc, byte value, string hex)
     {
-        // Fader: CC 70..77
         if (cc is >= 70 and <= 78)
         {
             int ch = cc - 70;
@@ -222,7 +176,6 @@ public static partial class MidiMessageDecoder
                 "→ Fader CC (MIDI-Mode)", hex);
         }
 
-        // Encoder: CC 80..87
         if (cc is >= 80 and <= 87)
         {
             int ch = cc - 80;
@@ -243,7 +196,6 @@ public static partial class MidiMessageDecoder
                 "→ EncoderRotated", hex);
         }
 
-        // Jog Wheel: CC 88
         if (cc == 88)
         {
             string dir = value == 65 ? "CW (rechts)" : value == 1 ? "CCW (links)" : $"Wert {value}";
@@ -251,7 +203,6 @@ public static partial class MidiMessageDecoder
                 "Global", dir, "→ JogWheel (nicht implementiert)", hex);
         }
 
-        // Meter LEDs: CC 90..97
         if (cc is >= 90 and <= 97)
         {
             int ch = cc - 90;
@@ -260,7 +211,6 @@ public static partial class MidiMessageDecoder
                 "→ Meter Update", hex);
         }
 
-        // Foot Controller: CC 4
         if (cc == 4)
         {
             return new DecodedMidiMessage(ts, MidiDirection.In, "Foot Controller",
@@ -268,7 +218,6 @@ public static partial class MidiMessageDecoder
                 "→ FootController (nicht implementiert)", hex);
         }
 
-        // Foot Switch: CC 64 (FS1), CC 67 (FS2)
         if (cc is 64 or 67)
         {
             string fs = cc == 64 ? "FS1" : "FS2";
@@ -301,7 +250,6 @@ public static partial class MidiMessageDecoder
             "Ignoriert (Meter-Feedback)", hex);
     }
 
-    // ─── Ausgehende Nachrichten ─────────────────────────────────────
 
     private static DecodedMidiMessage DecodeButtonLedOutput(DateTime ts, byte note, byte velocity, string hex)
     {
@@ -315,7 +263,6 @@ public static partial class MidiMessageDecoder
         else
             ledState = $"LED An (vel {velocity})";
 
-        // Button-Name ermitteln
         string controlId;
         if (note <= 103)
         {
@@ -346,7 +293,6 @@ public static partial class MidiMessageDecoder
 
     private static DecodedMidiMessage DecodeCcOutput(DateTime ts, byte cc, byte value, string hex)
     {
-        // Encoder Ring: CC 48..55 (Mackie) oder CC 80..87 (MIDI-Mode)
         if (cc is >= 48 and <= 55)
         {
             int ch = cc - 48;
@@ -366,7 +312,6 @@ public static partial class MidiMessageDecoder
                 "← SetEncoderRing", hex);
         }
 
-        // Meter LEDs: CC 90..97
         if (cc is >= 90 and <= 97)
         {
             int ch = cc - 90;

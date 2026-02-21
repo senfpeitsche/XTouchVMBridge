@@ -11,11 +11,7 @@ using XTouchVMBridge.Midi.XTouch;
 namespace XTouchVMBridge.App.Views;
 
 /// <summary>
-/// Debug-Fenster das alle ein- und ausgehenden MIDI-Nachrichten des X-Touch anzeigt.
-/// Zeigt für jede Nachricht: Zeitstempel, Richtung, Control-Typ, Kanal/ID, Wert,
-/// die daraus resultierende Aktion, und die rohen MIDI-Bytes.
-///
-/// Basiert auf der offiziellen Behringer X-Touch MIDI Mode Dokumentation.
+/// Real-time MIDI monitor window with capture and filter controls.
 /// </summary>
 public partial class MidiDebugWindow : Window
 {
@@ -51,7 +47,6 @@ public partial class MidiDebugWindow : Window
         }
     }
 
-    // ─── Device-Events abonnieren ───────────────────────────────────
 
     private void SubscribeToDevice()
     {
@@ -77,13 +72,11 @@ public partial class MidiDebugWindow : Window
         _device.FaderTouched -= OnFaderTouched;
     }
 
-    // ─── Eingehende MIDI-Nachrichten ────────────────────────────────
 
     private void OnRawMidiReceived(object? sender, MidiMessageEventArgs e)
     {
         if (e.Data.Length < 3) return;
 
-        // UI-Zugriff muss auf dem Dispatcher-Thread erfolgen
         Dispatcher.BeginInvoke(() =>
         {
             if (CaptureIncoming?.IsChecked != true) return;
@@ -96,35 +89,25 @@ public partial class MidiDebugWindow : Window
 
     private void OnFaderChanged(object? sender, FaderEventArgs e)
     {
-        // Bereits via RawMidiReceived erfasst — hier nur die Aktion ergänzen
     }
 
     private void OnEncoderRotated(object? sender, EncoderEventArgs e)
     {
-        // Bereits via RawMidiReceived erfasst
     }
 
     private void OnEncoderPressed(object? sender, EncoderPressEventArgs e)
     {
-        // Bereits via RawMidiReceived erfasst
     }
 
     private void OnButtonChanged(object? sender, ButtonEventArgs e)
     {
-        // Bereits via RawMidiReceived erfasst
     }
 
     private void OnFaderTouched(object? sender, FaderTouchEventArgs e)
     {
-        // Bereits via RawMidiReceived erfasst
     }
 
-    // ─── Ausgehende MIDI-Nachrichten loggen (Publik für externen Aufruf) ──
 
-    /// <summary>
-    /// Loggt eine ausgehende MIDI-Nachricht (Short Message) im Debug-Fenster.
-    /// Wird vom XTouchDevice aufgerufen wenn es Nachrichten sendet.
-    /// </summary>
     public void LogOutgoingMessage(int rawMessage)
     {
         if (CaptureOutgoing?.IsChecked != true) return;
@@ -132,9 +115,6 @@ public partial class MidiDebugWindow : Window
         AddMessage(MidiDebugEntry.FromDecoded(decoded));
     }
 
-    /// <summary>
-    /// Loggt eine ausgehende SysEx-Nachricht im Debug-Fenster.
-    /// </summary>
     public void LogOutgoingSysEx(byte[] data)
     {
         if (CaptureSysEx?.IsChecked != true) return;
@@ -142,7 +122,6 @@ public partial class MidiDebugWindow : Window
         AddMessage(MidiDebugEntry.FromDecoded(decoded));
     }
 
-    // ─── Nachrichten-Verwaltung ─────────────────────────────────────
 
     private void AddMessage(MidiDebugEntry entry)
     {
@@ -153,11 +132,9 @@ public partial class MidiDebugWindow : Window
                 _allMessages.Add(entry);
                 _totalCount++;
 
-                // Buffer begrenzen
                 while (_allMessages.Count > MaxMessages)
                     _allMessages.RemoveAt(0);
 
-                // Filter anwenden
                 if (MatchesFilter(entry))
                 {
                     _filteredMessages.Add(entry);
@@ -168,7 +145,6 @@ public partial class MidiDebugWindow : Window
                 MessageCountText.Text = $"{_totalCount} Nachrichten ({_filteredMessages.Count} sichtbar)";
             }
 
-            // Auto-Scroll
             if (AutoScrollCheck.IsChecked == true && _filteredMessages.Count > 0)
             {
                 MessageList.ScrollIntoView(_filteredMessages[^1]);
@@ -178,13 +154,11 @@ public partial class MidiDebugWindow : Window
 
     private bool MatchesFilter(MidiDebugEntry entry)
     {
-        // Richtungs-Filter
         if (entry.Direction == MidiMessageDecoder.MidiDirection.In && CaptureIncoming?.IsChecked != true)
             return false;
         if (entry.Direction == MidiMessageDecoder.MidiDirection.Out && CaptureOutgoing?.IsChecked != true)
             return false;
 
-        // Control-Typ-Filter
         if (_controlTypeFilter != "Alle")
         {
             bool matchesType = _controlTypeFilter switch
@@ -196,7 +170,6 @@ public partial class MidiDebugWindow : Window
             if (!matchesType) return false;
         }
 
-        // Kanal-Filter
         if (_channelFilter != "Alle")
         {
             if (!entry.ControlId.Contains($"Kanal {_channelFilter}"))
@@ -208,7 +181,6 @@ public partial class MidiDebugWindow : Window
 
     private void ReapplyFilter()
     {
-        // Während Initialisierung noch nicht filtern
         if (MessageCountText == null) return;
 
         lock (_lock)
@@ -223,7 +195,6 @@ public partial class MidiDebugWindow : Window
         }
     }
 
-    // ─── UI-Events ──────────────────────────────────────────────────
 
     private void OnFilterChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -255,7 +226,7 @@ public partial class MidiDebugWindow : Window
 }
 
 /// <summary>
-/// ViewModel für einen einzelnen Eintrag in der MIDI-Debug-Liste.
+/// View model entry for one decoded MIDI message row.
 /// </summary>
 public class MidiDebugEntry
 {
@@ -267,35 +238,34 @@ public class MidiDebugEntry
     public string Action { get; init; } = "";
     public string RawHex { get; init; } = "";
 
-    // ─── Display-Properties für Data Binding ────────────────────────
 
     public string DirectionText => Direction == MidiMessageDecoder.MidiDirection.In ? "IN" : "OUT";
 
     public string DirectionColor => Direction == MidiMessageDecoder.MidiDirection.In
-        ? "#4EC9B0"  // Grün für eingehend
-        : "#CE9178"; // Orange für ausgehend
+        ? "#4EC9B0"  // Green for incoming
+        : "#CE9178"; // Orange for outgoing
 
     public string ControlColor => ControlType switch
     {
-        "Button" => "#569CD6",          // Blau
+        "Button" => "#569CD6",          // Blue
         "Button LED" => "#569CD6",
-        "Fader" => "#4EC9B0",           // Grün
+        "Fader" => "#4EC9B0",           // Green
         "Fader Touch" => "#4EC9B0",
         "Fader (MIDI-Mode)" => "#4EC9B0",
-        "Encoder" => "#DCDCAA",         // Gelb
+        "Encoder" => "#DCDCAA",         // Yellow
         "Encoder Press" => "#DCDCAA",
         "Encoder Ring" => "#DCDCAA",
         "Level Meter" => "#D7BA7D",     // Gold
         "Meter LED" => "#D7BA7D",
-        "LCD Display" => "#C586C0",     // Lila
+        "LCD Display" => "#C586C0",     // Purple
         "Display Text" => "#C586C0",
         "Display Farben" => "#C586C0",
-        "Foot Switch" => "#9CDCFE",     // Hellblau
+        "Foot Switch" => "#9CDCFE",     // Light blue
         "Foot Controller" => "#9CDCFE",
         "Jog Wheel" => "#CE9178",       // Orange
-        "SysEx" => "#6A9955",           // Grün
-        "Control Change" => "#858585",  // Grau
-        _ => "#D4D4D4"                  // Weiß
+        "SysEx" => "#6A9955",           // Green
+        "Control Change" => "#858585",  // Gray
+        _ => "#D4D4D4"                  // White
     };
 
     public static MidiDebugEntry FromDecoded(MidiMessageDecoder.DecodedMidiMessage msg)
@@ -313,3 +283,4 @@ public class MidiDebugEntry
     }
 
 }
+

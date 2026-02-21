@@ -19,23 +19,6 @@ using ProgressBar = System.Windows.Controls.ProgressBar;
 
 namespace XTouchVMBridge.App.Views;
 
-/// <summary>
-/// Interaktive Darstellung der vollständigen X-Touch Oberfläche.
-/// Links: 8 Kanalstreifen + Main-Fader, Rechts: Master Section
-/// (Encoder Assign, Display, Global View, Function, Modify/Automation/Utility,
-///  Transport, Fader Bank/Channel, Jog Wheel).
-/// Klick auf jedes Control zeigt MIDI-Details und zugeordnete Funktion im Detail-Panel.
-///
-/// Partial-Klassen:
-///   - XTouchPanelWindow.ChannelStrips.cs     → BuildChannelStrips, BuildSingleChannelStrip, HW-Buttons
-///   - XTouchPanelWindow.MainFader.cs         → BuildMainFader, Main-Fader Maus-Interaktion
-///   - XTouchPanelWindow.MasterSection.cs     → BuildMasterSection, alle Build*Buttons, CreateMasterButton
-///   - XTouchPanelWindow.Templates.cs         → WPF Control-Templates (Rounded Button, Encoder)
-///   - XTouchPanelWindow.FaderInteraction.cs  → Channel-Fader Maus-Interaktion (Strg+Klick, Doppelklick)
-///   - XTouchPanelWindow.EncoderInteraction.cs → Encoder-Klick, Mausrad, Ring-Visualisierung
-///   - XTouchPanelWindow.DetailPanels.cs      → ShowXxxDetail-Methoden für alle Controls
-///   - XTouchPanelWindow.MappingEditor.cs     → Mapping-Editor UI, ComboBox-Handler, Save/Reload
-/// </summary>
 public partial class XTouchPanelWindow : Window
 {
     private readonly IMidiDevice? _device;
@@ -47,7 +30,6 @@ public partial class XTouchPanelWindow : Window
     private readonly MqttClientService? _mqttClientService;
     private readonly DispatcherTimer _refreshTimer;
 
-    // ─── UI-Referenzen: 8 Kanalstreifen ──────────────────────────────
     private readonly Border[] _displayPanels = new Border[8];
     private readonly TextBlock[] _displayTop = new TextBlock[8];
     private readonly TextBlock[] _displayBottom = new TextBlock[8];
@@ -63,34 +45,27 @@ public partial class XTouchPanelWindow : Window
     private readonly ProgressBar[] _levelMeters = new ProgressBar[8];
     private readonly Ellipse[] _touchIndicators = new Ellipse[8];
 
-    // ─── UI-Referenzen: Main Fader ───────────────────────────────────
     private Slider? _mainFaderSlider;
     private TextBlock? _mainFaderDbLabel;
     private bool _draggingMainFader;
 
-    // ─── UI-Referenzen: Master Section Buttons ───────────────────────
     private readonly Dictionary<string, Button> _masterButtons = new();
 
-    // ─── Mapping-Editor State ────────────────────────────────────────
     private int _selectedVmChannel = -1;
     private string _selectedControlType = ""; // "Button", "Fader", "Encoder", "MasterButton"
     private XTouchButtonType _selectedButtonType;
     private int _selectedMasterButtonNote = -1;
     private bool _suppressMappingEvents;
 
-    // ─── Detail-Panel Live-Update State ────────────────────────────
     private string _activeDetailType = ""; // "Fader", "LevelMeter", "Encoder", "Button", "Master", ""
     private int _activeDetailChannel = -1;
 
-    // ─── Fader-Drag State (Strg+Klick → Fader per Maus steuern) ──
-    private int _draggingFaderChannel = -1; // -1 = kein Fader wird gerade per Maus gesteuert
+    private int _draggingFaderChannel = -1; // -1 means no fader is currently mouse-driven
 
-    // ─── Doppelklick-Erkennung für Fader (0 dB Reset) ──
     private DateTime _lastFaderClickTime = DateTime.MinValue;
     private int _lastFaderClickChannel = -1;
     private const int DoubleTapThresholdMs = 400;
 
-    // ─── Manueller LED-Toggle für nicht-zugewiesene Buttons (Panel-Only) ──
     private readonly Dictionary<(int Channel, XTouchButtonType Type), bool> _manualLedState = new();
     private readonly Dictionary<int, bool> _masterButtonLedState = new();
     private bool _panelRecorderActive;
@@ -122,9 +97,6 @@ public partial class XTouchPanelWindow : Window
         _refreshTimer.Start();
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //  Events abonnieren
-    // ═══════════════════════════════════════════════════════════════════
 
     private void SubscribeToEvents()
     {
@@ -137,9 +109,6 @@ public partial class XTouchPanelWindow : Window
         _device.FaderTouched += (_, e) => Dispatcher.BeginInvoke(() => OnFaderTouchUpdate(e.Channel, e.IsTouched));
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //  Echtzeit-Updates (100ms Timer)
-    // ═══════════════════════════════════════════════════════════════════
 
     private void RefreshAll()
     {
@@ -149,13 +118,11 @@ public partial class XTouchPanelWindow : Window
         {
             var xtCh = _device.Channels[ch];
 
-            // Display
             _displayTop[ch].Text = xtCh.Display.TopRow;
             _displayBottom[ch].Text = xtCh.Display.BottomRow;
             _displayPanels[ch].Background = new SolidColorBrush(XTouchColorToWpf(xtCh.Display.Color, dim: true));
             _displayTop[ch].Foreground = new SolidColorBrush(XTouchColorToWpf(xtCh.Display.Color, dim: false));
 
-            // Encoder Ring (modusabhängige Anzeige) + Funktionsname auf Knob
             UpdateEncoderRingVisual(ch, xtCh.Encoder);
             if (xtCh.Encoder.HasFunctions && xtCh.Encoder.ActiveFunction != null)
             {
@@ -170,7 +137,6 @@ public partial class XTouchPanelWindow : Window
                 };
             }
 
-            // Fader (nicht überschreiben wenn gerade per Maus gesteuert)
             if (_draggingFaderChannel != ch)
             {
                 _faderSliders[ch].Value = xtCh.Fader.Position;
@@ -178,54 +144,42 @@ public partial class XTouchPanelWindow : Window
                 _faderDbLabels[ch].Text = db <= -65 ? "-∞ dB" : $"{db:F1} dB";
             }
 
-            // Touch-Indikator
             _touchIndicators[ch].Fill = new SolidColorBrush(
                 xtCh.Fader.IsTouched ? Color.FromRgb(0, 200, 255) : Color.FromRgb(40, 40, 40));
 
-            // Level Meter
             _levelMeters[ch].Value = xtCh.LevelMeter.Level;
             _levelMeters[ch].Foreground = new SolidColorBrush(
                 xtCh.LevelMeter.Level > 10 ? Color.FromRgb(255, 60, 30)
                 : xtCh.LevelMeter.Level > 7 ? Color.FromRgb(255, 200, 0)
                 : Color.FromRgb(0, 200, 80));
 
-            // Buttons LED-State (manueller Toggle hat Vorrang bei nicht-zugewiesenen Buttons)
             UpdateButtonVisual(_recButtons[ch], GetEffectiveLedState(ch, XTouchButtonType.Rec, xtCh));
             UpdateButtonVisual(_soloButtons[ch], GetEffectiveLedState(ch, XTouchButtonType.Solo, xtCh));
             UpdateButtonVisual(_muteButtons[ch], GetEffectiveLedState(ch, XTouchButtonType.Mute, xtCh));
             UpdateButtonVisual(_selectButtons[ch], GetEffectiveLedState(ch, XTouchButtonType.Select, xtCh));
         }
 
-        // Main Fader (aus aktuellem VM-Status) synchronisieren
         UpdateMainFaderVisual();
 
-        // View-Button Text synchronisieren + Flip-Button LED
         if (_bridge != null)
         {
             ViewSwitchButton.Content = $"⚙ {_bridge.CurrentViewName}";
 
-            // Flip-Button: leuchtet wenn nicht in View 0
             if (_masterButtons.TryGetValue("Flip", out var flipBtn))
             {
                 bool isActive = _bridge.CurrentViewIndex > 0;
                 flipBtn.Background = new SolidColorBrush(isActive
-                    ? Color.FromRgb(120, 80, 160)   // aktiv: heller Violett
-                    : Color.FromRgb(45, 37, 53));   // inaktiv: dunkel
+            ? Color.FromRgb(120, 80, 160)   // active: brighter violet
+            : Color.FromRgb(45, 37, 53));   // inactive: darker tone
             }
         }
 
-        // 7-Segment-Display: Uhrzeit anzeigen
         var now = DateTime.Now;
         SegmentDisplay.Text = now.ToString("HH : mm : ss");
 
-        // Detail-Panel: Live-Werte aktualisieren
         RefreshDetailLiveValues();
     }
 
-    /// <summary>
-    /// Aktualisiert die Live-Werte im Detail-Panel (Fader-Position, Level-Meter, Encoder).
-    /// Wird alle 100ms vom RefreshAll-Timer aufgerufen.
-    /// </summary>
     private void RefreshDetailLiveValues()
     {
         if (_device == null || _activeDetailChannel < 0 || _activeDetailChannel >= _device.Channels.Count)
@@ -326,14 +280,7 @@ public partial class XTouchPanelWindow : Window
         _mainFaderDbLabel.Text = db <= -65 ? "-inf dB" : $"{db:F1} dB";
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //  LED-State und Button-Visuals
-    // ═══════════════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// Ermittelt den effektiven LED-State: manueller Toggle für nicht-zugewiesene Buttons,
-    /// ansonsten den Hardware-LedState vom Device.
-    /// </summary>
     private LedState GetEffectiveLedState(int ch, XTouchButtonType type, XTouchChannel xtCh)
     {
         var key = (ch, type);
@@ -356,9 +303,6 @@ public partial class XTouchPanelWindow : Window
 
     private record ButtonTag(int Channel, XTouchButtonType Type, Color ActiveColor, Color InactiveColor);
 
-    // ═══════════════════════════════════════════════════════════════════
-    //  Event-Callbacks von IMidiDevice
-    // ═══════════════════════════════════════════════════════════════════
 
     private void OnFaderUpdate(int ch)
     {
@@ -384,17 +328,9 @@ public partial class XTouchPanelWindow : Window
                 touched ? Color.FromRgb(0, 200, 255) : Color.FromRgb(40, 40, 40));
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //  Hilfsfunktionen
-    // ═══════════════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// Ermittelt den VM-Kanal-Index für einen X-Touch-Kanal.
-    /// Verwendet das aktuelle Channel-Mapping der Bridge (identisch mit der Hardware-Zuordnung).
-    /// </summary>
     private int ResolveVmChannel(int xtChannel)
     {
-        // Primär: Bridge-Mapping verwenden (identisch mit Hardware)
         if (_bridge != null)
         {
             var mapping = _bridge.CurrentChannelMapping;
@@ -402,7 +338,6 @@ public partial class XTouchPanelWindow : Window
                 return mapping[xtChannel];
         }
 
-        // Fallback: X-Touch-Kanal = VM-Kanal
         return xtChannel;
     }
 
@@ -427,7 +362,6 @@ public partial class XTouchPanelWindow : Window
         };
     }
 
-    // ─── Channel View Editor ────────────────────────────────────────
 
     private void OnOpenChannelViewEditor(object sender, RoutedEventArgs e)
     {
@@ -451,7 +385,6 @@ public partial class XTouchPanelWindow : Window
         dialog.ShowDialog();
     }
 
-    // ─── Cleanup ─────────────────────────────────────────────────────
 
     protected override void OnClosed(EventArgs e)
     {

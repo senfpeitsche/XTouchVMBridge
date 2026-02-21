@@ -21,24 +21,19 @@ public class MackieProtocolTests
     {
         byte[] msg = MackieProtocol.BuildDisplayTextMessage(0, "Hello  ");
 
-        // Beginnt mit SysEx Prefix
         Assert.Equal(0xF0, msg[0]);
         Assert.Equal(0x00, msg[1]);
         Assert.Equal(0x00, msg[2]);
         Assert.Equal(0x66, msg[3]);
         Assert.Equal(0x14, msg[4]);
 
-        // Command byte
         Assert.Equal(MackieProtocol.CmdDisplayText, msg[5]);
 
-        // Offset
         Assert.Equal(0, msg[6]);
 
-        // Text
         Assert.Equal((byte)'H', msg[7]);
         Assert.Equal((byte)'e', msg[8]);
 
-        // Endet mit SysEx End
         Assert.Equal(0xF7, msg[^1]);
     }
 

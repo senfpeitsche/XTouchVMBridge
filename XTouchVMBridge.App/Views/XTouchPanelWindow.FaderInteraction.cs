@@ -4,16 +4,12 @@ using XTouchVMBridge.Core.Hardware;
 
 namespace XTouchVMBridge.App.Views;
 
-/// <summary>
-/// Fader-Maus-Interaktion: Strg+Klick zum Steuern, Doppelklick für 0 dB Reset.
-/// </summary>
 public partial class XTouchPanelWindow
 {
     private void OnFaderMouseDown(int ch, System.Windows.Input.MouseButtonEventArgs e)
     {
         var now = DateTime.Now;
 
-        // Doppelklick-Erkennung: Fader auf 0 dB setzen
         if (_lastFaderClickChannel == ch &&
             (now - _lastFaderClickTime).TotalMilliseconds < DoubleTapThresholdMs)
         {

@@ -2,15 +2,11 @@ using XTouchVMBridge.Core.Enums;
 
 namespace XTouchVMBridge.Midi.XTouch;
 
-/// <summary>
-/// SysEx-Dekodierung: LCD Display, Segment Display, Mackie Display Text/Color.
-/// </summary>
 public static partial class MidiMessageDecoder
 {
     private static DecodedMidiMessage DecodeLcdSysEx(DateTime ts, MidiDirection dir,
         byte[] data, string device, string hex)
     {
-        // F0 00 20 32 dd 4C nn cc c1..c14 F7
         if (data.Length < 9) return Fallback(ts, dir, "LCD", hex);
 
         int lcdNumber = data[6];
@@ -21,7 +17,6 @@ public static partial class MidiMessageDecoder
 
         string colorName = ((XTouchColor)colorIndex).ToString();
 
-        // ASCII-Zeichen extrahieren
         int charCount = Math.Min(14, data.Length - 8 - 1); // -1 für F7
         string text = "";
         if (charCount > 0)
@@ -44,7 +39,6 @@ public static partial class MidiMessageDecoder
     private static DecodedMidiMessage DecodeSegmentSysEx(DateTime ts, MidiDirection dir,
         byte[] data, string device, string hex)
     {
-        // F0 00 20 32 dd 37 s1..s12 d1 d2 F7
         return new DecodedMidiMessage(ts, dir, "Segment Display",
             $"{device} 7-Segment", $"{data.Length - 4} Datenbytes",
             dir == MidiDirection.Out ? "← Segment Update" : "Segment Daten", hex);
@@ -53,7 +47,6 @@ public static partial class MidiMessageDecoder
     private static DecodedMidiMessage DecodeMackieDisplayText(DateTime ts, MidiDirection dir,
         byte[] data, string hex)
     {
-        // F0 00 00 66 15 12 offset text... F7
         if (data.Length < 8) return Fallback(ts, dir, "Display Text", hex);
 
         int offset = data[6];
@@ -79,7 +72,6 @@ public static partial class MidiMessageDecoder
     private static DecodedMidiMessage DecodeMackieDisplayColor(DateTime ts, MidiDirection dir,
         byte[] data, string hex)
     {
-        // F0 00 00 66 15 72 c0..c7 F7
         if (data.Length < 14) return Fallback(ts, dir, "Display Color", hex);
 
         var colorNames = new string[8];

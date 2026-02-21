@@ -1,17 +1,7 @@
 namespace XTouchVMBridge.Core.Models;
 
-/// <summary>
-/// Statischer Katalog aller verfügbaren Voicemeeter-Parameter.
-/// Wird von der UI verwendet, um Dropdowns für die Parameterzuweisung zu befüllen.
-///
-/// Templates verwenden Platzhalter:
-///   {s} = Strip-Index (0–7)
-///   {b} = Bus-Index (0–7)
-/// Die werden zur Laufzeit durch den tatsächlichen Kanal-Index ersetzt.
-/// </summary>
 public static class VoicemeeterParameterCatalog
 {
-    /// <summary>Beschreibung eines verfügbaren Parameters.</summary>
     public record ParameterTemplate(
         string Template,
         string DisplayName,
@@ -20,9 +10,7 @@ public static class VoicemeeterParameterCatalog
         double DefaultStep,
         string Unit);
 
-    // ─── Bool-Parameter (für Buttons: Toggle 0/1) ────────────────────
 
-    /// <summary>Bool-Parameter für Strip-Kanäle (0–7).</summary>
     public static readonly List<ParameterTemplate> StripBoolParameters = new()
     {
         new("Strip[{s}].Mute",   "Mute",           0, 1, 1, ""),
@@ -46,7 +34,6 @@ public static class VoicemeeterParameterCatalog
         new("Strip[{s}].Comp.MakeUp", "Comp MakeUp",       0, 1, 1, ""),
     };
 
-    /// <summary>Bool-Parameter für Bus-Kanäle (0–7).</summary>
     public static readonly List<ParameterTemplate> BusBoolParameters = new()
     {
         new("Bus[{b}].Mute",      "Mute",        0, 1, 1, ""),
@@ -57,36 +44,29 @@ public static class VoicemeeterParameterCatalog
         new("Bus[{b}].Monitor",   "Monitor",     0, 1, 1, ""),
     };
 
-    // ─── Float-Parameter (für Encoder und Fader) ─────────────────────
 
-    /// <summary>Float-Parameter für Strip-Kanäle (0–7).</summary>
     public static readonly List<ParameterTemplate> StripFloatParameters = new()
     {
-        // Basis
         new("Strip[{s}].Gain",       "Gain",        -60,   12,   0.5,  "dB"),
         new("Strip[{s}].Pan_x",      "Pan L/R",     -0.5,  0.5,  0.05, ""),
         new("Strip[{s}].Pan_y",      "Pan F/B",      0,    1.0,  0.05, ""),
         new("Strip[{s}].Audibility",  "Audibility",   0,   10,   0.5,  ""),
         new("Strip[{s}].Limit",       "Limiter",    -40,   12,   1.0,  "dB"),
 
-        // EQ
         new("Strip[{s}].EQGain1",    "EQ Low",      -12,   12,   0.5,  "dB"),
         new("Strip[{s}].EQGain2",    "EQ Mid",      -12,   12,   0.5,  "dB"),
         new("Strip[{s}].EQGain3",    "EQ High",     -12,   12,   0.5,  "dB"),
 
-        // FX Sends
         new("Strip[{s}].Reverb",     "Reverb",        0,   10,   0.5,  ""),
         new("Strip[{s}].Delay",      "Delay",         0,   10,   0.5,  ""),
         new("Strip[{s}].Fx1",        "FX1",           0,   10,   0.5,  ""),
         new("Strip[{s}].Fx2",        "FX2",           0,   10,   0.5,  ""),
 
-        // Spatial
         new("Strip[{s}].Color_x",    "Color L/R",   -0.5,  0.5,  0.05, ""),
         new("Strip[{s}].Color_y",    "Color F/B",     0,    1.0,  0.05, ""),
         new("Strip[{s}].fx_x",       "FX Pos L/R",  -0.5,  0.5,  0.05, ""),
         new("Strip[{s}].fx_y",       "FX Pos F/B",    0,    1.0,  0.05, ""),
 
-        // Gate (nur Physical Strips 0–4)
         new("Strip[{s}].Gate",              "Gate Knob",       0,   10,    0.5,  ""),
         new("Strip[{s}].Gate.Threshold",    "Gate Threshold", -60,    0,   1.0,  "dB"),
         new("Strip[{s}].Gate.Damping",      "Gate Damping",   -60,    0,   1.0,  "dB"),
@@ -95,7 +75,6 @@ public static class VoicemeeterParameterCatalog
         new("Strip[{s}].Gate.Hold",         "Gate Hold",        0, 5000,  50,    "ms"),
         new("Strip[{s}].Gate.Release",      "Gate Release",   0.1, 5000,  50,    "ms"),
 
-        // Compressor (nur Physical Strips 0–4)
         new("Strip[{s}].Comp",              "Comp Knob",       0,   10,   0.5,  ""),
         new("Strip[{s}].Comp.GainIn",       "Comp GainIn",   -24,   24,   0.5,  "dB"),
         new("Strip[{s}].Comp.Threshold",    "Comp Threshold", -40,    0,   1.0,  "dB"),
@@ -105,11 +84,9 @@ public static class VoicemeeterParameterCatalog
         new("Strip[{s}].Comp.Knee",         "Comp Knee",        0,  1.0,  0.1,  ""),
         new("Strip[{s}].Comp.GainOut",      "Comp GainOut",  -24,   24,   0.5,  "dB"),
 
-        // Denoiser (nur Physical Strips 0–4)
         new("Strip[{s}].Denoiser",          "Denoiser",        0,   10,   0.5,  ""),
     };
 
-    /// <summary>Float-Parameter für Bus-Kanäle (0–7).</summary>
     public static readonly List<ParameterTemplate> BusFloatParameters = new()
     {
         new("Bus[{b}].Gain",          "Gain",          -60, 12,  0.5, "dB"),
@@ -119,11 +96,7 @@ public static class VoicemeeterParameterCatalog
         new("Bus[{b}].ReturnFx2",     "Return FX2",      0, 10,  0.5, ""),
     };
 
-    // ─── Hilfsmethoden ───────────────────────────────────────────────
 
-    /// <summary>
-    /// Gibt alle Bool-Parameter für einen VM-Kanal zurück (Template aufgelöst).
-    /// </summary>
     public static List<ResolvedParameter> GetBoolParameters(int vmChannel)
     {
         bool isStrip = vmChannel < 8;
@@ -136,9 +109,6 @@ public static class VoicemeeterParameterCatalog
         )).ToList();
     }
 
-    /// <summary>
-    /// Gibt alle Float-Parameter für einen VM-Kanal zurück (Template aufgelöst).
-    /// </summary>
     public static List<ResolvedParameter> GetFloatParameters(int vmChannel)
     {
         bool isStrip = vmChannel < 8;
@@ -152,17 +122,12 @@ public static class VoicemeeterParameterCatalog
         )).ToList();
     }
 
-    /// <summary>
-    /// Sucht ein ParameterTemplate anhand des aufgelösten Parameternamens.
-    /// </summary>
     public static ParameterTemplate? FindTemplate(string resolvedParam)
     {
-        // Prüfe alle Listen
         foreach (var list in new[] { StripFloatParameters, BusFloatParameters })
         {
             foreach (var t in list)
             {
-                // Template-Matching: "Strip[{s}].Gain" matcht "Strip[3].Gain"
                 string pattern = t.Template
                     .Replace("{s}", @"\d+")
                     .Replace("{b}", @"\d+");
@@ -186,7 +151,6 @@ public static class VoicemeeterParameterCatalog
         return null;
     }
 
-    /// <summary>Löst Template-Platzhalter auf.</summary>
     private static string ResolveTemplate(string template, int vmChannel)
     {
         bool isStrip = vmChannel < 8;
@@ -196,7 +160,6 @@ public static class VoicemeeterParameterCatalog
             .Replace("{b}", index.ToString());
     }
 
-    /// <summary>Aufgelöster Parameter mit konkretem Index.</summary>
     public record ResolvedParameter(
         string Parameter,
         string DisplayName,
@@ -205,12 +168,9 @@ public static class VoicemeeterParameterCatalog
         double DefaultStep = 1,
         string Unit = "");
 
-    // ─── Gruppierte Bool-Parameter (für Master-Button-Dropdown) ─────
 
-    /// <summary>Eine Gruppe von Bool-Parametern mit Anzeigename.</summary>
     public record ParameterGroup(string GroupName, List<ParameterTemplate> Parameters);
 
-    /// <summary>Strip-Bool-Parameter gruppiert nach Funktion.</summary>
     public static readonly List<ParameterGroup> StripBoolGroups = new()
     {
         new("Basis", new List<ParameterTemplate>
@@ -249,7 +209,6 @@ public static class VoicemeeterParameterCatalog
         }),
     };
 
-    /// <summary>Bus-Bool-Parameter gruppiert nach Funktion.</summary>
     public static readonly List<ParameterGroup> BusBoolGroups = new()
     {
         new("Basis", new List<ParameterTemplate>
@@ -269,10 +228,6 @@ public static class VoicemeeterParameterCatalog
         }),
     };
 
-    /// <summary>
-    /// Gibt die gruppierten Bool-Parameter für einen Kanaltyp zurück.
-    /// channelType: "Strip" oder "Bus"
-    /// </summary>
     public static List<ParameterGroup> GetBoolGroups(string channelType)
     {
         return channelType == "Bus" ? BusBoolGroups : StripBoolGroups;

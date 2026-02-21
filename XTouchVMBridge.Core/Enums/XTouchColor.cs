@@ -1,9 +1,5 @@
 namespace XTouchVMBridge.Core.Enums;
 
-/// <summary>
-/// Farben für die X-Touch Extender LCD-Displays.
-/// Werte entsprechen dem Mackie Control SysEx-Protokoll (0–7).
-/// </summary>
 public enum XTouchColor : byte
 {
     Off = 0,

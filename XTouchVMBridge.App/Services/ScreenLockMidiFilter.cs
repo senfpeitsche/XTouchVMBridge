@@ -5,11 +5,6 @@ using Microsoft.Extensions.Logging;
 
 namespace XTouchVMBridge.App.Services;
 
-/// <summary>
-/// Filtert MIDI-Eingaben wenn der Bildschirm gesperrt ist.
-///
-/// Zeigt "SCREEN LOCKED" auf dem X-Touch Display und blockiert alle Eingaben.
-/// </summary>
 public class ScreenLockMidiFilter
 {
     private readonly ILogger<ScreenLockMidiFilter> _logger;
@@ -42,7 +37,6 @@ public class ScreenLockMidiFilter
         {
             _isDisplayingLockMessage = false;
             _logger.LogDebug("Bildschirm entsperrt — MIDI-Eingabe freigegeben.");
-            // Full refresh wird durch die Bridge getriggert
         }
     }
 
@@ -61,7 +55,6 @@ public class ScreenLockMidiFilter
 
         try
         {
-            // "SCREEN LOCKED" über das Display verteilen
             string[] topTexts = { " SCREEN", "       ", "LOCKED ", "       ", "       ", "       ", "       ", "       " };
             string[] bottomTexts = { "       ", "       ", "       ", "       ", "       ", "       ", "       ", "       " };
 

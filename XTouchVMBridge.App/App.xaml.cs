@@ -16,11 +16,6 @@ using Serilog;
 
 namespace XTouchVMBridge.App;
 
-/// <summary>
-/// WPF Application Entry Point.
-/// Konfiguriert Dependency Injection, Logging und startet alle Services.
-/// Entspricht main() aus audiomanager.pyw.
-/// </summary>
 public partial class App : Application
 {
     private IHost? _host;
@@ -40,10 +35,8 @@ public partial class App : Application
         }
         catch
         {
-            // Fallback auf Arbeitsverzeichnis
         }
 
-        // Serilog konfigurieren
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.Console()
@@ -60,15 +53,11 @@ public partial class App : Application
 
         try
         {
-            // Konfiguration früh laden, damit optionale Pfade (z.B. Voicemeeter DLL) bereits verfügbar sind.
             var configService = new ConfigurationService(
                 new LoggerFactory().CreateLogger<ConfigurationService>());
             var config = configService.Load();
             Log.Information("Config-Version: {ConfigVersion}", config.ConfigVersion);
 
-            // WICHTIG: DLL-Suchpfad für VoicemeeterRemote64.dll setzen BEVOR
-            // irgendwelche Services gestartet werden (DllImport wird beim ersten
-            // Zugriff auf die Klasse ausgelöst).
             var configuredVmDllDirectory = ResolveConfiguredVmDllDirectory(config.VoicemeeterDllPath);
             var vmDllPath = XTouchVMBridge.Voicemeeter.Native.VoicemeeterRemote.EnsureDllSearchPath(config.VoicemeeterDllPath);
             if (vmDllPath != null)
@@ -89,59 +78,46 @@ public partial class App : Application
                 .UseSerilog()
                 .ConfigureServices((context, services) =>
                 {
-                    // Konfiguration
                     services.AddSingleton(Options.Create(config));
-                    services.AddSingleton(config); // Direkte Registrierung für TrayIconService/XTouchPanel
+                    services.AddSingleton(config); // Direct registration for TrayIconService/XTouchPanel.
                     services.AddSingleton<IConfigurationService>(configService);
 
-                    // Core Services
                     services.AddSingleton<IMidiDevice, XTouchDevice>();
                     services.AddSingleton<IVoicemeeterService, VoicemeeterService>();
                     services.AddSingleton<IScreenLockDetector, ScreenLockDetector>();
                     services.AddSingleton<ScreenLockMidiFilter>();
 
-                    // Background Services
                     services.AddHostedService<AudioDeviceMonitorService>();
                     services.AddSingleton<VoicemeeterBridge>();
                     services.AddHostedService(sp => sp.GetRequiredService<VoicemeeterBridge>());
 
-                    // Master-Button-Aktionen
                     services.AddSingleton<MasterButtonActionService>();
 
-                    // Segment-Display (7-Segment Timecode-Anzeige)
                     services.AddHostedService<SegmentDisplayService>();
 
-                    // MQTT Client
                     services.AddSingleton<MqttClientService>();
                     services.AddHostedService(sp => sp.GetRequiredService<MqttClientService>());
                     services.AddSingleton<MqttButtonIntegrationService>();
 
-                    // WPF-spezifisch
                     services.AddSingleton<TrayIconService>();
                 })
                 .Build();
 
-            // Services starten
             await _host.StartAsync();
 
-            // Voicemeeter verbinden (DLL-Suchpfad wurde oben bereits gesetzt)
             var vm = _host.Services.GetRequiredService<IVoicemeeterService>();
             vm.Connect();
 
-            // X-Touch verbinden (Reconnect läuft automatisch über AudioDeviceMonitorService)
             var xtouch = _host.Services.GetRequiredService<IMidiDevice>();
             await xtouch.ConnectAsync();
             if (!xtouch.IsConnected)
                 Log.Warning("X-Touch beim Start nicht gefunden — Reconnect läuft im Hintergrund.");
 
-            // Screen Lock Filter initialisieren (registriert sich selbst auf MIDI-Events)
             _host.Services.GetRequiredService<ScreenLockMidiFilter>();
 
-            // Master-Button-Aktionen initialisieren (registriert sich auf MasterButtonChanged)
             _host.Services.GetRequiredService<MasterButtonActionService>();
             _host.Services.GetRequiredService<MqttButtonIntegrationService>();
 
-            // Tray Icon starten
             var trayIcon = _host.Services.GetRequiredService<TrayIconService>();
             trayIcon.Initialize();
 
