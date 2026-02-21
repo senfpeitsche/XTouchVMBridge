@@ -1,5 +1,6 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
+using XTouchVMBridge.App.Services;
 using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Hardware;
 using Color = System.Windows.Media.Color;
@@ -27,6 +28,8 @@ public partial class XTouchPanelWindow
             $"MIDI:          SysEx F0 00 00 66 15 12 <offset> <ASCII> F7\n" +
             $"               SysEx F0 00 00 66 15 72 <8 Farbbytes> F7\n" +
             $"Hersteller:    LCDs — SysEx F0 00 20 32 dd 4C nn cc c1..c14 F7";
+        DetailHeader.Text = LocalizationService.Translate(DetailHeader.Text);
+        DetailText.Text = LocalizationService.Translate(DetailText.Text);
     }
 
     private void ShowEncoderDetail(int ch)
@@ -68,6 +71,8 @@ public partial class XTouchPanelWindow
             $"MIDI Ring:      CC {48 + ch} (value = mode×16 + pos [+64 LED])\n" +
             $"Hersteller:     Encoder CC 80..87, Encoder Rings CC 80..87";
 
+        DetailHeader.Text = LocalizationService.Translate(DetailHeader.Text);
+        DetailText.Text = LocalizationService.Translate(DetailText.Text);
         ShowEncoderMappingPanel(ch);
     }
 
@@ -104,6 +109,8 @@ public partial class XTouchPanelWindow
             $"Note-Formel:    {type}={((int)type)} × 8 + Kanal={ch} = {noteNum}\n" +
             $"Hersteller:     Buttons Note On #0..103";
 
+        DetailHeader.Text = LocalizationService.Translate(DetailHeader.Text);
+        DetailText.Text = LocalizationService.Translate(DetailText.Text);
         ShowButtonMappingPanel(ch, type);
     }
 
@@ -129,6 +136,8 @@ public partial class XTouchPanelWindow
             $"MIDI CC Mode:   CC {70 + ch} (value 0..127) — nur im MIDI-Mode\n" +
             $"Hersteller:     Fader CC 70..77, Fader Touch Note #110..117";
 
+        DetailHeader.Text = LocalizationService.Translate(DetailHeader.Text);
+        DetailText.Text = LocalizationService.Translate(DetailText.Text);
         ShowFaderMappingPanel(ch);
     }
 
@@ -145,6 +154,8 @@ public partial class XTouchPanelWindow
             $"dB-Skala:        -200→0, -100→1, -50→2, -40→3, -35→4, -30→5,\n" +
             $"                 -25→6, -20→7, -15→8, -10→9, -5→10, 0→11, +5→12\n\n" +
             $"Hersteller:      Meter LEDs CC 90..97 (value 0..127)";
+        DetailHeader.Text = LocalizationService.Translate(DetailHeader.Text);
+        DetailText.Text = LocalizationService.Translate(DetailText.Text);
         DetailMidiInfo.Text = ""; // Updated by RefreshDetailLiveValues.
     }
 
@@ -161,5 +172,9 @@ public partial class XTouchPanelWindow
             "MIDI Touch:     Note On #118 (touch: vel 127, release: vel 0)\n" +
             "MIDI CC Mode:   CC 78 (value 0..127) — nur im MIDI-Mode\n\n" +
             "Hersteller:     Fader CC 70..78, Fader Touch Note #110..118";
+        DetailHeader.Text = LocalizationService.Translate(DetailHeader.Text);
+        DetailText.Text = LocalizationService.Translate(DetailText.Text);
     }
 }
+
+

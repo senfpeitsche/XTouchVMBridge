@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using XTouchVMBridge.App.Services;
 using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Models;
 using XTouchVMBridge.Voicemeeter.Services;
@@ -46,7 +47,7 @@ public partial class XTouchPanelWindow
             HideMappingSubPanels();
 
             ButtonActionTypeCombo.Items.Clear();
-            ButtonActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM-Parameter toggeln", Tag = ButtonActionType.VmParameter });
+            ButtonActionTypeCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("VM-Parameter toggeln", "Toggle VM parameter"), Tag = ButtonActionType.VmParameter });
             ButtonActionTypeCombo.Items.Add(new ComboBoxItem { Content = "MQTT Publish", Tag = ButtonActionType.MqttPublish });
             ButtonMqttQosCombo.ItemsSource = new[] { "0", "1", "2" };
             ButtonMqttLedTestModeCombo.ItemsSource = new[] { "On", "Off", "Blink", "Toggle" };
@@ -54,12 +55,12 @@ public partial class XTouchPanelWindow
 
             var boolParams = VoicemeeterParameterCatalog.GetBoolParameters(vmCh);
             ButtonParamCombo.Items.Clear();
-            ButtonParamCombo.Items.Add(new ComboBoxItem { Content = "(nicht zugewiesen)", Tag = "" });
+            ButtonParamCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("(nicht zugewiesen)", "(not assigned)"), Tag = "" });
             if (buttonType == XTouchButtonType.Rec)
             {
                 ButtonParamCombo.Items.Add(new ComboBoxItem
                 {
-                    Content = "Aufnahme Start/Stop (Dateiname: Kanal + Zeit)",
+                    Content = LocalizationService.T("Aufnahme Start/Stop (Dateiname: Kanal + Zeit)", "Recording start/stop (filename: channel + time)"),
                     Tag = ButtonMappingConfig.ChannelRecordActionParameter
                 });
             }
@@ -119,8 +120,9 @@ public partial class XTouchPanelWindow
             UpdateButtonActionSubPanels(actionType);
 
             ButtonMappingPanel.Visibility = Visibility.Visible;
-            MappingPanelHeader.Text = "Button Mapping";
+            MappingPanelHeader.Text = LocalizationService.T("Button Mapping", "Button Mapping");
             MappingPanel.Visibility = Visibility.Visible;
+            LocalizationService.LocalizeWindow(this);
         }
         finally
         {
@@ -180,7 +182,7 @@ public partial class XTouchPanelWindow
 
             var floatParams = VoicemeeterParameterCatalog.GetFloatParameters(vmCh);
             FaderParamCombo.Items.Clear();
-            FaderParamCombo.Items.Add(new ComboBoxItem { Content = "(nicht zugewiesen)", Tag = "" });
+            FaderParamCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("(nicht zugewiesen)", "(not assigned)"), Tag = "" });
 
             foreach (var p in floatParams)
             {
@@ -212,6 +214,7 @@ public partial class XTouchPanelWindow
 
             FaderMappingPanel.Visibility = Visibility.Visible;
             MappingPanel.Visibility = Visibility.Visible;
+            LocalizationService.LocalizeWindow(this);
         }
         finally
         {
@@ -258,6 +261,7 @@ public partial class XTouchPanelWindow
 
             EncoderMappingPanel.Visibility = Visibility.Visible;
             MappingPanel.Visibility = Visibility.Visible;
+            LocalizationService.LocalizeWindow(this);
         }
         finally
         {
@@ -300,18 +304,18 @@ public partial class XTouchPanelWindow
             HideMappingSubPanels();
 
             MasterActionTypeCombo.Items.Clear();
-            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "(keine Aktion)", Tag = MasterButtonActionType.None });
-            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM-Parameter toggeln", Tag = MasterButtonActionType.VmParameter });
-            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "Programm starten", Tag = MasterButtonActionType.LaunchProgram });
-            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "Tastenkombination senden", Tag = MasterButtonActionType.SendKeys });
-            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "Text senden", Tag = MasterButtonActionType.SendText });
-            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM Audio Engine neu starten", Tag = MasterButtonActionType.RestartAudioEngine });
-            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM-Fenster anzeigen", Tag = MasterButtonActionType.ShowVoicemeeter });
-            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "VM-GUI sperren/entsperren", Tag = MasterButtonActionType.LockGui });
-            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "Macro-Button auslösen", Tag = MasterButtonActionType.TriggerMacroButton });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("(keine Aktion)", "(no action)"), Tag = MasterButtonActionType.None });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("VM-Parameter toggeln", "Toggle VM parameter"), Tag = MasterButtonActionType.VmParameter });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("Programm starten", "Launch program"), Tag = MasterButtonActionType.LaunchProgram });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("Tastenkombination senden", "Send key combination"), Tag = MasterButtonActionType.SendKeys });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("Text senden", "Send text"), Tag = MasterButtonActionType.SendText });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("VM Audio Engine neu starten", "Restart VM audio engine"), Tag = MasterButtonActionType.RestartAudioEngine });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("VM-Fenster anzeigen", "Show VM window"), Tag = MasterButtonActionType.ShowVoicemeeter });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("VM-GUI sperren/entsperren", "Lock/unlock VM GUI"), Tag = MasterButtonActionType.LockGui });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("Macro-Button auslösen", "Trigger macro button"), Tag = MasterButtonActionType.TriggerMacroButton });
             MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "MQTT Publish", Tag = MasterButtonActionType.MqttPublish });
             MasterMqttQosCombo.ItemsSource = new[] { "0", "1", "2" };
-            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "MQTT Geraet auswaehlen", Tag = MasterButtonActionType.SelectMqttDevice });
+            MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("MQTT Geraet auswaehlen", "Select MQTT device"), Tag = MasterButtonActionType.SelectMqttDevice });
             MasterActionTypeCombo.Items.Add(new ComboBoxItem { Content = "MQTT Transport", Tag = MasterButtonActionType.MqttTransport });
             MasterMqttTransportQosCombo.ItemsSource = new[] { "0", "1", "2" };
             MasterMqttTransportCommandCombo.ItemsSource = new[] { "play_pause", "play", "pause", "stop", "next", "prev" };
@@ -358,15 +362,15 @@ public partial class XTouchPanelWindow
             MasterMqttTransportRetainBox.IsChecked = actionConfig?.MqttRetain == true;
 
             MasterVmLedSourceCombo.Items.Clear();
-            MasterVmLedSourceCombo.Items.Add(new ComboBoxItem { Content = "Manuell (LED-Feedback)", Tag = MasterVmLedSource.ManualFeedback });
-            MasterVmLedSourceCombo.Items.Add(new ComboBoxItem { Content = "Aus Voicemeeter-Status", Tag = MasterVmLedSource.VoicemeeterState });
+            MasterVmLedSourceCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("Manuell (LED-Feedback)", "Manual (LED feedback)"), Tag = MasterVmLedSource.ManualFeedback });
+            MasterVmLedSourceCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("Aus Voicemeeter-Status", "From Voicemeeter state"), Tag = MasterVmLedSource.VoicemeeterState });
             var activeVmLedSource = actionConfig?.VmLedSource ?? MasterVmLedSource.ManualFeedback;
             MasterVmLedSourceCombo.SelectedIndex = activeVmLedSource == MasterVmLedSource.VoicemeeterState ? 1 : 0;
 
             MasterLedFeedbackCombo.Items.Clear();
-            MasterLedFeedbackCombo.Items.Add(new ComboBoxItem { Content = "Kurz aufblinken", Tag = LedFeedbackMode.Blink });
-            MasterLedFeedbackCombo.Items.Add(new ComboBoxItem { Content = "An/Aus (Toggle)", Tag = LedFeedbackMode.Toggle });
-            MasterLedFeedbackCombo.Items.Add(new ComboBoxItem { Content = "Dauerhaft blinken", Tag = LedFeedbackMode.Blinking });
+            MasterLedFeedbackCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("Kurz aufblinken", "Short blink"), Tag = LedFeedbackMode.Blink });
+            MasterLedFeedbackCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("An/Aus (Toggle)", "On/Off (toggle)"), Tag = LedFeedbackMode.Toggle });
+            MasterLedFeedbackCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("Dauerhaft blinken", "Continuous blink"), Tag = LedFeedbackMode.Blinking });
             var activeLedMode = actionConfig?.LedFeedback ?? LedFeedbackMode.Blink;
             MasterLedFeedbackCombo.SelectedIndex = activeLedMode switch
             {
@@ -380,8 +384,9 @@ public partial class XTouchPanelWindow
             UpdateMasterActionSubPanels(activeType);
 
             MasterButtonMappingPanel.Visibility = Visibility.Visible;
-            MappingPanelHeader.Text = "Master-Button Aktion";
+            MappingPanelHeader.Text = LocalizationService.T("Master-Button Aktion", "Master button action");
             MappingPanel.Visibility = Visibility.Visible;
+            LocalizationService.LocalizeWindow(this);
         }
         finally
         {

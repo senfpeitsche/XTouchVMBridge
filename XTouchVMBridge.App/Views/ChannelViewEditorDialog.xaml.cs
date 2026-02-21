@@ -45,6 +45,7 @@ public partial class ChannelViewEditorDialog : Window
         Icon = AppIconFactory.CreateWindowIcon();
         BuildChannelGrid();
         PopulateViewList();
+        LocalizationService.LocalizeWindow(this);
     }
 
 
@@ -95,17 +96,17 @@ public partial class ChannelViewEditorDialog : Window
     {
         combo.Items.Clear();
 
-        combo.Items.Add(new ComboBoxItem { Content = "(Standard)", Tag = (XTouchColor?)null });
+        combo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("(Standard)", "(Default)"), Tag = (XTouchColor?)null });
 
         var colors = new (XTouchColor Color, string Name, Color Wpf)[]
         {
-            (XTouchColor.Red,     "Rot",     Color.FromRgb(220, 40, 40)),
-            (XTouchColor.Green,   "Grün",    Color.FromRgb(40, 200, 40)),
-            (XTouchColor.Yellow,  "Gelb",    Color.FromRgb(220, 200, 30)),
-            (XTouchColor.Blue,    "Blau",    Color.FromRgb(40, 100, 255)),
+            (XTouchColor.Red,     LocalizationService.T("Rot", "Red"),     Color.FromRgb(220, 40, 40)),
+            (XTouchColor.Green,   LocalizationService.T("Grün", "Green"),  Color.FromRgb(40, 200, 40)),
+            (XTouchColor.Yellow,  LocalizationService.T("Gelb", "Yellow"), Color.FromRgb(220, 200, 30)),
+            (XTouchColor.Blue,    LocalizationService.T("Blau", "Blue"),   Color.FromRgb(40, 100, 255)),
             (XTouchColor.Magenta, "Magenta", Color.FromRgb(220, 40, 220)),
             (XTouchColor.Cyan,    "Cyan",    Color.FromRgb(40, 220, 220)),
-            (XTouchColor.White,   "Weiß",    Color.FromRgb(200, 200, 200)),
+            (XTouchColor.White,   LocalizationService.T("Weiß", "White"),  Color.FromRgb(200, 200, 200)),
         };
 
         foreach (var (color, name, wpf) in colors)
@@ -136,7 +137,7 @@ public partial class ChannelViewEditorDialog : Window
 
         if (includeNone)
         {
-            combo.Items.Add(new ComboBoxItem { Content = "(Keine)", Tag = -1 });
+            combo.Items.Add(new ComboBoxItem { Content = LocalizationService.T("(Keine)", "(None)"), Tag = -1 });
         }
 
         for (int ch = 0; ch < 16; ch++)
@@ -334,8 +335,11 @@ public partial class ChannelViewEditorDialog : Window
 
         if (_config.ChannelViews.Count <= 1)
         {
-            MessageBox.Show("Mindestens eine View muss vorhanden sein.",
-                "Channel Views", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(
+                LocalizationService.T("Mindestens eine View muss vorhanden sein.", "At least one view must exist."),
+                "Channel Views",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
             return;
         }
 
@@ -354,7 +358,10 @@ public partial class ChannelViewEditorDialog : Window
         _bridge?.ReloadMappings();
         WasSaved = true;
 
-        MessageBox.Show("Channel Views gespeichert.",
-            "Channel Views", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show(
+            LocalizationService.T("Channel Views gespeichert.", "Channel views saved."),
+            "Channel Views",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 }

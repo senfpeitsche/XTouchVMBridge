@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -28,6 +28,7 @@ public partial class LogWindow : Window
     {
         InitializeComponent();
         Icon = AppIconFactory.CreateWindowIcon();
+        LocalizationService.LocalizeWindow(this);
 
         var appDataDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -53,11 +54,12 @@ public partial class LogWindow : Window
     {
         if (string.IsNullOrEmpty(_logFilePath) || !File.Exists(_logFilePath))
         {
-            LogTextBox.Text = $"Keine Log-Datei gefunden.\nErwartet unter: {_logFilePath}\n";
+            LogTextBox.Text = $"{LocalizationService.T("Keine Log-Datei gefunden.", "No log file found.")}\n" +
+                              $"{LocalizationService.T("Erwartet unter:", "Expected at:")} {_logFilePath}\n";
             return;
         }
 
-        LogTextBox.Text = $"Lade Log-Datei: {_logFilePath}...\n";
+        LogTextBox.Text = $"{LocalizationService.T("Lade Log-Datei:", "Loading log file:")} {_logFilePath}...\n";
 
         await Task.Run(() => LoadInitialContent());
 
@@ -91,7 +93,7 @@ public partial class LogWindow : Window
         {
             Dispatcher.Invoke(() =>
             {
-                LogTextBox.Text = $"Fehler beim Laden: {ex.Message}\n";
+                LogTextBox.Text = $"{LocalizationService.T("Fehler beim Laden:", "Load error:")} {ex.Message}\n";
             });
         }
     }
@@ -168,7 +170,7 @@ public partial class LogWindow : Window
         {
             _lastFilePosition = 0;
             LogTextBox.Clear();
-            LogTextBox.Text = $"=== Log-Datei wurde zurückgesetzt ===\n";
+            LogTextBox.Text = $"=== {LocalizationService.T("Log-Datei wurde zurückgesetzt", "Log file was reset")} ===\n";
         }
 
         if (fs.Length == _lastFilePosition)
@@ -208,15 +210,16 @@ public partial class LogWindow : Window
     {
         if (string.IsNullOrEmpty(_logFilePath) || !File.Exists(_logFilePath))
         {
-            LogTextBox.Text = $"Keine Log-Datei gefunden.\nErwartet unter: {_logFilePath}\n";
+            LogTextBox.Text = $"{LocalizationService.T("Keine Log-Datei gefunden.", "No log file found.")}\n" +
+                              $"{LocalizationService.T("Erwartet unter:", "Expected at:")} {_logFilePath}\n";
             return;
         }
 
         LogTextBox.Clear();
 
         var fileInfo = new FileInfo(_logFilePath);
-        LogTextBox.AppendText($"=== Log-Datei: {_logFilePath} ({fileInfo.Length / 1024} KB) ===\n");
-        LogTextBox.AppendText($"=== Filter: {_currentLogLevel}+ | {_allLoadedLines.Count} Zeilen geladen ===\n\n");
+        LogTextBox.AppendText($"=== {LocalizationService.T("Log-Datei", "Log file")}: {_logFilePath} ({fileInfo.Length / 1024} KB) ===\n");
+        LogTextBox.AppendText($"=== {LocalizationService.T("Filter", "Filter")}: {_currentLogLevel}+ | {_allLoadedLines.Count} {LocalizationService.T("Zeilen geladen", "lines loaded")} ===\n\n");
 
         foreach (var line in _allLoadedLines)
         {
@@ -264,7 +267,7 @@ public partial class LogWindow : Window
 
             if (_initialLoadDone)
             {
-                LogTextBox.Text = "Lade Log mit Filter...\n";
+                LogTextBox.Text = $"{LocalizationService.T("Lade Log mit Filter...", "Loading log with filter...")}\n";
                 _allLoadedLines.Clear();
                 await Task.Run(() => LoadInitialContent());
             }
@@ -277,7 +280,8 @@ public partial class LogWindow : Window
         if (!string.IsNullOrWhiteSpace(_logFilePath) && File.Exists(_logFilePath))
             _lastFilePosition = new FileInfo(_logFilePath).Length;
         else
-            LogTextBox.Text = $"Keine Log-Datei gefunden.\nErwartet unter: {_logFilePath}\n";
+            LogTextBox.Text = $"{LocalizationService.T("Keine Log-Datei gefunden.", "No log file found.")}\n" +
+                              $"{LocalizationService.T("Erwartet unter:", "Expected at:")} {_logFilePath}\n";
     }
 
     private void OnOpenInExplorerClick(object sender, RoutedEventArgs e)
@@ -299,7 +303,11 @@ public partial class LogWindow : Window
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show($"Fehler beim Öffnen: {ex.Message}", "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+            System.Windows.MessageBox.Show(
+                $"{LocalizationService.T("Fehler beim Öffnen:", "Open error:")} {ex.Message}",
+                LocalizationService.T("Fehler", "Error"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -310,3 +318,4 @@ public partial class LogWindow : Window
         base.OnClosed(e);
     }
 }
+

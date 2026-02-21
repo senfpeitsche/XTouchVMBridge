@@ -99,6 +99,7 @@ public class ConfigurationService : IConfigurationService
             VoicemeeterApiType = "potato",
             DeviceMonitorIntervalMs = 5000,
             EnableXTouch = true,
+            UiLanguage = "de",
             Channels = new Dictionary<int, ChannelConfig>
             {
                 [0] = new() { Name = "WaveMIC", Type = "Hardware Input 1", Color = XTouchColor.Green },
@@ -217,6 +218,7 @@ public class ConfigurationService : IConfigurationService
             config.ChannelViews ??= new List<ChannelViewConfig>();
             config.MasterButtonActions ??= new Dictionary<int, MasterButtonActionConfig>();
             config.Mqtt ??= new MqttConfig();
+            config.UiLanguage ??= "de";
             version = 1;
             migrated = true;
             _logger.LogInformation("Konfigurationsmigration v0 -> v1 angewendet.");
@@ -242,6 +244,7 @@ public class ConfigurationService : IConfigurationService
 
         config.Mqtt ??= new MqttConfig();
         config.Mqtt.Normalize();
+        config.UiLanguage = NormalizeUiLanguage(config.UiLanguage);
 
         foreach (var (key, channel) in config.Channels)
         {
@@ -383,5 +386,16 @@ public class ConfigurationService : IConfigurationService
             action.MqttLedPayloadBlink ??= "blink";
             action.MqttLedPayloadToggle ??= "toggle";
         }
+    }
+
+    private static string NormalizeUiLanguage(string? language)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+            return "de";
+
+        var normalized = language.Trim().ToLowerInvariant();
+        if (normalized.StartsWith("en"))
+            return "en";
+        return "de";
     }
 }

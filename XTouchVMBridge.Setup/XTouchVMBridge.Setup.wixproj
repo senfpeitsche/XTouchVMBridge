@@ -5,25 +5,21 @@
     <Cultures>en-US</Cultures>
     <InstallerPlatform>x64</InstallerPlatform>
     <DefineConstants>PublishDir=$(MSBuildProjectDirectory)\bin\$(Configuration)\publish</DefineConstants>
-    <HarvestDirectoryDependsOn>PublishApp;$(HarvestDirectoryDependsOn)</HarvestDirectoryDependsOn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="WixToolset.UI.wixext" Version="4.0.5" />
-    <PackageReference Include="WixToolset.Heat" Version="4.0.5" />
   </ItemGroup>
 
   <ItemGroup>
-    <HarvestDirectory Include="$(MSBuildProjectDirectory)\bin\$(Configuration)\publish">
-      <ComponentGroupName>AppFiles</ComponentGroupName>
-      <DirectoryRefId>INSTALLFOLDER</DirectoryRefId>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-      <SuppressRegistry>true</SuppressRegistry>
-      <PreprocessorVariable>var.PublishDir</PreprocessorVariable>
-    </HarvestDirectory>
+    <Compile Include="$(IntermediateOutputPath)AppFiles.generated.wxs" />
   </ItemGroup>
 
-  <Target Name="PublishApp" BeforeTargets="HarvestDirectory">
+  <Target Name="PublishApp" BeforeTargets="BeforeBuild">
     <Exec Command='dotnet publish "$(MSBuildProjectDirectory)\..\XTouchVMBridge.App\XTouchVMBridge.App.csproj" -c $(Configuration) -r win-x64 --self-contained false -o "$(MSBuildProjectDirectory)\bin\$(Configuration)\publish"' />
+  </Target>
+
+  <Target Name="GenerateAppFilesFragment" DependsOnTargets="PublishApp" BeforeTargets="CoreCompile">
+    <Exec Command='powershell -NoProfile -ExecutionPolicy Bypass -File "$(MSBuildProjectDirectory)\..\scripts\generate-wix-appfiles.ps1" -PublishDir "$(MSBuildProjectDirectory)\bin\$(Configuration)\publish" -OutputFile "$(IntermediateOutputPath)AppFiles.generated.wxs"' />
   </Target>
 </Project>

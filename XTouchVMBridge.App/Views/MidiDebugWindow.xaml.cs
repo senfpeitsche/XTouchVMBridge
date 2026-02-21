@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -31,6 +31,7 @@ public partial class MidiDebugWindow : Window
     {
         InitializeComponent();
         Icon = AppIconFactory.CreateWindowIcon();
+        LocalizationService.LocalizeWindow(this);
         _device = device;
         MessageList.ItemsSource = _filteredMessages;
 
@@ -38,12 +39,12 @@ public partial class MidiDebugWindow : Window
         {
             SubscribeToDevice();
             StatusText.Text = _device.IsConnected
-                ? "Verbunden — empfange MIDI"
-                : "Gerät nicht verbunden";
+                ? LocalizationService.T("Verbunden — empfange MIDI", "Connected — receiving MIDI")
+                : LocalizationService.T("Gerät nicht verbunden", "Device not connected");
         }
         else
         {
-            StatusText.Text = "Kein MIDI-Gerät zugewiesen";
+            StatusText.Text = LocalizationService.T("Kein MIDI-Gerät zugewiesen", "No MIDI device assigned");
         }
     }
 
@@ -142,7 +143,7 @@ public partial class MidiDebugWindow : Window
                         _filteredMessages.RemoveAt(0);
                 }
 
-                MessageCountText.Text = $"{_totalCount} Nachrichten ({_filteredMessages.Count} sichtbar)";
+                MessageCountText.Text = $"{_totalCount} {LocalizationService.T("Nachrichten", "messages")} ({_filteredMessages.Count} {LocalizationService.T("sichtbar", "visible")})";
             }
 
             if (AutoScrollCheck.IsChecked == true && _filteredMessages.Count > 0)
@@ -159,7 +160,7 @@ public partial class MidiDebugWindow : Window
         if (entry.Direction == MidiMessageDecoder.MidiDirection.Out && CaptureOutgoing?.IsChecked != true)
             return false;
 
-        if (_controlTypeFilter != "Alle")
+        if (!IsAllValue(_controlTypeFilter))
         {
             bool matchesType = _controlTypeFilter switch
             {
@@ -170,9 +171,11 @@ public partial class MidiDebugWindow : Window
             if (!matchesType) return false;
         }
 
-        if (_channelFilter != "Alle")
+        if (!IsAllValue(_channelFilter))
         {
-            if (!entry.ControlId.Contains($"Kanal {_channelFilter}"))
+            bool matchesGerman = entry.ControlId.Contains($"Kanal {_channelFilter}", StringComparison.OrdinalIgnoreCase);
+            bool matchesEnglish = entry.ControlId.Contains($"Channel {_channelFilter}", StringComparison.OrdinalIgnoreCase);
+            if (!matchesGerman && !matchesEnglish)
                 return false;
         }
 
@@ -191,18 +194,24 @@ public partial class MidiDebugWindow : Window
                 if (MatchesFilter(msg))
                     _filteredMessages.Add(msg);
             }
-            MessageCountText.Text = $"{_totalCount} Nachrichten ({_filteredMessages.Count} sichtbar)";
+            MessageCountText.Text = $"{_totalCount} {LocalizationService.T("Nachrichten", "messages")} ({_filteredMessages.Count} {LocalizationService.T("sichtbar", "visible")})";
         }
+    }
+
+    private static bool IsAllValue(string? value)
+    {
+        return string.Equals(value, "Alle", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "All", StringComparison.OrdinalIgnoreCase);
     }
 
 
     private void OnFilterChanged(object sender, SelectionChangedEventArgs e)
     {
         if (ControlTypeFilter?.SelectedItem is ComboBoxItem typeItem)
-            _controlTypeFilter = typeItem.Content?.ToString() ?? "Alle";
+            _controlTypeFilter = typeItem.Content?.ToString() ?? LocalizationService.T("Alle", "All");
 
         if (ChannelFilter?.SelectedItem is ComboBoxItem chItem)
-            _channelFilter = chItem.Content?.ToString() ?? "Alle";
+            _channelFilter = chItem.Content?.ToString() ?? LocalizationService.T("Alle", "All");
 
         ReapplyFilter();
     }
@@ -214,7 +223,7 @@ public partial class MidiDebugWindow : Window
             _allMessages.Clear();
             _filteredMessages.Clear();
             _totalCount = 0;
-            MessageCountText.Text = "0 Nachrichten";
+            MessageCountText.Text = LocalizationService.T("0 Nachrichten", "0 messages");
         }
     }
 
@@ -283,4 +292,7 @@ public class MidiDebugEntry
     }
 
 }
+
+
+
 

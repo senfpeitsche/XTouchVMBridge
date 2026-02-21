@@ -90,6 +90,7 @@ public partial class XTouchPanelWindow : Window
         BuildChannelStrips();
         BuildMainFader();
         BuildMasterSection();
+        LocalizationService.LocalizeWindow(this);
         SubscribeToEvents();
 
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };

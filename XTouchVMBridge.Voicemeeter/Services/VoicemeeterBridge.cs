@@ -1,4 +1,4 @@
-using XTouchVMBridge.Core.Enums;
+﻿using XTouchVMBridge.Core.Enums;
 using XTouchVMBridge.Core.Hardware;
 using XTouchVMBridge.Core.Interfaces;
 using XTouchVMBridge.Core.Models;
@@ -42,7 +42,7 @@ public partial class VoicemeeterBridge : BackgroundService
         for (int ch = 0; ch < MidiDevice_ChannelCount(); ch++)
             _xtouch.SetLevelMeter(ch, 0);
         _forceLevelRefresh = true;
-        _logger.LogDebug("VU-Meter nach View-Wechsel zur�ckgesetzt.");
+        _logger.LogDebug("VU-Meter nach View-Wechsel zurï¿½ckgesetzt.");
 
         RegisterEncoderFunctions();
 
@@ -288,6 +288,7 @@ internal class TaskScheduler
 
     public void Clear() => _tasks.Clear();
 }
+
 
 
 

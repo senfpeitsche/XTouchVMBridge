@@ -15,6 +15,8 @@ public class XTouchVMBridgeConfig
 
     public bool EnableXTouch { get; set; } = true;
 
+    public string UiLanguage { get; set; } = "de";
+
     public Dictionary<int, ControlMappingConfig> Mappings { get; set; } = new();
 
     public List<ChannelViewConfig> ChannelViews { get; set; } = new();

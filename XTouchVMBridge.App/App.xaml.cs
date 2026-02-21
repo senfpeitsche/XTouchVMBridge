@@ -56,7 +56,9 @@ public partial class App : Application
             var configService = new ConfigurationService(
                 new LoggerFactory().CreateLogger<ConfigurationService>());
             var config = configService.Load();
+            LocalizationService.SetLanguage(config.UiLanguage);
             Log.Information("Config-Version: {ConfigVersion}", config.ConfigVersion);
+            Log.Information("UI-Language: {Language}", config.UiLanguage);
 
             var configuredVmDllDirectory = ResolveConfiguredVmDllDirectory(config.VoicemeeterDllPath);
             var vmDllPath = XTouchVMBridge.Voicemeeter.Native.VoicemeeterRemote.EnsureDllSearchPath(config.VoicemeeterDllPath);

@@ -18,6 +18,7 @@ public partial class MqttConfigDialog : Window
     {
         InitializeComponent();
         Icon = AppIconFactory.CreateWindowIcon();
+        LocalizationService.LocalizeWindow(this);
         _config = config;
         _configService = configService;
         _mqttClientService = mqttClientService;
@@ -48,7 +49,9 @@ public partial class MqttConfigDialog : Window
         PublishRetainBox.IsChecked = mqtt.PublishRetain;
         SubscribeTopicsBox.Text = string.Join(Environment.NewLine, mqtt.SubscribeTopics);
         SubscribeQosBox.SelectedItem = mqtt.SubscribeQos.ToString(CultureInfo.InvariantCulture);
-        StatusText.Text = _mqttClientService?.IsConnected == true ? "Verbunden" : "Nicht verbunden";
+        StatusText.Text = _mqttClientService?.IsConnected == true
+            ? LocalizationService.T("Verbunden", "Connected")
+            : LocalizationService.T("Nicht verbunden", "Not connected");
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => Close();
@@ -62,7 +65,9 @@ public partial class MqttConfigDialog : Window
         if (_mqttClientService != null)
         {
             await _mqttClientService.ReloadAsync();
-            StatusText.Text = _mqttClientService.IsConnected ? "Verbunden" : "Nicht verbunden";
+            StatusText.Text = _mqttClientService.IsConnected
+                ? LocalizationService.T("Verbunden", "Connected")
+                : LocalizationService.T("Nicht verbunden", "Not connected");
         }
 
         Close();
@@ -72,16 +77,22 @@ public partial class MqttConfigDialog : Window
     {
         if (_mqttClientService == null)
         {
-            MessageBox.Show("MQTT Service nicht verfuegbar.", "MQTT Test",
+            MessageBox.Show(LocalizationService.T("MQTT Service nicht verfuegbar.", "MQTT service not available."),
+                "MQTT Test",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var mqtt = BuildConfigFromForm();
-        StatusText.Text = "Teste Verbindung...";
+        StatusText.Text = LocalizationService.T("Teste Verbindung...", "Testing connection...");
         var (success, error) = await _mqttClientService.TestConnectionAsync(mqtt);
-        StatusText.Text = success ? "Test erfolgreich" : "Test fehlgeschlagen";
-        MessageBox.Show(success ? "Verbindung erfolgreich." : $"Fehler: {error}", "MQTT Test",
+        StatusText.Text = success
+            ? LocalizationService.T("Test erfolgreich", "Test successful")
+            : LocalizationService.T("Test fehlgeschlagen", "Test failed");
+        MessageBox.Show(success
+                ? LocalizationService.T("Verbindung erfolgreich.", "Connection successful.")
+                : $"{LocalizationService.T("Fehler", "Error")}: {error}",
+            "MQTT Test",
             MessageBoxButton.OK, success ? MessageBoxImage.Information : MessageBoxImage.Error);
     }
 
