@@ -15,6 +15,7 @@ public partial class XTouchDevice : IMidiDevice
 {
     private readonly ILogger<XTouchDevice> _logger;
     private readonly XTouchChannel[] _channels;
+    private readonly Dictionary<int, LedState> _masterButtonLedStates = new();
     private readonly Dictionary<int, DateTime> _noteTimers = new();
 
     private MidiIn? _midiIn;
@@ -40,6 +41,7 @@ public partial class XTouchDevice : IMidiDevice
     public bool IsConnected => _isConnected;
     public int ChannelCount => MackieProtocol.ChannelCount;
     public IReadOnlyList<XTouchChannel> Channels => _channels;
+    public IReadOnlyDictionary<int, LedState> MasterButtonLedStates => _masterButtonLedStates;
     public bool IsMainFaderTouched => _mainFaderTouched;
 
     public string? SelectedDeviceName

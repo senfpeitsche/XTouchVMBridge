@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using XTouchVMBridge.App.Services;
 using XTouchVMBridge.Core.Hardware;
 using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
@@ -45,6 +46,7 @@ public partial class XTouchPanelWindow
                       "Fest zugewiesen - kann nicht geändert werden."
         };
         flipButton.Template = CreateRoundedButtonTemplate(3);
+        RegisterMasterButtonVisual(flipButton, MasterButtonActionService.FlipButtonNote, Color.FromRgb(120, 80, 160), Color.FromRgb(45, 37, 53));
         flipButton.Click += (_, _) =>
         {
             System.Windows.MessageBox.Show(

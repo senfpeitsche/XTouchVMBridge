@@ -50,6 +50,7 @@ public partial class XTouchPanelWindow : Window
     private bool _draggingMainFader;
 
     private readonly Dictionary<string, Button> _masterButtons = new();
+    private readonly Dictionary<int, Button> _masterButtonsByNote = new();
 
     private int _selectedVmChannel = -1;
     private string _selectedControlType = ""; // "Button", "Fader", "Encoder", "MasterButton"
@@ -67,7 +68,6 @@ public partial class XTouchPanelWindow : Window
     private const int DoubleTapThresholdMs = 400;
 
     private readonly Dictionary<(int Channel, XTouchButtonType Type), bool> _manualLedState = new();
-    private readonly Dictionary<int, bool> _masterButtonLedState = new();
     private bool _panelRecorderActive;
 
     public XTouchPanelWindow() : this(null, null, null, null, null, null, null) { }
@@ -166,14 +166,9 @@ public partial class XTouchPanelWindow : Window
         {
             ViewSwitchButton.Content = $"⚙ {_bridge.CurrentViewName}";
 
-            if (_masterButtons.TryGetValue("Flip", out var flipBtn))
-            {
-                bool isActive = _bridge.CurrentViewIndex > 0;
-                flipBtn.Background = new SolidColorBrush(isActive
-            ? Color.FromRgb(120, 80, 160)   // active: brighter violet
-            : Color.FromRgb(45, 37, 53));   // inactive: darker tone
-            }
         }
+
+        RefreshMasterButtonVisuals();
 
         var now = DateTime.Now;
         SegmentDisplay.Text = now.ToString("HH : mm : ss");
@@ -302,7 +297,39 @@ public partial class XTouchPanelWindow : Window
         btn.Background = new SolidColorBrush(color);
     }
 
+    private void RefreshMasterButtonVisuals()
+    {
+        if (_device == null)
+            return;
+
+        foreach (var (noteNumber, button) in _masterButtonsByNote)
+        {
+            if (button.Tag is not MasterButtonTag tag)
+                continue;
+
+            LedState state = _device.MasterButtonLedStates.TryGetValue(noteNumber, out var ledState)
+                ? ledState
+                : LedState.Off;
+
+            var color = state switch
+            {
+                LedState.On => tag.ActiveColor,
+                LedState.Blink => tag.ActiveColor,
+                _ => tag.InactiveColor
+            };
+
+            button.Background = new SolidColorBrush(color);
+        }
+    }
+
+    private void RegisterMasterButtonVisual(Button button, int noteNumber, Color activeColor, Color inactiveColor)
+    {
+        button.Tag = new MasterButtonTag(noteNumber, activeColor, inactiveColor);
+        _masterButtonsByNote[noteNumber] = button;
+    }
+
     private record ButtonTag(int Channel, XTouchButtonType Type, Color ActiveColor, Color InactiveColor);
+    private record MasterButtonTag(int NoteNumber, Color ActiveColor, Color InactiveColor);
 
 
     private void OnFaderUpdate(int ch)

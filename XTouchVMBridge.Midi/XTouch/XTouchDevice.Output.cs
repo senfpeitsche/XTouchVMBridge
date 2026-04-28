@@ -44,6 +44,8 @@ public partial class XTouchDevice
 
     public void SetMasterButtonLed(int noteNumber, LedState state)
     {
+        _masterButtonLedStates[noteNumber] = state;
+
         byte velocity = state switch
         {
             LedState.Off => MackieProtocol.VelocityOff,
@@ -183,9 +185,15 @@ public partial class XTouchDevice
         }
 
         for (int note = 0; note < 32; note++)
+        {
+            _masterButtonLedStates[note] = LedState.Off;
             SendShortMessage(0x90, (byte)note, 0);
+        }
         for (int note = 40; note <= 103; note++)
+        {
+            _masterButtonLedStates[note] = LedState.Off;
             SendShortMessage(0x90, (byte)note, 0);
+        }
 
         byte[] colors = new byte[MackieProtocol.ChannelCount];
         for (int i = 0; i < MackieProtocol.ChannelCount; i++)

@@ -12,6 +12,8 @@ public interface IMidiDevice : IDisposable
 
     IReadOnlyList<XTouchChannel> Channels { get; }
 
+    IReadOnlyDictionary<int, LedState> MasterButtonLedStates { get; }
+
     string? SelectedDeviceName { get; set; }
 
     bool IsMainFaderTouched { get; }

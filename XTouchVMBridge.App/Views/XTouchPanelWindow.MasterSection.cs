@@ -35,6 +35,7 @@ public partial class XTouchPanelWindow
         {
             int noteNum = notes[i];
             var btn = CreateMasterButton(names[i], $"EncoderAssign_{names[i]}", Color.FromRgb(35, 35, 35), Color.FromRgb(80, 80, 80));
+            RegisterMasterButtonVisual(btn, noteNum, Color.FromRgb(80, 80, 80), Color.FromRgb(35, 35, 35));
             btn.Click += (s, _) => OnMasterButtonClick(s,"Encoder Assign", names[Array.IndexOf(notes, noteNum)], noteNum,
                 "Wählt den Parameter für alle 8 Encoder.\nDrehen der Encoder ändert den gewählten Parameter pro Kanal.");
             EncoderAssignPanel.Children.Add(btn);
@@ -51,6 +52,7 @@ public partial class XTouchPanelWindow
         foreach (var (name, note, desc) in displayItems)
         {
             var btn = CreateMasterButton(name, $"Display_{name}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
+            RegisterMasterButtonVisual(btn, note, Color.FromRgb(70, 70, 70), Color.FromRgb(35, 35, 35));
             btn.Click += (s, _) => OnMasterButtonClick(s,"Display Mode", name, note, desc);
             DisplayModePanel.Children.Add(btn);
         }
@@ -63,6 +65,7 @@ public partial class XTouchPanelWindow
         foreach (var (name, note, desc) in timecodeItems)
         {
             var btn = CreateMasterButton(name, $"Timecode_{name}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
+            RegisterMasterButtonVisual(btn, note, Color.FromRgb(70, 70, 70), Color.FromRgb(35, 35, 35));
             btn.Click += (s, _) => OnMasterButtonClick(s,"Timecode Mode", name, note, desc);
             TimecodeModePanelXaml.Children.Add(btn);
         }
@@ -71,6 +74,7 @@ public partial class XTouchPanelWindow
     private void BuildGlobalViewButtons()
     {
         var gvBtn = CreateMasterButton("G.VIEW", "GlobalView_Main", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
+        RegisterMasterButtonVisual(gvBtn, 51, Color.FromRgb(70, 70, 70), Color.FromRgb(35, 35, 35));
         gvBtn.Click += (s, _) => OnMasterButtonClick(s, "Global View", "Global View", 51,
             "Global View — Aktiviert/deaktiviert den Global-View-Modus.\nZeigt alle Kanäle unabhängig vom Typ.");
         GlobalViewPanel.Children.Add(gvBtn);
@@ -81,6 +85,7 @@ public partial class XTouchPanelWindow
         {
             int idx = i;
             var btn = CreateMasterButton(names[i], $"GlobalView_{names[i]}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
+            RegisterMasterButtonVisual(btn, notes[idx], Color.FromRgb(70, 70, 70), Color.FromRgb(35, 35, 35));
             btn.Click += (s, _) => OnMasterButtonClick(s,"Global View", names[idx], notes[idx],
                 $"Globale Ansicht: {names[idx]}.\nFiltert die Kanalstreifen nach Typ.");
             GlobalViewPanel.Children.Add(btn);
@@ -95,6 +100,7 @@ public partial class XTouchPanelWindow
             string label = $"F{i + 1}";
             int noteNum = 54 + i; // F1=54..F8=61
             var btn = CreateMasterButton(label, $"Function_{label}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
+            RegisterMasterButtonVisual(btn, noteNum, Color.FromRgb(70, 70, 70), Color.FromRgb(35, 35, 35));
             btn.Click += (s, _) => OnMasterButtonClick(s,"Function", label, noteNum,
                 $"Funktion {idx + 1} — benutzerdefinierbar.\nZuweisung hängt von der DAW/Anwendung ab.");
             FunctionPanel.Children.Add(btn);
@@ -107,6 +113,7 @@ public partial class XTouchPanelWindow
         foreach (var (name, note) in items)
         {
             var btn = CreateMasterButton(name, $"Modify_{name}", Color.FromRgb(30, 30, 45), Color.FromRgb(60, 60, 100));
+            RegisterMasterButtonVisual(btn, note, Color.FromRgb(60, 60, 100), Color.FromRgb(30, 30, 45));
             btn.Click += (s, _) => OnMasterButtonClick(s,"Modify", name, note,
                 $"Modifier-Taste '{name}'.\nKombiniert mit anderen Tasten für erweiterte Funktionen.");
             ModifyPanel.Children.Add(btn);
@@ -123,6 +130,7 @@ public partial class XTouchPanelWindow
         foreach (var (name, note) in items)
         {
             var btn = CreateMasterButton(name, $"Auto_{name}", Color.FromRgb(30, 40, 30), Color.FromRgb(60, 90, 60));
+            RegisterMasterButtonVisual(btn, note, Color.FromRgb(60, 90, 60), Color.FromRgb(30, 40, 30));
             btn.Click += (s, _) => OnMasterButtonClick(s,"Automation", name, note,
                 $"Automation-Modus '{name}'.\nSteuert den Automation-Modus der DAW.");
             AutomationPanel.Children.Add(btn);
@@ -135,6 +143,7 @@ public partial class XTouchPanelWindow
         foreach (var (name, note) in items)
         {
             var btn = CreateMasterButton(name, $"Util_{name}", Color.FromRgb(40, 35, 25), Color.FromRgb(90, 80, 50));
+            RegisterMasterButtonVisual(btn, note, Color.FromRgb(90, 80, 50), Color.FromRgb(40, 35, 25));
             btn.Click += (s, _) => OnMasterButtonClick(s,"Utility", name, note,
                 $"Utility-Taste '{name}'.\nWird von der DAW zugewiesen.");
             UtilityPanel.Children.Add(btn);
@@ -151,6 +160,7 @@ public partial class XTouchPanelWindow
         foreach (var (name, note) in topItems)
         {
             var btn = CreateMasterButton(name, $"Transport_{name}", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
+            RegisterMasterButtonVisual(btn, note, Color.FromRgb(70, 70, 70), Color.FromRgb(35, 35, 35));
             btn.Click += (s, _) => OnMasterButtonClick(s,"Transport", name, note,
                 $"Transport-Taste '{name}'.\nSteuert die DAW-Transport-Funktionen.");
             TransportTopPanel.Children.Add(btn);
@@ -179,6 +189,7 @@ public partial class XTouchPanelWindow
                 Cursor = System.Windows.Input.Cursors.Hand
             };
             btn.Template = CreateRoundedButtonTemplate(4);
+            RegisterMasterButtonVisual(btn, note, activeColor, Color.FromRgb(40, 40, 40));
             btn.Click += (s, _) => OnMasterButtonClick(s,"Transport", name, note,
                 $"Transport: {name} ({symbol})\nMIDI: Note On #{note}");
             _masterButtons[$"Transport_{name}"] = btn;
@@ -189,6 +200,7 @@ public partial class XTouchPanelWindow
     private void BuildFaderBankChannelButtons()
     {
         var fbLeft = CreateMasterButton("◄", "FaderBank_Left", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
+        RegisterMasterButtonVisual(fbLeft, 46, Color.FromRgb(70, 70, 70), Color.FromRgb(35, 35, 35));
         fbLeft.FontSize = 14; fbLeft.Width = 36;
         fbLeft.Click += (s, _) => OnMasterButtonClick(s,"Fader Bank", "Bank Left", 46,
             "Fader Bank Links — Frei zuweisbar.\n(Channel View Cycling erfolgt über FLIP-Button)");
@@ -196,6 +208,7 @@ public partial class XTouchPanelWindow
         _masterButtons["FaderBank_Left"] = fbLeft;
 
         var fbRight = CreateMasterButton("►", "FaderBank_Right", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
+        RegisterMasterButtonVisual(fbRight, 47, Color.FromRgb(70, 70, 70), Color.FromRgb(35, 35, 35));
         fbRight.FontSize = 14; fbRight.Width = 36;
         fbRight.Click += (s, _) => OnMasterButtonClick(s,"Fader Bank", "Bank Right", 47,
             "Fader Bank Rechts — Frei zuweisbar.\n(Channel View Cycling erfolgt über FLIP-Button)");
@@ -203,6 +216,7 @@ public partial class XTouchPanelWindow
         _masterButtons["FaderBank_Right"] = fbRight;
 
         var chLeft = CreateMasterButton("◄", "Channel_Left", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
+        RegisterMasterButtonVisual(chLeft, 48, Color.FromRgb(70, 70, 70), Color.FromRgb(35, 35, 35));
         chLeft.FontSize = 14; chLeft.Width = 36;
         chLeft.Click += (s, _) => OnMasterButtonClick(s,"Channel", "Channel Left", 48,
             "Channel Links — Frei zuweisbar.");
@@ -210,6 +224,7 @@ public partial class XTouchPanelWindow
         _masterButtons["Channel_Left"] = chLeft;
 
         var chRight = CreateMasterButton("►", "Channel_Right", Color.FromRgb(35, 35, 35), Color.FromRgb(70, 70, 70));
+        RegisterMasterButtonVisual(chRight, 49, Color.FromRgb(70, 70, 70), Color.FromRgb(35, 35, 35));
         chRight.FontSize = 14; chRight.Width = 36;
         chRight.Click += (s, _) => OnMasterButtonClick(s,"Channel", "Channel Right", 49,
             "Channel Rechts — Frei zuweisbar.");
@@ -232,6 +247,7 @@ public partial class XTouchPanelWindow
             var bgColor = name == "Select" ? Color.FromRgb(30, 45, 30) : Color.FromRgb(35, 35, 35);
             var borderColor = name == "Select" ? Color.FromRgb(60, 90, 60) : Color.FromRgb(70, 70, 70);
             var btn = CreateMasterButton(label, $"Nav_{name}", bgColor, borderColor);
+            RegisterMasterButtonVisual(btn, note, borderColor, bgColor);
             btn.Width = 36;
             btn.Height = 26;
             btn.FontSize = 12;
@@ -244,6 +260,7 @@ public partial class XTouchPanelWindow
 
     private void BuildScrubButton()
     {
+        RegisterMasterButtonVisual(ScrubButton, 101, Color.FromRgb(70, 70, 70), Color.FromRgb(35, 35, 35));
         ScrubButton.Click += (s, _) => OnMasterButtonClick(s,"Control", "SCRUB", 101,
             "SCRUB-Taste aktiviert den Scrub-Modus für das Jog Wheel.\n" +
             "Im Scrub-Modus: Frame-genaue Audio-Wiedergabe beim Drehen.");
@@ -295,14 +312,12 @@ public partial class XTouchPanelWindow
             if (_masterButtonActionService?.ExecuteAction(noteNumber) == true)
                 return;
 
-            _masterButtonLedState.TryGetValue(noteNumber, out bool isOn);
-            _masterButtonLedState[noteNumber] = !isOn;
-            var newState = !isOn ? LedState.On : LedState.Off;
+            LedState currentState = _device?.MasterButtonLedStates.TryGetValue(noteNumber, out var ledState) == true
+                ? ledState
+                : LedState.Off;
+            var newState = currentState == LedState.Off ? LedState.On : LedState.Off;
 
             _device?.SetMasterButtonLed(noteNumber, newState);
-
-            if (sender is Button panelBtn)
-                panelBtn.Background = new SolidColorBrush(!isOn ? Color.FromRgb(100, 160, 220) : Color.FromRgb(35, 35, 35));
             return;
         }
 
