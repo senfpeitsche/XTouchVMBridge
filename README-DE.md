@@ -148,6 +148,7 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 - [VOICEMEETER-API-DE.md](docs/VOICEMEETER-API-DE.md) -- Vollstandige Voicemeeter Remote API Parameter-Referenz (implementiert + erweiterbar)
 - [MIGRATION-DE.md](docs/MIGRATION-DE.md) -- Zuordnung Python-Original zu C#-Implementierung
 - [MQTT-DE.md](docs/MQTT-DE.md) -- MQTT Setup, Topic-Schema, Master Device Select + Transport
+- [RELEASE-DE.md](docs/RELEASE-DE.md) -- Neuer Setup-Build, Tagging und GitHub Release Workflow
 
 ## Security-Hinweis (aktueller Scope)
 

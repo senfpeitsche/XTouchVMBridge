@@ -142,6 +142,7 @@ The first time it is started, `config.json` is created. The name, type and color
 - [VOICEMEETER-API.md](docs/VOICEMEETER-API.md) -- Full Voicemeeter Remote API parameter reference (implemented + extensible)
 - [MIGRATION.md](docs/MIGRATION.md) -- Mapping Python original to C# implementation
 - [MQTT.md](docs/MQTT.md) -- MQTT Setup, Topic Schema, Master Device Select + Transport
+- [RELEASE.md](docs/RELEASE.md) -- New setup build, tagging and GitHub release workflow
 
 ## Security Note (Current Scope)
 
