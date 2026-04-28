@@ -169,6 +169,7 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
 - **MIDI Debug Monitor**: Echtzeit-Anzeige aller MIDI-Nachrichten (Tray-Menu)
 - **X-Touch Panel**: Interaktive visuelle Darstellung der X-Touch OberflÃ¤che (Tray-Menu).
   Zeigt alle Controls in Echtzeit, Klick auf ein Control zeigt MIDI-Details und zugeordnete Funktion.
+  Die Master-Button-Darstellung spiegelt jetzt den tatsÃ¤chlich auf dem GerÃ¤t gesetzten LED-Zustand.
   - **Strg+Klick auf Master-Buttons**: FÃ¼hrt die konfigurierte Aktion aus (z.B. Media-Keys).
     Ohne konfigurierte Aktion wird die LED getoggelt (On/Off) und die MIDI-Note ans X-Touch gesendet.
   - **Strg+Klick auf Kanal-Buttons** (REC/SOLO/MUTE/SELECT): Toggelt den zugeordneten Voicemeeter-Parameter.
@@ -195,6 +196,7 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
   - Mapping-Editor: `Test Publish` und `Test LED`
 - **Master-Button-Aktionen**: F1-F8 und andere Master-Buttons kÃ¶nnen konfiguriert werden fÃ¼r:
   - Windows-Programme starten (mit Argumenten)
+    Optional: LED anlassen, solange das konfigurierte Programm lÃ¤uft
   - Tastenkombinationen senden (z.B. Ctrl+Shift+M, Alt+F4)
   - Media-Keys senden (MediaPlay, MediaNext, MediaPrev, MediaStop)
   - Text senden (via Zwischenablage + Ctrl+V)
@@ -211,6 +213,8 @@ Beim ersten Start wird `config.json` erzeugt. Darin werden pro Kanal (0-15) Name
   - **Blink**: LED blinkt kurz (150ms) als BestÃ¤tigung
   - **Toggle**: LED wechselt bei jedem Druck zwischen An und Aus
   - **Blinking**: LED blinkt dauerhaft (Hardware-Blink via Mackie Protocol), erneutes DrÃ¼cken stoppt das Blinken
+  - FÃ¼r `LaunchProgram` kann die LED optional anbleiben, solange der gestartete Prozess lÃ¤uft.
+    Beim App-Start werden bereits laufende Programme Ã¼ber den konfigurierten EXE-Pfad erneut erkannt, mit Fallback auf den Prozessnamen.
 - **7-Segment-Display**: Timecode-Anzeige zeigt Uhrzeit, Datum oder Speicherverbrauch.
   Cycle-Button (konfigurierbar, Standard: Note 52 / NAME) schaltet zwischen Modi um.
 
@@ -233,6 +237,7 @@ Interaktive visuelle Darstellung der vollstÃ¤ndigen X-Touch OberflÃ¤che, err
 - **Rechts**: Master Section (Encoder Assign, Display/Assignment, Global View, Function F1-F8,
   Modify/Automation/Utility, Transport mit Rewind/Forward/Stop/Play/Record, Fader Bank/Channel Navigation, Jog Wheel)
 - **Echtzeit-Updates**: 100ms Timer + Events vom MIDI-Device
+- **Master-LED-Spiegelung**: Master-Buttons im Panel verwenden den aktuellen Hardware-LED-Zustand statt eines panel-lokalen Schattenzustands
 - **Klick-Detail**: Jedes Control zeigt im Detail-Panel: aktueller Zustand, Encoder-Funktionsliste mit
   aktivem Modus (z.B. ">HIGH = 3.5dB"), MIDI-Protokoll-Details, Hersteller-Doku-Referenzen
 - **Strg+Klick-Steuerung**: Alle Controls kÃ¶nnen per Strg+Klick direkt bedient werden:
@@ -304,7 +309,7 @@ Mapping-Editor mit folgenden Aktionstypen:
 | Aktionstyp | Beschreibung | Konfigurationsfelder |
 |---|---|---|
 | **VM-Parameter toggeln** | Bool-Parameter in Voicemeeter umschalten | VM-Parameter (z.B. `Strip[0].Mute`), optional `vmLedSource` (`ManualFeedback` / `VoicemeeterState`) |
-| **Programm starten** | Windows-Programm ausfÃ¼hren | Programmpfad + optionale Argumente |
+| **Programm starten** | Windows-Programm ausfÃ¼hren | Programmpfad, optionale Argumente, optional LED anlassen solange der Prozess lÃ¤uft |
 | **Tastenkombination** | Keyboard-Shortcut simulieren | Kombination (z.B. `Ctrl+Shift+M`, `Alt+F4`, `F5`) |
 | **Text senden** | Text via Zwischenablage einfÃ¼gen | Beliebiger Text |
 | **VM Audio Engine neu starten** | Voicemeeter Audio Engine restarten | â€” |
@@ -323,7 +328,7 @@ In der `config.json` unter `masterButtonActions` (Key = MIDI Note-Nummer):
 
 ```json
 "masterButtonActions": {
-  "54": { "actionType": "LaunchProgram", "programPath": "C:\\Windows\\notepad.exe", "programArgs": "", "ledFeedback": "Blink" },
+  "54": { "actionType": "LaunchProgram", "programPath": "C:\\Windows\\notepad.exe", "programArgs": "", "keepLedOnWhileProgramRuns": true, "ledFeedback": "Blink" },
   "55": { "actionType": "SendKeys", "keyCombination": "Ctrl+Shift+M", "ledFeedback": "Toggle" },
   "56": { "actionType": "SendText", "text": "Hallo Welt", "ledFeedback": "Blinking" },
   "57": { "actionType": "VmParameter", "vmParameter": "Strip[0].Mute", "vmLedSource": "VoicemeeterState" },
@@ -380,6 +385,11 @@ Hardware-Blink des Mackie-Protokolls (Velocity 2) und benÃ¶tigt keine Software
 FÃ¼r `VmParameter`-Aktionen kann optional `vmLedSource` gesetzt werden:
 - `ManualFeedback` (Standard): LED folgt `ledFeedback`
 - `VoicemeeterState`: LED folgt dem echten VM-Parameterzustand (On/Off), auch bei externen Ã„nderungen in Voicemeeter
+
+FÃ¼r `LaunchProgram`-Aktionen kann optional `keepLedOnWhileProgramRuns` gesetzt werden:
+- `false` (Standard): LED folgt dem normalen `ledFeedback`
+- `true`: LED bleibt an, solange der konfigurierte Prozess lÃ¤uft, und geht aus wenn der letzte passende Prozess endet
+- Beim App-Start werden passende laufende Prozesse aus dem konfigurierten EXE-Pfad wiederhergestellt; falls der Prozesspfad nicht lesbar ist, wird auf EXE-/Prozessnamen zurÃ¼ckgefallen
 
 Hinweis: `LED per MQTT steuern` im Master-Editor ist nur beim Aktionstyp `MQTT Publish` verfÃ¼gbar.
 

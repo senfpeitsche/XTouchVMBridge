@@ -163,6 +163,7 @@ The first time it is started, `config.json` is created. The name, type and color
 - **MIDI Debug Monitor**: Real-time display of all MIDI messages (tray menu)
 - **X-Touch Panel**: Interactive visual representation of the X-Touch interface (tray menu).
   Shows all controls in real time, clicking on a control shows MIDI details and assigned function.
+  Master button visuals now reflect the real LED state currently set on the device.
   - **Ctrl+click on master buttons**: Executes the configured action (e.g. media keys).
     Without a configured action, the LED is toggled (on/off) and the MIDI note is sent to the X-Touch.
   - **Ctrl+click on channel buttons** (REC/SOLO/MUTE/SELECT): Toggles the assigned Voicemeeter parameter.
@@ -189,6 +190,7 @@ The first time it is started, `config.json` is created. The name, type and color
   - Mapping editor: `Test Publish` and `Test LED`
 - **Master Button Actions**: F1-F8 and other master buttons can be configured for:
   - Start Windows programs (with arguments)
+    Optional: keep LED on while the configured program is running
   - Send key combinations (e.g. Ctrl+Shift+M, Alt+F4)
   - Send media keys (MediaPlay, MediaNext, MediaPrev, MediaStop)
   - Send text (via clipboard + Ctrl+V)
@@ -205,6 +207,8 @@ The first time it is started, `config.json` is created. The name, type and color
   - **Blink**: LED flashes briefly (150ms) as confirmation
   - **Toggle**: LED switches between on and off with each press
   - **Blinking**: LED flashes continuously (hardware flash via Mackie Protocol), pressing again stops flashing
+  - For `LaunchProgram`, the editor can optionally keep the LED on while the launched process is running.
+    On startup, already running programs are detected again by configured EXE path, with fallback to process name.
 - **7-segment display**: Timecode display shows time, date or memory usage.
   Cycle button (configurable, default: Note 52 / NAME) switches between modes.
 
@@ -212,6 +216,8 @@ The first time it is started, `config.json` is created. The name, type and color
 
 - Improved runtime localization: panel and dialogs now switch language consistently after changing UI language.
 - MSI packaging: WiX app files are generated into an `AppFiles` component group to avoid linker issues in CI builds.
+- `LaunchProgram`: optional runtime LED that stays on while the started program is running, including startup resync for already running processes.
+- X-Touch Panel: master button LEDs now mirror the actual LED state sent to the hardware.
 
 ## MIDI Debug Monitor
 
@@ -232,6 +238,7 @@ Interactive visual representation of the complete X-Touch interface, accessible 
 - **Right**: Master Section (Encoder Assign, Display/Assignment, Global View, Function F1-F8,
   Modify/Automation/Utility, Transport with Rewind/Forward/Stop/Play/Record, Fader Bank/Channel Navigation, Jog Wheel)
 - **Real-time updates**: 100ms timer + events from MIDI device
+- **Master LED mirroring**: master section buttons in the panel use the current hardware LED state instead of a panel-local shadow state
 - **Click Detail**: Each control shows in the detail panel: current status, encoder function list
   active mode (e.g. ">HIGH = 3.5dB"), MIDI protocol details, manufacturer documentation references
 - **Ctrl+click control**: All controls can be operated directly via Ctrl+click:
@@ -301,7 +308,7 @@ Mapping editor with the following action types:
 | Action Type | Description | Configuration fields |
 |---|---|---|
 | **toggle VM parameters** | Toggle bool parameters in Voicemeeter | VM parameter (e.g. `Strip[0].Mute`), optional `vmLedSource` (`ManualFeedback` / `VoicemeeterState`) |
-| **Start program** | Run Windows program | Program path + optional arguments |
+| **Start program** | Run Windows program | Program path, optional arguments, optional keep-LED-on-while-running |
 | **Keyboard shortcut** | Simulate keyboard shortcut | Combination (e.g. `Ctrl+Shift+M`, `Alt+F4`, `F5`) |
 | **Send Text** | Insert text via clipboard | Any text |
 | **Restart VM Audio Engine** | Restart Voicemeeter Audio Engine | — |
@@ -319,7 +326,7 @@ Supported modifiers: `Ctrl`, `Alt`, `Shift`, `Win`. Supported special keys: `F1`
 In the `config.json` under `masterButtonActions` (Key = MIDI note number):
 ```json
 "masterButtonActions": {
-  "54": { "actionType": "LaunchProgram", "programPath": "C:\\Windows\\notepad.exe", "programArgs": "", "ledFeedback": "Blink" },
+  "54": { "actionType": "LaunchProgram", "programPath": "C:\\Windows\\notepad.exe", "programArgs": "", "keepLedOnWhileProgramRuns": true, "ledFeedback": "Blink" },
   "55": { "actionType": "SendKeys", "keyCombination": "Ctrl+Shift+M", "ledFeedback": "Toggle" },
   "56": { "actionType": "SendText", "text": "Hallo Welt", "ledFeedback": "Blinking" },
   "57": { "actionType": "VmParameter", "vmParameter": "Strip[0].Mute", "vmLedSource": "VoicemeeterState" },
@@ -375,6 +382,11 @@ Hardware blink of the Mackie protocol (Velocity 2) and does not require software
 For `VmParameter` actions, `vmLedSource` can optionally be set:
 - `ManualFeedback` (default): LED follows `ledFeedback`
 - `VoicemeeterState`: LED follows the real VM parameter state (On/Off), including external changes in Voicemeeter
+
+For `LaunchProgram` actions, `keepLedOnWhileProgramRuns` can optionally be set:
+- `false` (default): LED follows normal `ledFeedback`
+- `true`: LED stays on while the configured process is running and turns off when the last matching process exits
+- On application startup, matching running processes are restored from the configured EXE path; if the process path is not readable, detection falls back to the executable/process name
 
 Note: `LED per MQTT steuern` in the master editor is only available for action type `MQTT Publish`.
 
