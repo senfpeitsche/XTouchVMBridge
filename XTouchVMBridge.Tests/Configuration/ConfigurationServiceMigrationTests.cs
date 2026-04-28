@@ -62,4 +62,62 @@ public class ConfigurationServiceMigrationTests
             Directory.Delete(tempDir, true);
         }
     }
+
+    [Fact]
+    public void Save_AlsoWritesBackupConfigFile()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var configPath = Path.Combine(tempDir, "config.json");
+        var backupPath = Path.Combine(tempDir, "config.backup.json");
+        try
+        {
+            var service = new ConfigurationService(NullLogger<ConfigurationService>.Instance, configPath);
+            var config = service.CreateDefault();
+
+            service.Save(config);
+
+            Assert.True(File.Exists(configPath));
+            Assert.True(File.Exists(backupPath));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public void Load_CorruptedConfig_UsesBackupAndRestoresPrimary()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var configPath = Path.Combine(tempDir, "config.json");
+        var backupPath = Path.Combine(tempDir, "config.backup.json");
+        try
+        {
+            File.WriteAllText(backupPath, """
+            {
+              "configVersion": 1,
+              "voicemeeterApiType": "potato",
+              "channels": {
+                "0": { "name": "Mic", "type": "Hardware Input 1", "color": "green" }
+              }
+            }
+            """);
+            File.WriteAllText(configPath, "{ invalid json");
+
+            var service = new ConfigurationService(NullLogger<ConfigurationService>.Instance, configPath);
+
+            var config = service.Load();
+            var restoredPrimary = File.ReadAllText(configPath);
+
+            Assert.NotNull(config);
+            Assert.Contains("\"configVersion\": 1", restoredPrimary);
+            Assert.DoesNotContain("{ invalid json", restoredPrimary);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
 }

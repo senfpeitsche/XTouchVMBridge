@@ -13,6 +13,7 @@ public class ConfigurationService : IConfigurationService
 
     private readonly ILogger<ConfigurationService> _logger;
     private readonly string _configPath;
+    private readonly string _backupConfigPath;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -27,15 +28,25 @@ public class ConfigurationService : IConfigurationService
         _configPath = Path.GetFullPath(string.IsNullOrWhiteSpace(configPath)
             ? GetDefaultConfigPath()
             : configPath);
+        _backupConfigPath = GetBackupPath(_configPath);
     }
 
     public XTouchVMBridgeConfig Load()
     {
         var resolvedConfigPath = Path.GetFullPath(_configPath);
+        var resolvedBackupPath = Path.GetFullPath(_backupConfigPath);
         _logger.LogInformation("Lade Konfiguration aus: {ConfigPath}", resolvedConfigPath);
+        _logger.LogInformation("Backup-Konfiguration: {BackupConfigPath}", resolvedBackupPath);
 
         if (!File.Exists(_configPath))
         {
+            if (File.Exists(_backupConfigPath) && TryLoadConfigFromPath(_backupConfigPath, out var backupConfig))
+            {
+                _logger.LogWarning("config.json fehlt. Wiederherstellung aus Backup: {BackupConfigPath}", resolvedBackupPath);
+                Save(backupConfig!);
+                return backupConfig!;
+            }
+
             _logger.LogInformation("Keine config.json gefunden unter {ConfigPath} - erstelle Standardkonfiguration.", resolvedConfigPath);
             var defaultConfig = CreateDefault();
             Save(defaultConfig);
@@ -44,31 +55,28 @@ public class ConfigurationService : IConfigurationService
 
         try
         {
-            string json = File.ReadAllText(_configPath);
-            var config = JsonSerializer.Deserialize<XTouchVMBridgeConfig>(json, JsonOptions);
+            if (!TryLoadConfigFromPath(_configPath, out var config))
+                throw new InvalidDataException("config.json konnte nicht deserialisiert werden.");
+            EnsureBackupIsUpToDate(config!);
 
-            if (config == null)
-            {
-                _logger.LogWarning("config.json konnte nicht deserialisiert werden - verwende Standard.");
-                return CreateDefault();
-            }
-
-            bool migrated = ApplyMigrations(config);
-            ValidateConfig(config);
-
-            if (migrated)
-            {
-                Save(config);
-                _logger.LogInformation("Konfigurationsmigration abgeschlossen (Version: {ConfigVersion}).", config.ConfigVersion);
-            }
-
-            _logger.LogInformation("Konfiguration geladen: {Count} Kanaele.", config.Channels.Count);
-            return config;
+            _logger.LogInformation("Konfiguration geladen: {Count} Kanaele.", config!.Channels.Count);
+            return config!;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Fehler beim Laden der config.json - verwende Standard.");
-            return CreateDefault();
+            _logger.LogError(ex, "Fehler beim Laden der config.json.");
+
+            if (File.Exists(_backupConfigPath) && TryLoadConfigFromPath(_backupConfigPath, out var backupConfig))
+            {
+                _logger.LogWarning("Verwende Backup-Konfiguration und stelle config.json wieder her.");
+                Save(backupConfig!);
+                return backupConfig!;
+            }
+
+            _logger.LogWarning("Backup nicht vorhanden oder ungueltig - verwende Standardkonfiguration.");
+            var defaultConfig = CreateDefault();
+            Save(defaultConfig);
+            return defaultConfig;
         }
     }
 
@@ -83,7 +91,9 @@ public class ConfigurationService : IConfigurationService
 
             string json = JsonSerializer.Serialize(config, JsonOptions);
             File.WriteAllText(_configPath, json);
+            File.WriteAllText(_backupConfigPath, json);
             _logger.LogInformation("Konfiguration gespeichert: {ConfigPath}", resolvedConfigPath);
+            _logger.LogInformation("Backup gespeichert: {BackupConfigPath}", _backupConfigPath);
         }
         catch (Exception ex)
         {
@@ -195,6 +205,60 @@ public class ConfigurationService : IConfigurationService
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         return Path.Combine(appData, "XTouchVMBridge", "config.json");
+    }
+
+    private static string GetBackupPath(string configPath)
+    {
+        var directory = Path.GetDirectoryName(configPath) ?? string.Empty;
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(configPath);
+        var extension = Path.GetExtension(configPath);
+        return Path.Combine(directory, $"{fileNameWithoutExtension}.backup{extension}");
+    }
+
+    private bool TryLoadConfigFromPath(string path, out XTouchVMBridgeConfig? config)
+    {
+        config = null;
+
+        try
+        {
+            string json = File.ReadAllText(path);
+            config = JsonSerializer.Deserialize<XTouchVMBridgeConfig>(json, JsonOptions);
+            if (config == null)
+            {
+                _logger.LogWarning("Konfigurationsdatei konnte nicht deserialisiert werden: {ConfigPath}", path);
+                return false;
+            }
+
+            bool migrated = ApplyMigrations(config);
+            ValidateConfig(config);
+            if (migrated)
+                Save(config);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Konfigurationsdatei ungueltig oder nicht lesbar: {ConfigPath}", path);
+            return false;
+        }
+    }
+
+    private void EnsureBackupIsUpToDate(XTouchVMBridgeConfig config)
+    {
+        try
+        {
+            string json = JsonSerializer.Serialize(config, JsonOptions);
+
+            if (!File.Exists(_backupConfigPath))
+            {
+                File.WriteAllText(_backupConfigPath, json);
+                _logger.LogInformation("Backup-Konfiguration erstellt: {BackupConfigPath}", _backupConfigPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Backup-Konfiguration konnte nicht erstellt werden.");
+        }
     }
 
     private bool ApplyMigrations(XTouchVMBridgeConfig config)
