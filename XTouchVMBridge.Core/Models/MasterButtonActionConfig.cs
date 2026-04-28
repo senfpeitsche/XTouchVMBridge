@@ -52,6 +52,8 @@ public class MasterButtonActionConfig
 
     public string? ProgramArgs { get; set; }
 
+    public bool KeepLedOnWhileProgramRuns { get; set; }
+
     public string? KeyCombination { get; set; }
 
     public string? Text { get; set; }

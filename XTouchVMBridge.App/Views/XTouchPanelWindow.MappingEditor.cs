@@ -337,6 +337,7 @@ public partial class XTouchPanelWindow
 
             MasterProgramPathBox.Text = actionConfig?.ProgramPath ?? "";
             MasterProgramArgsBox.Text = actionConfig?.ProgramArgs ?? "";
+            MasterKeepLedOnWhileProgramRunsBox.IsChecked = actionConfig?.KeepLedOnWhileProgramRuns == true;
             MasterKeyCombinationBox.Text = actionConfig?.KeyCombination ?? "";
             MasterTextBox.Text = actionConfig?.Text ?? "";
             MasterMacroButtonIndexBox.Text = actionConfig?.MacroButtonIndex?.ToString() ?? "0";
@@ -493,6 +494,8 @@ public partial class XTouchPanelWindow
                 VmLedSource = selectedType == MasterButtonActionType.VmParameter ? vmLedSource : MasterVmLedSource.ManualFeedback,
                 ProgramPath = selectedType == MasterButtonActionType.LaunchProgram ? MasterProgramPathBox.Text.Trim() : null,
                 ProgramArgs = selectedType == MasterButtonActionType.LaunchProgram ? MasterProgramArgsBox.Text.Trim() : null,
+                KeepLedOnWhileProgramRuns = selectedType == MasterButtonActionType.LaunchProgram &&
+                                            MasterKeepLedOnWhileProgramRunsBox.IsChecked == true,
                 KeyCombination = selectedType == MasterButtonActionType.SendKeys ? MasterKeyCombinationBox.Text.Trim() : null,
                 Text = selectedType == MasterButtonActionType.SendText ? MasterTextBox.Text : null,
                 MacroButtonIndex = macroIndex,
@@ -540,6 +543,7 @@ public partial class XTouchPanelWindow
         MasterVmParamBox.Text = "";
         MasterProgramPathBox.Text = "";
         MasterProgramArgsBox.Text = "";
+        MasterKeepLedOnWhileProgramRunsBox.IsChecked = false;
         MasterKeyCombinationBox.Text = "";
         MasterTextBox.Text = "";
         MasterMacroButtonIndexBox.Text = "0";
@@ -1073,6 +1077,7 @@ public partial class XTouchPanelWindow
     {
         if (_config == null || _configService == null) return;
         _configService.Save(_config);
+        _masterButtonActionService?.RefreshLaunchProgramLedStates();
         _bridge?.ReloadMappings();
     }
 }

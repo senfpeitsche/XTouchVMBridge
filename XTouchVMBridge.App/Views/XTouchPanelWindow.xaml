@@ -739,6 +739,10 @@
                                 <TextBox x:Name="MasterProgramArgsBox" Background="#222" Foreground="#DDD"
                                          FontFamily="Consolas" FontSize="10" BorderBrush="#444"
                                          ToolTip="Optionale Programmargumente"/>
+                                <CheckBox x:Name="MasterKeepLedOnWhileProgramRunsBox"
+                                          Margin="0,6,0,0"
+                                          Content="LED anlassen, solange das Programm läuft"
+                                          Foreground="#DDD"/>
                             </StackPanel>
 
                             <!-- SendKeys -->

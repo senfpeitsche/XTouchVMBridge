@@ -117,7 +117,8 @@ public partial class App : Application
 
             _host.Services.GetRequiredService<ScreenLockMidiFilter>();
 
-            _host.Services.GetRequiredService<MasterButtonActionService>();
+            var masterButtonActionService = _host.Services.GetRequiredService<MasterButtonActionService>();
+            masterButtonActionService.RefreshLaunchProgramLedStates();
             _host.Services.GetRequiredService<MqttButtonIntegrationService>();
 
             var trayIcon = _host.Services.GetRequiredService<TrayIconService>();

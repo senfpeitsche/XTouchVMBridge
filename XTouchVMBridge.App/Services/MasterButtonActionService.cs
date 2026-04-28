@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using XTouchVMBridge.Core.Events;
 using XTouchVMBridge.Core.Interfaces;
@@ -21,6 +22,8 @@ public class MasterButtonActionService : IDisposable
     private readonly MqttClientService _mqttClientService;
     private readonly InputSimulator _inputSimulator;
     private readonly Dictionary<int, bool> _toggleLedStates = new();
+    private readonly Dictionary<int, int> _runningLaunchProgramCounts = new();
+    private readonly object _runningLaunchProgramCountsLock = new();
     private string? _activeMqttDeviceId;
     private string? _activeMqttDeviceTopic;
     private bool _lockGuiState; // Local mirror because Command.Lock is write-only.
@@ -45,8 +48,76 @@ public class MasterButtonActionService : IDisposable
         _inputSimulator = new InputSimulator();
 
         _midiDevice.MasterButtonChanged += OnMasterButtonChanged;
+        _midiDevice.ConnectionStateChanged += OnMidiConnectionStateChanged;
+
+        RefreshLaunchProgramLedStates();
 
         _logger.LogInformation("MasterButtonActionService initialisiert.");
+    }
+
+    public void RefreshLaunchProgramLedStates()
+    {
+        _logger.LogInformation(
+            "LaunchProgram-LED-Sync gestartet. X-Touch verbunden: {IsConnected}. Konfigurierte Master-Aktionen: {ActionCount}.",
+            _midiDevice.IsConnected,
+            _config.MasterButtonActions.Count);
+
+        var desiredCounts = new Dictionary<int, int>();
+
+        foreach (var (noteNumber, actionConfig) in _config.MasterButtonActions)
+        {
+            if (actionConfig.ActionType != MasterButtonActionType.LaunchProgram ||
+                !actionConfig.KeepLedOnWhileProgramRuns ||
+                string.IsNullOrWhiteSpace(actionConfig.ProgramPath))
+            {
+                continue;
+            }
+
+            int runningCount = CountRunningProcessesForConfiguredPath(actionConfig.ProgramPath);
+            desiredCounts[noteNumber] = runningCount;
+
+            _logger.LogInformation(
+                "LaunchProgram-LED-Sync: Note {Note}, Pfad '{ProgramPath}', KeepLedOnWhileRunning={KeepLedOn}, laufende Prozesse={RunningCount}.",
+                noteNumber,
+                actionConfig.ProgramPath,
+                actionConfig.KeepLedOnWhileProgramRuns,
+                runningCount);
+        }
+
+        lock (_runningLaunchProgramCountsLock)
+        {
+            _runningLaunchProgramCounts.Clear();
+            foreach (var (noteNumber, runningCount) in desiredCounts)
+            {
+                if (runningCount > 0)
+                    _runningLaunchProgramCounts[noteNumber] = runningCount;
+            }
+        }
+
+        foreach (var (noteNumber, actionConfig) in _config.MasterButtonActions)
+        {
+            if (actionConfig.ActionType != MasterButtonActionType.LaunchProgram)
+                continue;
+
+            bool keepLedOn = actionConfig.KeepLedOnWhileProgramRuns;
+            bool isRunning = desiredCounts.TryGetValue(noteNumber, out int runningCount) && runningCount > 0;
+
+            try
+            {
+                _midiDevice.SetMasterButtonLed(
+                    noteNumber,
+                    keepLedOn && isRunning ? Core.Enums.LedState.On : Core.Enums.LedState.Off);
+
+                _logger.LogInformation(
+                    "LaunchProgram-LED-Sync: Note {Note} -> LED {LedState}.",
+                    noteNumber,
+                    keepLedOn && isRunning ? "On" : "Off");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "LaunchProgram: Startup-LED-Abgleich für Note {Note} fehlgeschlagen.", noteNumber);
+            }
+        }
     }
 
     private void OnMasterButtonChanged(object? sender, MasterButtonEventArgs e)
@@ -64,6 +135,14 @@ public class MasterButtonActionService : IDisposable
         }
 
         ExecuteAction(e.NoteNumber);
+    }
+
+    private void OnMidiConnectionStateChanged(object? sender, bool isConnected)
+    {
+        if (!isConnected)
+            return;
+
+        RefreshLaunchProgramLedStates();
     }
 
     public bool ExecuteAction(int noteNumber)
@@ -84,7 +163,7 @@ public class MasterButtonActionService : IDisposable
             switch (actionConfig.ActionType)
             {
                 case MasterButtonActionType.LaunchProgram:
-                    ExecuteLaunchProgram(actionConfig);
+                    ExecuteLaunchProgram(noteNumber, actionConfig);
                     break;
                 case MasterButtonActionType.SendKeys:
                     ExecuteSendKeys(actionConfig);
@@ -123,7 +202,11 @@ public class MasterButtonActionService : IDisposable
 
             bool vmLedFromVoicemeeter = actionConfig.ActionType == MasterButtonActionType.VmParameter &&
                                         actionConfig.VmLedSource == MasterVmLedSource.VoicemeeterState;
-            if (actionConfig.ActionType != MasterButtonActionType.SelectMqttDevice && !vmLedFromVoicemeeter)
+            bool launchProgramKeepsLedOn = actionConfig.ActionType == MasterButtonActionType.LaunchProgram &&
+                                           actionConfig.KeepLedOnWhileProgramRuns;
+            if (actionConfig.ActionType != MasterButtonActionType.SelectMqttDevice &&
+                !vmLedFromVoicemeeter &&
+                !launchProgramKeepsLedOn)
             {
                 UpdateLedFeedback(noteNumber, actionConfig);
             }
@@ -155,7 +238,7 @@ public class MasterButtonActionService : IDisposable
         }
     }
 
-    private void ExecuteLaunchProgram(MasterButtonActionConfig config)
+    private void ExecuteLaunchProgram(int noteNumber, MasterButtonActionConfig config)
     {
         if (string.IsNullOrWhiteSpace(config.ProgramPath))
         {
@@ -172,8 +255,177 @@ public class MasterButtonActionService : IDisposable
             UseShellExecute = true
         };
 
-        Process.Start(startInfo);
+        var process = Process.Start(startInfo);
+
+        if (config.KeepLedOnWhileProgramRuns)
+        {
+            TrackLaunchProgramLedLifetime(noteNumber, process);
+        }
     }
+
+    private void TrackLaunchProgramLedLifetime(int noteNumber, Process? process)
+    {
+        if (process == null)
+        {
+            _logger.LogDebug("LaunchProgram: Prozess für Note {Note} konnte nicht getrackt werden.", noteNumber);
+            UpdateLedFeedback(noteNumber, new MasterButtonActionConfig { LedFeedback = LedFeedbackMode.Blink });
+            return;
+        }
+
+        int exitHandled = 0;
+
+        void HandleExitOnce()
+        {
+            if (Interlocked.Exchange(ref exitHandled, 1) != 0)
+                return;
+
+            OnLaunchProgramProcessExited(noteNumber, process);
+        }
+
+        lock (_runningLaunchProgramCountsLock)
+        {
+            _runningLaunchProgramCounts.TryGetValue(noteNumber, out int runningCount);
+            _runningLaunchProgramCounts[noteNumber] = runningCount + 1;
+        }
+
+        _midiDevice.SetMasterButtonLed(noteNumber, Core.Enums.LedState.On);
+
+        try
+        {
+            process.EnableRaisingEvents = true;
+            process.Exited += (_, _) => HandleExitOnce();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "LaunchProgram: Exit-Tracking für Note {Note} konnte nicht registriert werden.", noteNumber);
+        }
+
+        if (process.HasExited)
+        {
+            HandleExitOnce();
+        }
+    }
+
+    private void OnLaunchProgramProcessExited(int noteNumber, Process process)
+    {
+        bool shouldTurnLedOff = false;
+
+        lock (_runningLaunchProgramCountsLock)
+        {
+            if (_runningLaunchProgramCounts.TryGetValue(noteNumber, out int runningCount))
+            {
+                runningCount = Math.Max(0, runningCount - 1);
+                if (runningCount == 0)
+                {
+                    _runningLaunchProgramCounts.Remove(noteNumber);
+                    shouldTurnLedOff = true;
+                }
+                else
+                {
+                    _runningLaunchProgramCounts[noteNumber] = runningCount;
+                }
+            }
+        }
+
+        try
+        {
+            process.Dispose();
+        }
+        catch
+        {
+            // ignorieren
+        }
+
+        if (!shouldTurnLedOff)
+            return;
+
+        try
+        {
+            _midiDevice.SetMasterButtonLed(noteNumber, Core.Enums.LedState.Off);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "LaunchProgram: LED für Note {Note} konnte nach Prozessende nicht deaktiviert werden.", noteNumber);
+        }
+    }
+
+    private static int CountRunningProcessesForConfiguredPath(string configuredProgramPath)
+    {
+        string trimmedPath = configuredProgramPath.Trim();
+        if (string.IsNullOrWhiteSpace(trimmedPath))
+            return 0;
+
+        string normalizedConfiguredPath = NormalizeExecutablePath(trimmedPath);
+        bool compareByFullPath = Path.IsPathRooted(trimmedPath);
+        string configuredFileName = Path.GetFileName(trimmedPath);
+        string configuredProcessName = Path.GetFileNameWithoutExtension(trimmedPath);
+
+        int matches = 0;
+
+        foreach (var process in Process.GetProcesses())
+        {
+            try
+            {
+                string processName = process.ProcessName;
+                string? processPath = TryGetProcessMainModuleFileName(process);
+
+                if (compareByFullPath)
+                {
+                    if (!string.IsNullOrWhiteSpace(processPath) &&
+                        string.Equals(
+                            NormalizeExecutablePath(processPath),
+                            normalizedConfiguredPath,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        matches++;
+                    }
+                    else if (string.Equals(
+                                 processName,
+                                 configuredProcessName,
+                                 StringComparison.OrdinalIgnoreCase))
+                    {
+                        matches++;
+                    }
+                }
+                else if (string.Equals(
+                             processName,
+                             configuredProcessName,
+                             StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(
+                             Path.GetFileName(processPath),
+                             configuredFileName,
+                             StringComparison.OrdinalIgnoreCase))
+                {
+                    matches++;
+                }
+            }
+            catch
+            {
+                // Zugriff auf MainModule ist für manche Prozesse nicht erlaubt; diese ignorieren wir.
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        return matches;
+    }
+
+    private static string? TryGetProcessMainModuleFileName(Process process)
+    {
+        try
+        {
+            return process.MainModule?.FileName;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string NormalizeExecutablePath(string path) =>
+        Path.GetFullPath(Environment.ExpandEnvironmentVariables(path.Trim()));
 
     private void ExecuteSendKeys(MasterButtonActionConfig config)
     {
@@ -493,6 +745,7 @@ public class MasterButtonActionService : IDisposable
         _disposed = true;
 
         _midiDevice.MasterButtonChanged -= OnMasterButtonChanged;
+        _midiDevice.ConnectionStateChanged -= OnMidiConnectionStateChanged;
 
         GC.SuppressFinalize(this);
     }
